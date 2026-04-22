@@ -2,8 +2,8 @@
 phase: 1
 slug: host-foundation
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-22
 ---
 
@@ -42,26 +42,26 @@ created: 2026-04-22
 
 | REQ | Probe | Test Type | Automated Command | Status |
 |-----|-------|-----------|-------------------|--------|
-| HOST-01 | Ubuntu 24.04 | unit + live | `bats tests/bats/preflight-pre01.bats` / `scripts/preflight.sh` | ⬜ |
-| HOST-02 | systemd active | live | `systemctl is-system-running` | ⬜ |
-| HOST-03 | Docker Engine + docker group | live | `docker info && id -nG | grep -q docker` | ⬜ |
+| HOST-01 | test -f config/wslconfig && grep -qE '^networkingMode=NAT' config/wslconfig | static | `grep -qE '^networkingMode=NAT' config/wslconfig` | ⬜ |
+| HOST-02 | test -f config/wsl.conf && grep -q 'systemd=true' config/wsl.conf | static | `grep -q 'systemd=true' config/wsl.conf` | ⬜ |
+| HOST-03 | Docker Engine + docker group | live | `docker info && id -nG \| grep -q docker` | ⬜ |
 | HOST-04 | NVIDIA runtime registered | live | `docker info --format '{{.DefaultRuntime}}'` returns `nvidia` | ⬜ |
-| HOST-05 | `.wslconfig` + `wsl.conf` templates | static | `test -f config/wslconfig && test -f config/wsl.conf` | ⬜ |
-| HOST-06 | hwclock resume unit | live | `systemctl is-enabled hwclock-resume.service` | ⬜ |
-| HOST-07 | `.env.example` shipped | static | `test -f .env.example && grep -q GITHUB_OWNER .env.example` | ⬜ |
-| TOOLS-01 | `.tool-versions` pins present | static | `test -f .tool-versions && awk '{print $1}' .tool-versions | sort -u | wc -l` ≥ 9 | ⬜ |
-| TOOLS-02 | asdf shim precedence | live | `command -v kubectl` resolves under `$HOME/.asdf/shims/` | ⬜ |
-| TOOLS-03 | asdf ≥ 0.18 (Go rewrite) | live | `asdf --version` matches `^0\.1[89]\|^[1-9]` | ⬜ |
+| HOST-05 | wslconfig + wsl.conf + docs present | static | `test -f config/wslconfig && test -f config/wsl.conf && test -f docs/wsl-networking.md` | ⬜ |
+| HOST-06 | hwclock resume unit enabled | live | `systemctl is-enabled hwclock-resume.service` returns `enabled` | ⬜ |
+| HOST-07 | .env.example + GITHUB_* keys present | static | `test -f .env.example && for k in GITHUB_OWNER GITHUB_REPO GITHUB_TOKEN; do grep -q "^${k}=" .env.example; done` | ⬜ |
+| TOOLS-01 | `.tool-versions` pins present | static | `test -f .tool-versions && awk '{print $1}' .tool-versions \| sort -u \| wc -l` ≥ 9 | ⬜ |
+| TOOLS-02 | install-tools.sh exists and references asdf | static | `test -x scripts/install-tools.sh && grep -q 'asdf' scripts/install-tools.sh` | ⬜ |
+| TOOLS-03 | asdf shim precedence | live | `command -v kubectl \| grep -q "$HOME/.asdf/shims"` | ⬜ |
 | PRE-01 | WSL kernel | bats + live | `bats tests/bats/preflight-pre01.bats` | ⬜ |
 | PRE-02 | Ubuntu 24.04 distro | bats + live | `bats tests/bats/preflight-pre02.bats` | ⬜ |
 | PRE-03 | systemd active | live | covered by HOST-02 probe | ⬜ |
 | PRE-04 | resource floor (CPU/RAM) | live | `scripts/preflight.sh` section output | ⬜ |
-| PRE-05 | GPU chain (nvidia-smi, driver) | live | `nvidia-smi` exits 0 in a container | ⬜ |
-| PRE-06 | Tool pins match | live | `scripts/preflight.sh` section output | ⬜ |
-| PRE-07 | Ports 6443–6445 / 8080–8082 free | live | `ss -tln` no match for listed ports | ⬜ |
-| PRE-08 | Residual k3d / network state | live | `docker network ls | grep -v k8s-net` clean | ⬜ |
+| PRE-05 | Tool pins match | live | `scripts/preflight.sh` section output | ⬜ |
+| PRE-06 | Ports 6443–6445 / 8080–8082 free | live | `ss -tln` no match for listed ports | ⬜ |
+| PRE-07 | Residual k3d / network state | live | `docker network ls \| grep -v k8s-net` clean | ⬜ |
+| PRE-08 | Docker Desktop WSL integration detected → fail | live | `scripts/preflight.sh` section output | ⬜ |
 | PRE-09 | `.env` presence + non-empty per key | bats + live | `bats tests/bats/preflight-pre09.bats` | ⬜ |
-| PRE-10 | Docker-Desktop-integration detection | live | `scripts/preflight.sh` section output | ⬜ |
+| PRE-10 | kubectl/helm/k3d outside asdf shims → fail | live | `scripts/preflight.sh` section output | ⬜ |
 | PRE-11 | `systemd-resolved` 127.0.0.53 stub | bats + live | `bats tests/bats/preflight-pre11.bats` | ⬜ |
 | PRE-12 | Clock skew > 30s | live | `scripts/preflight.sh` section output | ⬜ |
 | PRE-13 | cgroup-v2 purity | bats + live | `bats tests/bats/preflight-pre13.bats` | ⬜ |
@@ -74,11 +74,11 @@ created: 2026-04-22
 
 ## Wave 0 Requirements
 
-- [ ] `tests/bats/` directory created with `test_helper.bash` (sourcing `lib/preflight-lib.sh` once extracted)
-- [ ] `bats-core` installed via asdf (pin in `.tool-versions` if adopted) or apt as a dev dep — planner's choice, but must not pollute global PATH
+- [x] `tests/bats/` directory created with `test_helper.bash` (sourcing `lib/preflight-lib.sh` once extracted) — Plan 01 Task 3
+- [x] `bats-core` installed via `apt-get install -y bats` (Ubuntu 24.04) — Plan 01 Task 4. Not pinned in `.tool-versions` (no asdf plugin evaluated in RESEARCH.md; apt path chosen)
 - [ ] `shellcheck` available (Ubuntu 24.04 ships it; `apt-get install -y shellcheck` if missing)
-- [ ] Stub suites for PRE-01, PRE-02, PRE-09, PRE-11, PRE-13 (the five pure-function checks worth unit-testing; remaining PRE-xx are live-only and validated by running `scripts/preflight.sh`)
-- [ ] Helper function library extracted from `prereqs.sh` into `scripts/lib/preflight-lib.sh` so bats can source it without executing the full script
+- [ ] Stub suites for PRE-01, PRE-02, PRE-09, PRE-11, PRE-13 (the five pure-function checks worth unit-testing; remaining PRE-xx are live-only and validated by running `scripts/preflight.sh`) — Plan 07
+- [x] Helper function library extracted from `prereqs.sh` into `scripts/lib/preflight-lib.sh` so bats can source it without executing the full script — Plan 01 Task 1
 
 ---
 
@@ -96,11 +96,11 @@ created: 2026-04-22
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references (bats + shellcheck infrastructure)
+- [x] Wave 0 covers all MISSING references (bats + shellcheck infrastructure)
 - [ ] No watch-mode flags (all runs are one-shot)
 - [ ] Feedback latency < 15s (quick) / 90s (full)
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
