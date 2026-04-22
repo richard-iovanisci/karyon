@@ -87,6 +87,7 @@ preflight_check_ubuntu_24_04() {
   local id version_id
   # shellcheck source=/dev/null
   id="$(. /etc/os-release 2>/dev/null && echo "${ID:-}")"
+  # shellcheck source=/dev/null
   version_id="$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID:-}")"
   if [[ "$id" == "ubuntu" && "$version_id" == "24.04" ]]; then
     pass "Ubuntu 24.04 confirmed (ID=${id}, VERSION_ID=${version_id})"
