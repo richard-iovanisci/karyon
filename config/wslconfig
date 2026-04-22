@@ -1,0 +1,11 @@
+# config/wslconfig  — template for %USERPROFILE%\.wslconfig
+# Copy to Windows: copy this file to %USERPROFILE%\.wslconfig
+# After editing: run "wsl --shutdown" in PowerShell and wait 8+ seconds before opening WSL.
+[wsl2]
+memory=52GB
+processors=20
+networkingMode=NAT
+# networkingMode=mirrored  # UNSUPPORTED in v1 — known Docker custom-network breakage
+#                          # See docs/wsl-networking.md before uncommenting
+swap=8GB
+localhostForwarding=true
