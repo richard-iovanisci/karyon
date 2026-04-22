@@ -33,7 +33,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `command -v kubectl && command -v helm && command -v k3d` all resolve under `$HOME/.asdf/shims/` (NOT `/usr/bin` or `/usr/local/bin`), and their versions match every pin in the checked-in `.tool-versions`.
   4. `config/wslconfig` and `config/wsl.conf` templates exist with documented `systemd=true` + NAT-mode default + `mirrored → NAT` fallback section in `docs/wsl-networking.md`; a systemd unit runs `hwclock -s` on resume.
   5. All install scripts (`install-docker.sh`, `install-nvidia-container-toolkit.sh`, `install-tools.sh`) are idempotent — rerunning them on an already-configured host is a no-op and still exits `0`.
-**Plans**: TBD
+**Plans**: 7 plans (5 waves)
+
+Plans:
+- [ ] 01-01-PLAN.md — Static foundation: lib extract, config templates, .tool-versions, .env.example, .gitignore, docs/wsl-networking.md
+- [ ] 01-02-PLAN.md — install-docker.sh: Docker Engine + daemon.json (default-runtime=nvidia + dns) + hwclock unit
+- [ ] 01-03-PLAN.md — install-nvidia-container-toolkit.sh: NVIDIA toolkit packages + nvidia-ctk runtime configure
+- [ ] 01-04-PLAN.md — install-tools.sh: asdf binary + shell-init + plugins + pinned versions from .tool-versions
+- [ ] 01-05-PLAN.md — scripts/preflight.sh: port prereqs.sh + PRE-01..08 + PRE-08 warn→fail + enhanced PRE-04/PRE-05
+- [ ] 01-06-PLAN.md — scripts/preflight.sh: append PRE-09..14 (env, shim precedence, resolv, clock, cgroup, bridge-curl)
+- [ ] 01-07-PLAN.md — bats test infrastructure: test_helper + 5 stub suites (PRE-01/02/09/11/13)
 
 ### Phase 2: Cluster Layer
 **Goal**: `kubectl --context k3d-<name> get nodes` returns `Ready` for all three clusters, `spoke-ml` advertises `nvidia.com/gpu` capacity ≥ 1, and every apiserver's serving cert includes the `k3d-<name>-server-0` SAN.
@@ -111,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Host Foundation | 0/TBD | Not started | - |
+| 1. Host Foundation | 0/7 | Not started | - |
 | 2. Cluster Layer | 0/TBD | Not started | - |
 | 3. Flux Hub Bootstrap | 0/TBD | Not started | - |
 | 4. Spoke Registration | 0/TBD | Not started | - |
