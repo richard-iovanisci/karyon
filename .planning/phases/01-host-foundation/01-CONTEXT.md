@@ -30,7 +30,7 @@ Out of scope (owned elsewhere):
 - **D-01:** Preflight detects mirrored-mode networking and **hard-fails** (exit 1) with a pointer to `docs/wsl-networking.md`. NAT is the v1 mandate; mirrored is documented fallback only, never silently tolerated.
 - **D-02:** Mirrored detection uses the **IP-subnet heuristic** — if any non-`lo` interface's IPv4 subnet overlaps the Windows host subnet (e.g., 192.168.x.x matching a host NIC), classify as mirrored. Simple, small false-positive surface on unusual home networks.
 - **D-03:** `config/wslconfig` template pins `networkingMode=NAT` **explicitly** (not implicit-default) so the decision is visible to a future reader. A commented-out `# networkingMode=mirrored` line appears with a one-line note pointing to `docs/wsl-networking.md` before any user would uncomment it.
-- **D-04:** PRE-14 mirrored-mode bridge-curl probe (two containers on `k8s-net` curl each other by Docker DNS) remains a **belt-and-suspenders** check — runs even after the mirrored detection passes, to catch any custom-network breakage that isn't mirrored-specific.
+- **D-04:** PRE-14 mirrored-mode bridge-curl probe (two containers on a test network curl each other by Docker DNS) remains a **belt-and-suspenders** check — runs even after the mirrored detection passes, to catch any custom-network breakage that isn't mirrored-specific.
 
 ### Install-Script Architecture
 - **D-05:** All three install scripts use the **guarded-sections pattern** — every logical step is wrapped in a state check and logs `already done, skipping: <what>` or `installing: <what>`. The log becomes a live audit of the box's state; not just a fast no-op. This matches the `prereqs.sh` reporting vibe (pass/warn/fail counters).
@@ -51,6 +51,17 @@ These areas were not explicitly discussed; planner/researcher decide:
 - Exact `dns` array content for `/etc/docker/daemon.json` — pick sensible public resolvers (e.g., `1.1.1.1`, `8.8.8.8`) unless research surfaces a project-specific choice.
 - asdf plugin sourcing (official vs. community plugins) per tool — researcher picks.
 - Preflight's cgroup-v2 purity check (PRE-13) and systemd-resolved 127.0.0.53 probe (PRE-11) implementation detail.
+
+### Revision Decisions
+
+These decisions were recorded after the cross-AI (Codex) review pass on 2026-04-22.
+
+- **RD-01 (H4 ruling — PRE-14 stays in preflight with trap + doc honesty):** User decision: PRE-14 remains inside `scripts/preflight.sh` per D-04 (belt-and-suspenders probe). The "read-only preflight" language is updated to be accurate: `scripts/preflight.sh` is read-only with respect to **persistent host state**; PRE-14 creates ephemeral Docker resources (a dedicated network `preflight-pre14-net` and two probe containers `preflight-pre14-a`, `preflight-pre14-b`) and removes them via an EXIT trap before the section exits. Implementation requirements:
+  1. Use unique prefixed names (`preflight-pre14-*`) — no collision with user's real `k8s-net` or containers.
+  2. Pre-check for stragglers from crashed prior runs; remove them before starting the probe.
+  3. Wrap PRE-14 in a subshell with `trap _pre14_cleanup EXIT` so cleanup runs on success, failure, and SIGINT.
+  4. Post-cleanup verification: warn (not fail) if any `preflight-pre14-*` containers remain after cleanup.
+  5. `docs/wsl-networking.md` documents that PRE-14 is the only preflight section that mutates Docker state, all mutations are ephemeral and trap-cleaned.
 
 </decisions>
 
@@ -125,3 +136,4 @@ If a researcher or planner discovers an additional ref during their pass (e.g., 
 
 *Phase: 01-host-foundation*
 *Context gathered: 2026-04-22*
+*Revision decisions added: 2026-04-22 (post cross-AI review)*
