@@ -286,6 +286,144 @@ else
   fail "asdf not installed — run scripts/install-tools.sh"
 fi
 
+# ---------- 9. .env secrets (PRE-09) ----------
+section ".env secrets presence (PRE-09)"
+preflight_check_env_file "${REPO_ROOT}/.env"
+
+# ---------- 10. Tool shim precedence (PRE-10) ----------
+section "Tool shim precedence (PRE-10)"
+SHIM_DIR="${ASDF_DATA_DIR:-$HOME/.asdf}/shims"
+for tool in kubectl helm k3d; do
+  if have "$tool"; then
+    tool_path="$(command -v "$tool")"
+    if [[ "$tool_path" == "$SHIM_DIR"* ]]; then
+      pass "$tool resolves via asdf shim ($tool_path)"
+    else
+      fail "$tool resolves to $tool_path (outside asdf shims at $SHIM_DIR).
+        Fix: ensure ${SHIM_DIR} precedes /usr/bin in PATH.
+        Run: source ~/.karyon/shell-init.sh  (or open a new terminal after running install-tools.sh)"
+    fi
+  else
+    fail "$tool not found — run scripts/install-tools.sh"
+  fi
+done
+
+# ---------- 11. systemd-resolved stub (PRE-11) ----------
+section "systemd-resolved DNS stub (PRE-11)"
+preflight_check_systemd_resolved /etc/resolv.conf
+
+# ---------- 12. Clock skew check (PRE-12) ----------
+section "Clock skew check (PRE-12)"
+sys_epoch="$(date -u +%s 2>/dev/null)"
+win_epoch=""
+
+# Primary: powershell.exe (no sudo required; standard WSL2 interop)
+if have powershell.exe; then
+  win_epoch="$(powershell.exe -NoProfile -Command 'Get-Date -UFormat %s' 2>/dev/null \
+    | tr -d '\r' | awk '{print int($1)}')"
+fi
+
+# Second-chance fallback: sudo -n hwclock (non-interactive sudo — no password prompt)
+if [[ -z "$win_epoch" ]]; then
+  win_epoch="$(sudo -n hwclock --get --utc 2>/dev/null \
+    | awk '{print $1, $2}' \
+    | date -f - +%s 2>/dev/null || echo "")"
+fi
+
+if [[ -z "$sys_epoch" || -z "$win_epoch" ]]; then
+  warn "PRE-12 clock skew: could not read reference time (powershell.exe not reachable and sudo -n hwclock failed).
+    Install Windows PowerShell WSL integration or run preflight with sudo for PRE-12 enforcement."
+else
+  skew=$(( sys_epoch - win_epoch ))
+  skew_abs="${skew#-}"  # absolute value via string manipulation
+  if (( skew_abs > 30 )); then
+    fail "PRE-12 clock skew: WSL vs Windows differs by ${skew_abs}s (threshold 30s).
+      Fix: sudo hwclock -s  (or: sudo systemctl restart systemd-timesyncd)"
+  else
+    pass "PRE-12 clock skew within ${skew_abs}s (threshold 30s)"
+  fi
+fi
+
+# ---------- 13. cgroup v2 purity (PRE-13) ----------
+section "cgroup v2 purity (PRE-13)"
+preflight_check_cgroup_v2
+
+# ---------- 14. Bridge networking probe (PRE-14) ----------
+# D-04: belt-and-suspenders check — runs regardless of PRE-03 mirrored detection result.
+# Creates ephemeral Docker resources (network + 2 containers) and trap-cleans them.
+# preflight.sh is read-only w.r.t. persistent host state; PRE-14 ephemeral Docker
+# resources are the sole exception — all are removed before this section exits.
+section "Bridge networking probe (PRE-14)"
+
+if ! have docker || ! docker info >/dev/null 2>&1; then
+  warn "docker not reachable — skipping bridge probe (install docker first)"
+else
+  # Run PRE-14 in a subshell so the EXIT trap is scoped to this probe only.
+  (
+    _PRE14_NET="preflight-pre14-net"
+    _PRE14_A="preflight-pre14-a"
+    _PRE14_B="preflight-pre14-b"
+
+    # Cleanup function — called by trap on any exit path
+    _pre14_cleanup() {
+      docker rm -f "$_PRE14_A" "$_PRE14_B" >/dev/null 2>&1 || true
+      docker network rm "$_PRE14_NET" >/dev/null 2>&1 || true
+    }
+    trap _pre14_cleanup EXIT
+
+    # Pre-check: remove stragglers from a crashed prior run
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q '^preflight-pre14-'; then
+      info "PRE-14: cleaning up preflight-pre14-* stragglers from prior run"
+      docker rm -f "$_PRE14_A" "$_PRE14_B" >/dev/null 2>&1 || true
+    fi
+    if docker network ls --format '{{.Name}}' 2>/dev/null | grep -qx "$_PRE14_NET"; then
+      info "PRE-14: removing straggler network ${_PRE14_NET} from prior run"
+      docker network rm "$_PRE14_NET" >/dev/null 2>&1 || true
+    fi
+
+    # Create the ephemeral test network
+    docker network create "$_PRE14_NET" >/dev/null 2>&1
+
+    # Start server container
+    A_ID=$(docker run -d --network "$_PRE14_NET" --name "$_PRE14_A" \
+      busybox sh -c 'echo ok > /tmp/h && httpd -f -p 8080 -h /tmp' 2>/dev/null || echo "")
+
+    probe_pass=0
+    if [[ -n "$A_ID" ]]; then
+      result=$(docker run --rm --network "$_PRE14_NET" --name "$_PRE14_B" busybox \
+        wget -qO- "http://${_PRE14_A}:8080/h" 2>/dev/null || echo "FAIL")
+      [[ "$result" == "ok" ]] && probe_pass=1
+    fi
+
+    # Cleanup happens via trap — explicit call to ensure immediate removal
+    _pre14_cleanup
+
+    # Post-cleanup verification: warn if stragglers persist (not a config failure)
+    straggler_names="$(docker ps -a --filter "name=preflight-pre14" --format '{{.Names}}' 2>/dev/null)"
+    if [[ -n "$straggler_names" ]]; then
+      warn "PRE-14 left stragglers after cleanup: ${straggler_names} — may be a Docker race; re-run preflight"
+    fi
+
+    if (( probe_pass == 1 )); then
+      pass "bridge-curl probe: container DNS resolution on ${_PRE14_NET} works"
+      exit 0
+    else
+      fail "bridge-curl probe FAILED — Docker custom network DNS is broken.
+        In mirrored mode this is a known limitation (moby/moby#48201).
+        Fix: set networkingMode=NAT in %USERPROFILE%\\.wslconfig, then run 'wsl --shutdown'.
+        See docs/wsl-networking.md for the migration procedure."
+      exit 1
+    fi
+  )
+  # Propagate the subshell exit code into the outer pass/fail counters
+  _pre14_rc=$?
+  if (( _pre14_rc != 0 )); then
+    # fail() already called inside subshell; outer FAIL counter needs incrementing
+    # (subshell counters are separate). Re-record the failure at outer scope.
+    fail "PRE-14 bridge probe failed (see above)"
+  fi
+fi
+
 # ---------- 8. Summary ----------
 section "Summary"
 printf "  %s%d passed%s, %s%d warnings%s, %s%d failed%s\n" \
