@@ -1,3 +1,7 @@
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Secrets — NEVER commit .env with real values
 .env
+.env.local
+.env.*.local

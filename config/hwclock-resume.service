@@ -1,0 +1,11 @@
+[Unit]
+Description=Sync system clock from hardware clock (WSL2 resume clock-skew fix)
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/hwclock --hctosys
+RemainAfterExit=yes
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
