@@ -175,93 +175,93 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HOST-01 | TBD | Pending |
-| HOST-02 | TBD | Pending |
-| HOST-03 | TBD | Pending |
-| HOST-04 | TBD | Pending |
-| HOST-05 | TBD | Pending |
-| HOST-06 | TBD | Pending |
-| HOST-07 | TBD | Pending |
-| TOOLS-01 | TBD | Pending |
-| TOOLS-02 | TBD | Pending |
-| TOOLS-03 | TBD | Pending |
-| PRE-01 | TBD | Pending |
-| PRE-02 | TBD | Pending |
-| PRE-03 | TBD | Pending |
-| PRE-04 | TBD | Pending |
-| PRE-05 | TBD | Pending |
-| PRE-06 | TBD | Pending |
-| PRE-07 | TBD | Pending |
-| PRE-08 | TBD | Pending |
-| PRE-09 | TBD | Pending |
-| PRE-10 | TBD | Pending |
-| PRE-11 | TBD | Pending |
-| PRE-12 | TBD | Pending |
-| PRE-13 | TBD | Pending |
-| PRE-14 | TBD | Pending |
-| IMG-01 | TBD | Pending |
-| IMG-02 | TBD | Pending |
-| IMG-03 | TBD | Pending |
-| IMG-04 | TBD | Pending |
-| IMG-05 | TBD | Pending |
-| IMG-06 | TBD | Pending |
-| CLU-01 | TBD | Pending |
-| CLU-02 | TBD | Pending |
-| CLU-03 | TBD | Pending |
-| CLU-04 | TBD | Pending |
-| CLU-05 | TBD | Pending |
-| CLU-06 | TBD | Pending |
-| FLUX-01 | TBD | Pending |
-| FLUX-02 | TBD | Pending |
-| FLUX-03 | TBD | Pending |
-| FLUX-04 | TBD | Pending |
-| FLUX-05 | TBD | Pending |
-| SPOKE-01 | TBD | Pending |
-| SPOKE-02 | TBD | Pending |
-| SPOKE-03 | TBD | Pending |
-| SPOKE-04 | TBD | Pending |
-| SPOKE-05 | TBD | Pending |
-| SPOKE-06 | TBD | Pending |
-| DEP-01 | TBD | Pending |
-| DEP-02 | TBD | Pending |
-| DEP-03 | TBD | Pending |
-| DEP-04 | TBD | Pending |
-| HEALTH-01 | TBD | Pending |
-| HEALTH-02 | TBD | Pending |
-| HEALTH-03 | TBD | Pending |
-| HEALTH-04 | TBD | Pending |
-| HEALTH-05 | TBD | Pending |
-| HEALTH-06 | TBD | Pending |
-| HEALTH-07 | TBD | Pending |
-| DESTROY-01 | TBD | Pending |
-| DESTROY-02 | TBD | Pending |
-| DESTROY-03 | TBD | Pending |
-| DESTROY-04 | TBD | Pending |
-| DESTROY-05 | TBD | Pending |
-| DESTROY-06 | TBD | Pending |
-| REPO-01 | TBD | Pending |
-| REPO-02 | TBD | Pending |
-| REPO-03 | TBD | Pending |
-| REPO-04 | TBD | Pending |
-| REPO-05 | TBD | Pending |
-| REPO-06 | TBD | Pending |
-| REPO-07 | TBD | Pending |
-| DOCS-01 | TBD | Pending |
-| DOCS-02 | TBD | Pending |
-| DOCS-03 | TBD | Pending |
-| DOCS-04 | TBD | Pending |
-| DOCS-05 | TBD | Pending |
-| DOCS-06 | TBD | Pending |
-| DOCS-07 | TBD | Pending |
-| DOCS-08 | TBD | Pending |
-| DOCS-09 | TBD | Pending |
-| DOCS-10 | TBD | Pending |
+| HOST-01 | Phase 1 | Pending |
+| HOST-02 | Phase 1 | Pending |
+| HOST-03 | Phase 1 | Pending |
+| HOST-04 | Phase 1 | Pending |
+| HOST-05 | Phase 1 | Pending |
+| HOST-06 | Phase 1 | Pending |
+| HOST-07 | Phase 1 | Pending |
+| TOOLS-01 | Phase 1 | Pending |
+| TOOLS-02 | Phase 1 | Pending |
+| TOOLS-03 | Phase 1 | Pending |
+| PRE-01 | Phase 1 | Pending |
+| PRE-02 | Phase 1 | Pending |
+| PRE-03 | Phase 1 | Pending |
+| PRE-04 | Phase 1 | Pending |
+| PRE-05 | Phase 1 | Pending |
+| PRE-06 | Phase 1 | Pending |
+| PRE-07 | Phase 1 | Pending |
+| PRE-08 | Phase 1 | Pending |
+| PRE-09 | Phase 1 | Pending |
+| PRE-10 | Phase 1 | Pending |
+| PRE-11 | Phase 1 | Pending |
+| PRE-12 | Phase 1 | Pending |
+| PRE-13 | Phase 1 | Pending |
+| PRE-14 | Phase 1 | Pending |
+| IMG-01 | Phase 2 | Pending |
+| IMG-02 | Phase 2 | Pending |
+| IMG-03 | Phase 2 | Pending |
+| IMG-04 | Phase 2 | Pending |
+| IMG-05 | Phase 2 | Pending |
+| IMG-06 | Phase 2 | Pending |
+| CLU-01 | Phase 2 | Pending |
+| CLU-02 | Phase 2 | Pending |
+| CLU-03 | Phase 2 | Pending |
+| CLU-04 | Phase 2 | Pending |
+| CLU-05 | Phase 2 | Pending |
+| CLU-06 | Phase 2 | Pending |
+| FLUX-01 | Phase 3 | Pending |
+| FLUX-02 | Phase 3 | Pending |
+| FLUX-03 | Phase 3 | Pending |
+| FLUX-04 | Phase 3 | Pending |
+| FLUX-05 | Phase 3 | Pending |
+| SPOKE-01 | Phase 4 | Pending |
+| SPOKE-02 | Phase 4 | Pending |
+| SPOKE-03 | Phase 4 | Pending |
+| SPOKE-04 | Phase 4 | Pending |
+| SPOKE-05 | Phase 4 | Pending |
+| SPOKE-06 | Phase 4 | Pending |
+| DEP-01 | Phase 5 | Pending |
+| DEP-02 | Phase 5 | Pending |
+| DEP-03 | Phase 5 | Pending |
+| DEP-04 | Phase 5 | Pending |
+| HEALTH-01 | Phase 5 | Pending |
+| HEALTH-02 | Phase 5 | Pending |
+| HEALTH-03 | Phase 5 | Pending |
+| HEALTH-04 | Phase 5 | Pending |
+| HEALTH-05 | Phase 5 | Pending |
+| HEALTH-06 | Phase 5 | Pending |
+| HEALTH-07 | Phase 5 | Pending |
+| DESTROY-01 | Phase 5 | Pending |
+| DESTROY-02 | Phase 5 | Pending |
+| DESTROY-03 | Phase 5 | Pending |
+| DESTROY-04 | Phase 5 | Pending |
+| DESTROY-05 | Phase 5 | Pending |
+| DESTROY-06 | Phase 5 | Pending |
+| REPO-01 | Phase 6 | Pending |
+| REPO-02 | Phase 6 | Pending |
+| REPO-03 | Phase 6 | Pending |
+| REPO-04 | Phase 6 | Pending |
+| REPO-05 | Phase 6 | Pending |
+| REPO-06 | Phase 6 | Pending |
+| REPO-07 | Phase 6 | Pending |
+| DOCS-01 | Phase 6 | Pending |
+| DOCS-02 | Phase 6 | Pending |
+| DOCS-03 | Phase 6 | Pending |
+| DOCS-04 | Phase 6 | Pending |
+| DOCS-05 | Phase 6 | Pending |
+| DOCS-06 | Phase 6 | Pending |
+| DOCS-07 | Phase 6 | Pending |
+| DOCS-08 | Phase 6 | Pending |
+| DOCS-09 | Phase 6 | Pending |
+| DOCS-10 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 73 total
-- Mapped to phases: 0 (awaiting roadmap)
-- Unmapped: 73 ⚠️ — will become 0 after `/gsd-plan-phase` or roadmap generation
+- v1 requirements: 81 total
+- Mapped to phases: 81 (100% coverage)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-22*
-*Last updated: 2026-04-22 after initial definition*
+*Last updated: 2026-04-22 after roadmap creation (6 phases, 100% coverage)*

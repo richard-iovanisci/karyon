@@ -1,0 +1,71 @@
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-04-22)
+
+**Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
+**Current focus:** Phase 1 — Host Foundation (WSL + Docker + GPU toolkit + asdf + preflight gate)
+
+## Current Position
+
+Phase: 1 of 6 (Host Foundation)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-04-22 — Roadmap created (6 phases, 81 v1 REQ-IDs mapped, 100% coverage)
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0
+- Average duration: -
+- Total execution time: -
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: -
+- Trend: -
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecting current work:
+
+- Phase 1: Port existing `prereqs.sh` as `scripts/preflight.sh` (not a rewrite).
+- Phase 2: Custom k3s+CUDA image FROM `nvidia/cuda:12.8.1-base-ubuntu22.04` (Ubuntu base, k3s layered in) — Alpine stock image cannot host the NVIDIA runtime.
+- Phase 3: `flux bootstrap --path` is effectively immutable — hard-code `clusters/hub-flux` in the bootstrap script, reject env overrides.
+- Phase 4: Legacy Secret-backed SA tokens (not `kubectl create token`) — indefinite lifetime is correct for a lab and avoids token-expiry as a failure mode.
+- Phase 6: gitleaks pre-commit MUST be installed before the first `git push` — public-repo + leaked PAT is unrecoverable.
+
+### Pending Todos
+
+None yet. [From .planning/todos/pending/ — ideas captured during sessions.]
+
+### Blockers/Concerns
+
+- `task rebuild` (Phase 5, DESTROY-05/06) success is gated on every prior phase being green and on CUDA build-cache surviving `task destroy` (Phase 2, IMG-06 + DESTROY-03). Re-verify after any Phase 2 or Phase 5 change.
+- Phase 4 is the single highest-risk phase — DNS + TLS + CA + RBAC + Secret-key all converge. Schedule a dedicated research pass during planning if initial planning surfaces ambiguity.
+
+## Deferred Items
+
+Items acknowledged and carried forward from previous milestone close:
+
+| Category | Item | Status | Deferred At |
+|----------|------|--------|-------------|
+| *(none)* | | | |
+
+## Session Continuity
+
+Last session: 2026-04-22
+Stopped at: Roadmap created; ready for `/gsd-plan-phase 1`.
+Resume file: None
