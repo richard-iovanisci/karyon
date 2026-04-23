@@ -18,17 +18,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 
 # ---------------------------------------------------------------------------
-# Section 0: Prerequisites (jq, gnupg, ca-certificates, curl) — MUST BE FIRST
+# Section 0: Prerequisites (jq, gnupg, ca-certificates, curl, util-linux-extra) — MUST BE FIRST
 # H3 fix: jq needed for daemon.json merge (Section 6); gnupg for GPG key
 # dearmor (Section 2). Install before any section that depends on them.
+#
+# Plan 01-09 gap-closure: util-linux-extra provides /sbin/hwclock on Ubuntu 24.04
+# (split from util-linux in noble). hwclock-resume.service (Section 7 below) has
+# ExecStart=/sbin/hwclock --hctosys; on minimal WSL2 images the binary is absent
+# by default and the unit silently fails on every resume. See
+# .planning/phases/01-host-foundation/01-HUMAN-UAT.md ## Gaps gap 2.
 # ---------------------------------------------------------------------------
-section "Prerequisites (jq, gnupg, ca-certificates, curl)"
-if have jq && have gpg && dpkg -s ca-certificates >/dev/null 2>&1 && have curl; then
-  info "already done, skipping: prerequisites (jq gnupg ca-certificates curl)"
+section "Prerequisites (jq, gnupg, ca-certificates, curl, util-linux-extra)"
+if have jq \
+   && have gpg \
+   && dpkg -s ca-certificates >/dev/null 2>&1 \
+   && have curl \
+   && dpkg -s util-linux-extra >/dev/null 2>&1; then
+  info "already done, skipping: prerequisites (jq gnupg ca-certificates curl util-linux-extra)"
 else
   sudo apt-get update -q
-  sudo apt-get install -y ca-certificates curl gnupg jq
-  pass "installing: prerequisites (jq gnupg ca-certificates curl)"
+  sudo apt-get install -y ca-certificates curl gnupg jq util-linux-extra
+  pass "installing: prerequisites (jq gnupg ca-certificates curl util-linux-extra)"
 fi
 
 # ---------------------------------------------------------------------------
