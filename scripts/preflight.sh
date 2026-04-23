@@ -243,7 +243,7 @@ show_tool_version() {
     asdf)    asdf --version 2>/dev/null ;;
     jq)      jq --version 2>/dev/null ;;
     yq)      yq --version 2>/dev/null | head -1 ;;
-    k9s)     k9s version 2>/dev/null | head -1 ;;
+    k9s)     k9s version 2>/dev/null | grep -oP 'Version:\s+\K\S+' ;;
     *)       "$t" --version 2>&1 | head -1 ;;
   esac
 }
@@ -318,8 +318,13 @@ sys_epoch="$(date -u +%s 2>/dev/null)"
 win_epoch=""
 
 # Primary: powershell.exe (no sudo required; standard WSL2 interop)
+# [DateTimeOffset]::UtcNow returns a UTC-anchored instant regardless of the host's local
+# timezone; .ToUnixTimeSeconds() returns a Unix epoch integer. The prior PowerShell call
+# used Get-Date with UFormat %s, which returned local-time-as-if-UTC seconds — a known
+# quirk causing PRE-12 to false-positive with a skew equal to the TZ offset (gap 1 in
+# .planning/phases/01-host-foundation/01-HUMAN-UAT.md).
 if have powershell.exe; then
-  win_epoch="$(powershell.exe -NoProfile -Command 'Get-Date -UFormat %s' 2>/dev/null \
+  win_epoch="$(powershell.exe -NoProfile -Command '[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()' 2>/dev/null \
     | tr -d '\r' | awk '{print int($1)}')"
 fi
 
