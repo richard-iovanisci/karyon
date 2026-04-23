@@ -14,7 +14,6 @@ teardown() {
 }
 
 @test "IMG-02: ARG K3S_TAG default is v1.34.6-k3s1" {
-  skip "awaiting implementation in plan 02-02 (Dockerfile created)"
-  # run grep -E '^ARG K3S_TAG=v1\.34\.6-k3s1' "$DOCKERFILE"
-  # [ "$status" -eq 0 ]
+  run grep -E '^ARG K3S_TAG=v1\.34\.6-k3s1$' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
 }

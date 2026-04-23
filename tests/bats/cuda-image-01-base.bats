@@ -14,7 +14,8 @@ teardown() {
 }
 
 @test "IMG-01: Dockerfile.k3s-cuda uses nvidia/cuda base + rancher/k3s build stage" {
-  skip "awaiting implementation in plan 02-02 (Dockerfile created)"
-  # run grep -E '^FROM nvidia/cuda:12\.8\.1-base-ubuntu22\.04' "$DOCKERFILE"
-  # [ "$status" -eq 0 ]
+  run grep -E '^FROM nvidia/cuda:\$\{CUDA_TAG\}' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+  run grep -E '^FROM rancher/k3s:\$\{K3S_TAG\} AS k3s' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
 }
