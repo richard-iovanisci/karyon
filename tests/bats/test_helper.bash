@@ -13,3 +13,29 @@ SCRIPTS_DIR="$(cd "$(dirname "${BATS_TEST_FILENAME:-$0}")/../.." && pwd)/scripts
 # shellcheck source=../../scripts/lib/preflight-lib.sh
 # shellcheck disable=SC1091
 source "${SCRIPTS_DIR}/lib/preflight-lib.sh"
+
+# -----------------------------------------------------------------------------
+# Cluster-layer (Phase 2) extensions
+# -----------------------------------------------------------------------------
+
+# REPO_ROOT resolves the top of the repo from any bats suite.
+REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME:-$0}")/../.." && pwd)"
+
+# IMAGES_DIR: where Dockerfile.k3s-cuda, config.toml.tmpl, etc. live.
+IMAGES_DIR="${REPO_ROOT}/images"
+
+# cuda_image_tag: emits the canonical CUDA image tag via images/image-tag.sh.
+# Single source of truth matches D-06.
+cuda_image_tag() {
+  bash "${IMAGES_DIR}/image-tag.sh"
+}
+
+# require_live: skip the test unless KARYON_LIVE_TESTS is set.
+# L3/L4 tests (those that need Docker + k3d + a live cluster or GPU) call this
+# in setup() so per-commit CI skips them and final verifier runs them explicitly.
+# Mirrors RESEARCH.md §6 Wave 0 live-gate pattern.
+require_live() {
+  if [[ -z "${KARYON_LIVE_TESTS:-}" ]]; then
+    skip "live test — set KARYON_LIVE_TESTS=1 to run (requires docker + k3d + GPU for some suites)"
+  fi
+}
