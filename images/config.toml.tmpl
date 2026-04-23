@@ -1,0 +1,35 @@
+# images/config.toml.tmpl
+#
+# Third leg of the 3-part k3d GPU contract (D-05 / IMG-03):
+#   (1) /etc/docker/daemon.json default-runtime: nvidia  -- Phase 1 install-docker.sh
+#   (2) FROM nvidia/cuda:12.8.1-base-ubuntu22.04         -- images/Dockerfile.k3s-cuda
+#   (3) default_runtime_name = "nvidia" here             -- THIS FILE
+#
+# File path inside spoke-ml k3s nodes:
+#   /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+#
+# k3s v1.34.x reads this at agent startup and renders it as
+#   /var/lib/rancher/k3s/agent/etc/containerd/config.toml
+# which containerd 2.0 then loads.
+#
+# {{ template "base" . }} pulls in the canonical k3s base template
+# (ContainerdConfigTemplateV3 in k3s/pkg/agent/templates/templates.go).
+# The base template already registers runtimes.nvidia when the
+# nvidia-container-runtime binary is present in the image (it is —
+# installed by `nvidia-ctk runtime configure --runtime=containerd`
+# in images/Dockerfile.k3s-cuda).
+#
+# The base template emits default_runtime_name ONLY when
+# .NodeConfig.DefaultRuntime is non-empty. We want it set
+# unconditionally to "nvidia", so we override by re-declaring
+# the [plugins.'...'.containerd] table after the base template
+# renders.
+
+{{ template "base" . }}
+
+# Override: default_runtime_name = "nvidia" (unconditional).
+# Required for GPU workloads to land on the nvidia runtime without
+# needing runtimeClassName: nvidia in every Pod spec. Device-plugin
+# daemonset still pins runtimeClassName: nvidia for explicitness.
+[plugins.'io.containerd.cri.v1.runtime'.containerd]
+  default_runtime_name = "nvidia"
