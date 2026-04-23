@@ -117,6 +117,43 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Section 4: daemon.json default-runtime=nvidia (Option B, gap plan 01-08)
+#
+# CR-02 fix: install-docker.sh's Section 6 deferred the default-runtime write on
+# first runs because runtimes.nvidia did not yet exist. Now that Section 3 above
+# has registered runtimes.nvidia via nvidia-ctk runtime configure, it is safe to
+# set default-runtime=nvidia — dockerd will accept it because the named runtime
+# exists. Use the same jq-merge pattern as install-docker.sh (RESEARCH.md §Ref-4).
+#
+# Guards (content-correct, not file-exists):
+#   - .runtimes.nvidia must exist (proved by Section 3 completing; double-check here).
+#   - ."default-runtime" must equal "nvidia" — if already set, skip the merge + restart.
+# ---------------------------------------------------------------------------
+section "daemon.json default-runtime=nvidia (post nvidia-ctk)"
+DESIRED_RUNTIME_FINAL="nvidia"
+
+# Defensive: runtimes.nvidia should exist after Section 3. If it does not, something
+# upstream failed silently — fail loudly rather than bricking Docker.
+if ! sudo jq -e '.runtimes.nvidia' "$DAEMON_JSON" >/dev/null 2>&1; then
+  fail "runtimes.nvidia not registered in $DAEMON_JSON after nvidia-ctk runtime configure.
+      Something went wrong in Section 3. Cannot set default-runtime=nvidia safely.
+      Inspect $DAEMON_JSON and re-run nvidia-ctk runtime configure --runtime=docker."
+  exit 1
+fi
+
+if sudo jq -e '."default-runtime" == "nvidia"' "$DAEMON_JSON" >/dev/null 2>&1; then
+  info "already done, skipping: daemon.json default-runtime=nvidia (already set)"
+else
+  current=$(sudo cat "$DAEMON_JSON")
+  merged=$(echo "$current" | jq \
+    --arg dr "$DESIRED_RUNTIME_FINAL" \
+    '. + {"default-runtime": $dr}')
+  echo "$merged" | sudo tee "$DAEMON_JSON" > /dev/null
+  sudo systemctl restart docker
+  pass "installing: daemon.json default-runtime=nvidia (merged after runtimes.nvidia registered)"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 section "Summary"
