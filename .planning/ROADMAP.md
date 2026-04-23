@@ -12,7 +12,7 @@ karyon builds a reproducible three-cluster local Kubernetes lab (hub-flux + spok
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Host Foundation** - WSL + Docker + GPU toolkit + asdf tools + preflight gate pass
+- [x] **Phase 1: Host Foundation** - WSL + Docker + GPU toolkit + asdf tools + preflight gate pass *(completed 2026-04-23)*
 - [ ] **Phase 2: Cluster Layer** - Custom k3s+CUDA image + `k8s-net` + three clusters with correct `--tls-san`
 - [ ] **Phase 3: Flux Hub Bootstrap** - `flux bootstrap github` on hub-flux, self-managing GitOps, documented patch surface
 - [ ] **Phase 4: Spoke Registration** - SA + cluster-admin + legacy-Secret tokens + hub-side kubeconfig Secrets with `value.yaml` key
@@ -33,16 +33,18 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `command -v kubectl && command -v helm && command -v k3d` all resolve under `$HOME/.asdf/shims/` (NOT `/usr/bin` or `/usr/local/bin`), and their versions match every pin in the checked-in `.tool-versions`.
   4. `config/wslconfig` and `config/wsl.conf` templates exist with documented `systemd=true` + NAT-mode default + `mirrored → NAT` fallback section in `docs/wsl-networking.md`; a systemd unit runs `hwclock -s` on resume.
   5. All install scripts (`install-docker.sh`, `install-nvidia-container-toolkit.sh`, `install-tools.sh`) are idempotent — rerunning them on an already-configured host is a no-op and still exits `0`.
-**Plans**: 7 plans (5 waves)
+**Plans**: 9 plans (8 waves, incl. 2 gap-closure rounds)
 
 Plans:
-- [ ] 01-01-PLAN.md — Static foundation: lib extract, config templates, .tool-versions, .env.example, .gitignore, docs/wsl-networking.md
-- [ ] 01-02-PLAN.md — install-docker.sh: Docker Engine + daemon.json (default-runtime=nvidia + dns) + hwclock unit
-- [ ] 01-03-PLAN.md — install-nvidia-container-toolkit.sh: NVIDIA toolkit packages + nvidia-ctk runtime configure
-- [ ] 01-04-PLAN.md — install-tools.sh: asdf binary + shell-init + plugins + pinned versions from .tool-versions
-- [ ] 01-05-PLAN.md — scripts/preflight.sh: port prereqs.sh + PRE-01..08 + PRE-08 warn→fail + enhanced PRE-04/PRE-05
-- [ ] 01-06-PLAN.md — scripts/preflight.sh: append PRE-09..14 (env, shim precedence, resolv, clock, cgroup, bridge-curl)
-- [ ] 01-07-PLAN.md — bats test infrastructure: test_helper + 5 stub suites (PRE-01/02/09/11/13)
+- [x] 01-01-PLAN.md — Static foundation: lib extract, config templates, .tool-versions, .env.example, .gitignore, docs/wsl-networking.md
+- [x] 01-02-PLAN.md — install-docker.sh: Docker Engine + daemon.json (default-runtime=nvidia + dns) + hwclock unit
+- [x] 01-03-PLAN.md — install-nvidia-container-toolkit.sh: NVIDIA toolkit packages + nvidia-ctk runtime configure
+- [x] 01-04-PLAN.md — install-tools.sh: asdf binary + shell-init + plugins + pinned versions from .tool-versions
+- [x] 01-05-PLAN.md — scripts/preflight.sh: port prereqs.sh + PRE-01..08 + PRE-08 warn→fail + enhanced PRE-04/PRE-05
+- [x] 01-06-PLAN.md — scripts/preflight.sh: append PRE-09..14 (env, shim precedence, resolv, clock, cgroup, bridge-curl)
+- [x] 01-07-PLAN.md — bats test infrastructure: test_helper + 5 stub suites (PRE-01/02/09/11/13)
+- [x] 01-08-PLAN.md — Round-1 gap closure: CR-01 default-runtime jq pre-check + CR-02 jq-merge writer (install-docker.sh + install-nvidia-container-toolkit.sh)
+- [x] 01-09-PLAN.md — Round-2 gap closure: PRE-12 UtcNow fix, PRE-05 k9s parser, PRE-03 mirrored-mode downgrade, util-linux-extra for hwclock
 
 ### Phase 2: Cluster Layer
 **Goal**: `kubectl --context k3d-<name> get nodes` returns `Ready` for all three clusters, `spoke-ml` advertises `nvidia.com/gpu` capacity ≥ 1, and every apiserver's serving cert includes the `k3d-<name>-server-0` SAN.
@@ -120,7 +122,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Host Foundation | 0/7 | Not started | - |
+| 1. Host Foundation | 9/9 | Complete | 2026-04-23 |
 | 2. Cluster Layer | 0/TBD | Not started | - |
 | 3. Flux Hub Bootstrap | 0/TBD | Not started | - |
 | 4. Spoke Registration | 0/TBD | Not started | - |
