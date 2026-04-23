@@ -1,0 +1,83 @@
+# syntax=docker/dockerfile:1.7-labs
+# ^^^ frontend directive required for `COPY --exclude` (BuildKit)
+
+# ============================================================
+# karyon/k3s-cuda — k3s + CUDA custom image for spoke-ml
+# ============================================================
+# 3-part k3d GPU contract:
+#   (1) host /etc/docker/daemon.json sets default-runtime: nvidia  (Phase 1 D-11)
+#   (2) this image FROM nvidia/cuda base (Ubuntu 22.04)            (IMG-01)
+#   (3) this image ships config.toml.tmpl with                      (D-05 / IMG-03)
+#       default_runtime_name = "nvidia"
+#
+# All three legs required. Missing any one silently drops
+# nvidia.com/gpu capacity on spoke-ml.
+# ============================================================
+
+ARG K3S_TAG=v1.34.6-k3s1
+ARG CUDA_TAG=12.8.1-base-ubuntu22.04
+ARG DEVICE_PLUGIN_VERSION=v0.17.4
+
+# ---------- Stage 1: k3s source ----------
+# NOTE: This Dockerfile is NOT buildable standalone from this plan (02-02).
+# Required before docker build:
+#   - images/config.toml.tmpl  (Plan 02-03)
+#   - images/device-plugin-daemonset.yaml  (Plan 02-03)
+# Build wrapper: scripts/build-image.sh  (Plan 02-04)
+FROM rancher/k3s:${K3S_TAG} AS k3s
+
+# ---------- Stage 2: final image ----------
+FROM nvidia/cuda:${CUDA_TAG}
+
+# Re-declare ARGs after FROM so they're visible in the final stage.
+ARG K3S_TAG
+ARG DEVICE_PLUGIN_VERSION
+
+LABEL org.opencontainers.image.source="https://github.com/<OWNER>/karyon"
+LABEL org.opencontainers.image.title="karyon-k3s-cuda"
+LABEL org.opencontainers.image.description="k3s ${K3S_TAG} on nvidia/cuda base with NVIDIA device-plugin ${DEVICE_PLUGIN_VERSION} baked in"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
+# Install minimal apt prereqs + NVIDIA container toolkit (sets up nvidia-container-runtime binary
+# which k3s picks up automatically via its auto-detection of /usr/bin/nvidia-container-runtime).
+# BuildKit cache mount keeps apt lists across rebuilds.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl gnupg lsb-release && \
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+      | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
+    curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+      | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+      > /etc/apt/sources.list.d/nvidia-container-toolkit.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends nvidia-container-toolkit && \
+    nvidia-ctk runtime configure --runtime=containerd
+
+# Layer k3s binaries from the rancher/k3s image.
+# The --exclude flag requires `# syntax=docker/dockerfile:1.7-labs` at top of file.
+COPY --from=k3s / / --exclude=/bin
+COPY --from=k3s /bin /bin
+
+# Ship the containerd config template — third leg of the 3-part GPU contract.
+# k3s reads this at agent startup and renders /var/lib/rancher/k3s/agent/etc/containerd/config.toml
+# from it. File name config.toml.tmpl (not config-v3.toml.tmpl) per D-05; k3s v1.34 still
+# renders the legacy path, and our template body uses the v3 schema which containerd 2.0 accepts.
+COPY images/config.toml.tmpl /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+
+# Bake the NVIDIA device-plugin DaemonSet into the k3s auto-apply manifests dir.
+# k3s applies every *.yaml here at server startup; nvidia.com/gpu capacity is available at t=0.
+COPY images/device-plugin-daemonset.yaml /var/lib/rancher/k3s/server/manifests/nvidia-device-plugin-daemonset.yaml
+
+# Persistent volumes expected by k3s at runtime.
+VOLUME /var/lib/kubelet
+VOLUME /var/lib/rancher/k3s
+VOLUME /var/lib/cni
+VOLUME /var/log
+
+# k3s expects /bin/aux on PATH for its auxiliary binaries.
+ENV PATH="${PATH}:/bin/aux"
+
+ENTRYPOINT ["/bin/k3s"]
+CMD ["agent"]
