@@ -157,13 +157,33 @@ preflight_check_cgroup_v2() {
 }
 
 # preflight_check_mirrored_mode: PRE-03
-# Uses the D-02 IP-subnet overlap heuristic to detect mirrored networking.
-# Enumerates non-lo WSL interfaces; determines Windows host IP; checks if any WSL CIDR contains it.
-# Fails if any WSL interface CIDR contains the Windows host IP (mirrored indicator).
+# Uses the D-02 IP-subnet overlap heuristic, with authoritative pre-check against
+# wsl.exe --status and a warn()-downgrade when the overlap is explainable by a
+# shared home-router subnet (common false-positive pattern surfaced in 01-HUMAN-UAT.md).
 #
-# NOTE: false-positive risk on unusual home networks where Windows host and WSL happen to share
-# a subnet (e.g., both in 192.168.x.x). Remediation: set networkingMode=NAT in .wslconfig explicitly.
+# Policy (per D-01 + plan 01-09 gap closure):
+#   1. wsl.exe --status says networkingMode: mirrored  -> fail() (unambiguous)
+#   2. Subnet overlap AND default-gateway-equals-host AND CIDR in RFC1918 home-router
+#      range AND wsl.exe does NOT confirm mirrored                 -> warn() (likely false positive)
+#   3. Subnet overlap but does NOT match the home-router pattern   -> fail() (preserves D-01)
+#   4. No subnet overlap                                           -> pass() (NAT)
+#
+# This preserves D-01's hard-fail intent for unambiguous mirrored mode while fixing
+# the false positive on typical home networks where the Windows host is the router.
 preflight_check_mirrored_mode() {
+  # Step 0: Authoritative pre-check via wsl.exe --status (runs inside WSL via interop).
+  # If wsl.exe is unreachable or output does not include a networkingMode line, fall
+  # through to the heuristic. If it explicitly says mirrored, fail immediately.
+  local wsl_status=""
+  if command -v wsl.exe >/dev/null 2>&1; then
+    wsl_status="$(wsl.exe --status 2>/dev/null | tr -d '\r' || true)"
+  fi
+  if [[ -n "$wsl_status" ]] && echo "$wsl_status" | grep -qiE 'networkingMode:[[:space:]]*mirrored'; then
+    fail "Mirrored networking confirmed by wsl.exe --status (networkingMode: mirrored).
+      Project requires networkingMode=NAT (D-01). See docs/wsl-networking.md for the migration procedure."
+    return 1
+  fi
+
   # Step 1: Get all non-lo WSL IPv4 CIDRs
   local wsl_cidrs
   mapfile -t wsl_cidrs < <(ip -4 -o addr show 2>/dev/null | awk '$2 != "lo" {print $4}')
@@ -180,8 +200,10 @@ preflight_check_mirrored_mode() {
   [[ -n "$gw_ip" ]] && windows_ip="$gw_ip"
 
   # Fallback: resolv.conf nameserver (valid when generateResolvConf=true in wsl.conf)
+  local windows_ip_source="gateway"
   if [[ -z "$windows_ip" ]]; then
     windows_ip="$(grep -m1 '^nameserver' /etc/resolv.conf 2>/dev/null | awk '{print $2}')"
+    windows_ip_source="resolv.conf"
   fi
 
   if [[ -z "$windows_ip" ]]; then
@@ -193,11 +215,29 @@ preflight_check_mirrored_mode() {
   local cidr
   for cidr in "${wsl_cidrs[@]}"; do
     if ip_in_cidr "$windows_ip" "$cidr"; then
+      # Heuristic fired. Classify as likely-false-positive only when BOTH:
+      #   (a) windows_ip was derived from the default gateway (source=="gateway"),
+      #       AND windows_ip == gw_ip (default gateway IS the host).
+      #   (b) the overlapping CIDR is inside a common home-router RFC1918 range.
+      # Note: wsl.exe --status was already consulted above; reaching here means it
+      # did NOT confirm mirrored mode.
+      local is_home_router_cidr=0
+      if ip_in_cidr "${cidr%%/*}" "192.168.0.0/16" \
+         || ip_in_cidr "${cidr%%/*}" "10.0.0.0/8" \
+         || ip_in_cidr "${cidr%%/*}" "172.16.0.0/12"; then
+        is_home_router_cidr=1
+      fi
+
+      if [[ "$windows_ip_source" == "gateway" && "$windows_ip" == "$gw_ip" && $is_home_router_cidr -eq 1 ]]; then
+        warn "Mirrored-mode heuristic fired for Windows host ${windows_ip} inside WSL CIDR ${cidr}, but wsl.exe --status does not confirm mirrored mode. Likely false positive from shared home-router subnet.
+      To silence: set networkingMode=NAT explicitly in %USERPROFILE%\\.wslconfig per D-03, and run 'wsl --shutdown'.
+      If you believe this is actually mirrored mode, see docs/wsl-networking.md."
+        return 0
+      fi
+
       fail "Mirrored networking detected: Windows host IP ${windows_ip} is inside WSL interface CIDR ${cidr}.
       Project requires networkingMode=NAT (D-01). See docs/wsl-networking.md for the migration procedure.
-      False-positive note: on unusual home networks where Windows host and WSL share a subnet,
-      this heuristic may fire incorrectly. Remediation: set networkingMode=NAT explicitly in
-      %USERPROFILE%\\.wslconfig and run 'wsl --shutdown'."
+      Authoritative signal (wsl.exe --status) was unavailable or ambiguous."
       return 1
     fi
   done
