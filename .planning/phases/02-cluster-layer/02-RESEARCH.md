@@ -1026,7 +1026,7 @@ Framework install: bats-core is already wired in Phase 1's `scripts/install-tool
 
 ---
 
-## 7. Open Questions
+## 7. Open Questions (RESOLVED)
 
 Items the docs do NOT fully settle. Planner should treat these as Claude's Discretion extensions and either lock a choice in `02-PLAN-*.md` or kick to a mini-discussion loop.
 
