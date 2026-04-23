@@ -14,7 +14,6 @@ teardown() {
 }
 
 @test "IMG-04: device-plugin manifest pins image v0.17.4" {
-  skip "awaiting implementation in plan 02-03 (device-plugin-daemonset.yaml created)"
-  # run grep -F 'image: nvcr.io/nvidia/k8s-device-plugin:v0.17.4' "$MANIFEST"
-  # [ "$status" -eq 0 ]
+  run grep -F 'image: nvcr.io/nvidia/k8s-device-plugin:v0.17.4' "$MANIFEST"
+  [ "$status" -eq 0 ]
 }
