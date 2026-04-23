@@ -91,30 +91,80 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 6: daemon.json — default-runtime + dns
-# jq-merge strategy (RESEARCH.md §Ref-4, D-05).
-# Guard: both default-runtime=nvidia and dns non-empty already set.
-# T-02-05: guard checks both keys before writing; jq merge preserves existing keys.
+# Section 6: daemon.json — dns (always) + default-runtime (conditional on runtimes.nvidia)
+#
+# CR-02 fix (Option B, gap plan 01-08): On a fresh host, runtimes.nvidia does not yet
+# exist in daemon.json (it is written by nvidia-ctk runtime configure in
+# install-nvidia-container-toolkit.sh). Docker refuses to start when default-runtime
+# names an undefined runtime, so we must NOT write default-runtime=nvidia on a fresh
+# host. Instead:
+#   - First run  (runtimes.nvidia absent): write only dns, restart Docker, emit info
+#                that install-nvidia-container-toolkit.sh will set default-runtime.
+#   - Second run (runtimes.nvidia present): write both dns and default-runtime=nvidia
+#                in a single jq-merge, restart Docker; on a fully-configured host both
+#                keys are already correct and the guard skips the write entirely.
+#
+# jq-merge strategy (RESEARCH.md §Ref-4, D-05). T-02-05: guard checks both keys before
+# writing; jq merge preserves existing keys including runtimes.nvidia.
 # ---------------------------------------------------------------------------
-section "daemon.json (default-runtime + dns)"
+section "daemon.json (dns always; default-runtime conditional on runtimes.nvidia)"
 DAEMON_JSON=/etc/docker/daemon.json
 DESIRED_DNS='["1.1.1.1","8.8.8.8"]'
 DESIRED_RUNTIME="nvidia"
 
-if [[ -f "$DAEMON_JSON" ]] && \
-   sudo jq -e '."default-runtime" == "nvidia"' "$DAEMON_JSON" >/dev/null 2>&1 && \
-   sudo jq -e '.dns | length > 0' "$DAEMON_JSON" >/dev/null 2>&1; then
-  info "already done, skipping: daemon.json default-runtime + dns"
+# Ensure daemon.json exists as an empty object so jq can read and merge.
+if [[ ! -f "$DAEMON_JSON" ]]; then
+  echo '{}' | sudo tee "$DAEMON_JSON" > /dev/null
+fi
+
+# Decide which keys to write this run.
+_have_nvidia_runtime=0
+if sudo jq -e '.runtimes.nvidia' "$DAEMON_JSON" >/dev/null 2>&1; then
+  _have_nvidia_runtime=1
+fi
+
+_dns_ok=0
+if sudo jq -e '.dns | length > 0' "$DAEMON_JSON" >/dev/null 2>&1; then
+  _dns_ok=1
+fi
+
+_default_runtime_ok=0
+if sudo jq -e '."default-runtime" == "nvidia"' "$DAEMON_JSON" >/dev/null 2>&1; then
+  _default_runtime_ok=1
+fi
+
+if (( _have_nvidia_runtime == 1 )); then
+  # Path B: toolkit has registered runtimes.nvidia (or a prior run of this section
+  # already wrote default-runtime). Safe to write both keys.
+  if (( _dns_ok == 1 && _default_runtime_ok == 1 )); then
+    info "already done, skipping: daemon.json default-runtime + dns (runtimes.nvidia present)"
+  else
+    current=$(sudo cat "$DAEMON_JSON")
+    merged=$(echo "$current" | jq \
+      --arg dr "$DESIRED_RUNTIME" \
+      --argjson dns "$DESIRED_DNS" \
+      '. + {"default-runtime": $dr, "dns": $dns}')
+    echo "$merged" | sudo tee "$DAEMON_JSON" > /dev/null
+    sudo systemctl restart docker
+    pass "installing: daemon.json default-runtime=nvidia + dns=[1.1.1.1,8.8.8.8] (runtimes.nvidia was present — safe to set default-runtime)"
+  fi
 else
-  [[ ! -f "$DAEMON_JSON" ]] && echo '{}' | sudo tee "$DAEMON_JSON" > /dev/null
-  current=$(sudo cat "$DAEMON_JSON")
-  merged=$(echo "$current" | jq \
-    --arg dr "$DESIRED_RUNTIME" \
-    --argjson dns "$DESIRED_DNS" \
-    '. + {"default-runtime": $dr, "dns": $dns}')
-  echo "$merged" | sudo tee "$DAEMON_JSON" > /dev/null
-  sudo systemctl restart docker
-  pass "installing: daemon.json default-runtime=nvidia + dns=[1.1.1.1,8.8.8.8]"
+  # Path A: first-ever run, runtimes.nvidia absent. Writing default-runtime=nvidia now
+  # would make dockerd refuse to start. Write only dns; defer default-runtime to
+  # install-nvidia-container-toolkit.sh, which writes it AFTER nvidia-ctk registers
+  # runtimes.nvidia (new Section 4 in that script).
+  if (( _dns_ok == 1 )); then
+    info "already done, skipping: daemon.json dns (runtimes.nvidia absent — deferring default-runtime to install-nvidia-container-toolkit.sh)"
+  else
+    current=$(sudo cat "$DAEMON_JSON")
+    merged=$(echo "$current" | jq \
+      --argjson dns "$DESIRED_DNS" \
+      '. + {"dns": $dns}')
+    echo "$merged" | sudo tee "$DAEMON_JSON" > /dev/null
+    sudo systemctl restart docker
+    pass "installing: daemon.json dns=[1.1.1.1,8.8.8.8] (default-runtime deferred — runtimes.nvidia not yet registered)"
+    info "default-runtime=nvidia will be set by install-nvidia-container-toolkit.sh after nvidia-ctk runtime configure registers runtimes.nvidia"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
