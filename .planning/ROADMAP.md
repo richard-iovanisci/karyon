@@ -58,7 +58,16 @@ Plans:
   3. `kubectl --context k3d-spoke-ml get nodes -o jsonpath='{.items[*].status.capacity.nvidia\.com/gpu}'` returns a value ≥ 1; `openssl s_client -connect 127.0.0.1:6444 </dev/null 2>/dev/null | openssl x509 -noout -text` shows `k3d-spoke-ml-server-0` among the cert SANs (same for 6443/hub and 6445/spoke-apps).
   4. `scripts/delete-clusters.sh` removes all three clusters and the `k8s-net` network, but `docker images | grep karyon/k3s-cuda` still shows the custom image present afterward (build cache preserved).
   5. No script under `scripts/` calls `docker system prune` or `docker builder prune` (verifiable by grep — enforced as a lint in Phase 6).
-**Plans**: TBD
+**Plans**: 7 plans (5 waves)
+
+Plans:
+- [ ] 02-01-PLAN.md — Wave 0 test scaffolding: 12 bats files + test_helper.bash extension (REQ coverage: IMG-01..06, CLU-01..06)
+- [ ] 02-02-PLAN.md — Dockerfile.k3s-cuda + image-tag.sh (IMG-01, IMG-02; Wave 1)
+- [ ] 02-03-PLAN.md — config.toml.tmpl + device-plugin-daemonset.yaml (IMG-03, IMG-04; Wave 1)
+- [ ] 02-04-PLAN.md — scripts/build-image.sh + activate IMG-03/05 live bats (IMG-01..06; Wave 2)
+- [ ] 02-05-PLAN.md — scripts/create-clusters.sh with D-13 SAN verify (CLU-01..05; Wave 3; checkpoint)
+- [ ] 02-06-PLAN.md — scripts/delete-clusters.sh with D-14 cache defense (CLU-06, IMG-06; Wave 3; checkpoint)
+- [ ] 02-07-PLAN.md — Taskfile.yml stub (build-image/create-clusters/delete-clusters; Wave 4)
 
 ### Phase 3: Flux Hub Bootstrap
 **Goal**: `flux --context k3d-hub-flux get kustomizations -A` shows the root `flux-system` Kustomization as `Ready=True`; the hub is self-managing and commits to `clusters/hub-flux/**` round-trip through reconciliation.
