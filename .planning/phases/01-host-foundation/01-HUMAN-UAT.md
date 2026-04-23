@@ -1,14 +1,22 @@
 ---
-status: complete
+status: partial
 phase: 01-host-foundation
 source: [01-VERIFICATION.md]
 started: 2026-04-22T23:59:00Z
-updated: 2026-04-23T09:20:00Z
+updated: 2026-04-23T15:45:00Z
+rounds:
+  - round: 1
+    plan: 01-08
+    status: complete
+  - round: 2
+    plan: 01-09
+    status: partial
+    awaiting: [live re-run on rich@Area-51, WR-02 policy decision]
 ---
 
 ## Current Test
 
-[testing complete]
+[round-2 awaiting human verification: live re-run and WR-02 policy decision]
 
 ## Tests
 
@@ -71,22 +79,32 @@ notes: |
 
   Final verdict: plan 01-08 (CR-01 + CR-02) delivered exactly what it promised — validated end-to-end on a live WSL2 Ubuntu 24.04 box with an RTX 5090. The phase's larger "preflight exits 0" goal is blocked by 3 pre-existing preflight.sh bugs + 1 missing runtime dependency, all out of 01-08's scope. Each has been added to the ## Gaps section below for a follow-up gap-closure cycle.
 
+### 5. preflight.sh live re-run after plan 01-09 edits (round 2 re-validation)
+expected: After re-running `scripts/install-docker.sh` (picks up util-linux-extra install), `bash scripts/preflight.sh` exits 0 with all 14 PRE-xx checks passing. Specifically the 3 Test-4 caveats are closed: PRE-12 reports skew < 30s (not 14400s); PRE-05 k9s reports `0.50.18 (matches 0.50.18)` (not ASCII banner); PRE-03 reports warn (not fail) on 192.168.1.1/24 home-router subnet.
+result: pending
+why_human: Only a live re-run on rich@Area-51 (the WSL2 box where Test 4 originally produced the 3 pass_with_caveats failures) can confirm the round-2 fixes close those specific failures.
+
+### 6. WR-02 policy decision (172.16.0.0/12 in home-router CIDR whitelist)
+expected: Developer picks one of: (a) accept the 172.16.0.0/12 inclusion in preflight_check_mirrored_mode()'s warn()-downgrade whitelist — record an override in 01-VERIFICATION.md frontmatter, OR (b) revert by removing line 227 of scripts/lib/preflight-lib.sh to match must_have truth 5 exactly (`192.168.0.0/16 or 10.0.0.0/8` only).
+result: pending
+why_human: The plan has an internal inconsistency — must_have truth 5 says `192.168.0.0/16 or 10.0.0.0/8` but the task action text includes 172.16.0.0/12. This is a policy decision: treat 172.16/12 as a home-router CIDR (less safe for corporate/VPN users) or not?
+
 ## Summary
 
-total: 4
+total: 6
 passed: 3
 pass_with_caveats: 1
 issues: 0
-pending: 0
+pending: 2
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-The following issues surfaced during live UAT on Test 4. ALL are unrelated to plan 01-08's gap-closure scope (CR-01 + CR-02 both validated live). Feeds into the next `/gsd-plan-phase 01 --gaps` cycle.
+The 4 issues below surfaced during round-1 UAT on Test 4 and were closed by plan 01-09 (round-2 gap closure). Status transitioned `failed` → `resolved` after the round-2 code edits. Round-2 surfaced 1 new WARNING (WR-02, 172.16/12 scope) that is tracked as Test 6 above and awaits a human policy decision.
 
 - truth: "preflight.sh PRE-12 clock skew check reports accurate delta between WSL and Windows clocks"
-  status: failed
+  status: resolved
   reason: "PowerShell's `Get-Date -UFormat %s` returns local-time-as-if-UTC seconds (known PowerShell quirk), while `date +%s` returns true UTC seconds. The comparison in PRE-12 produces a false-positive clock skew equal to the timezone offset on every run (14400s in EDT, 25200s in MST, etc.). Reproducer: on any WSL2 box in a non-UTC timezone, PRE-12 always reports a skew of (|TZ-offset-seconds|)."
   severity: major
   test: 4
@@ -99,7 +117,7 @@ The following issues surfaced during live UAT on Test 4. ALL are unrelated to pl
     - "Replace `powershell.exe -NoProfile -Command 'Get-Date -UFormat %s'` with a call that returns true UTC seconds. Options: `powershell.exe -NoProfile -Command '[int][double]::Parse((Get-Date (Get-Date).ToUniversalTime() -UFormat %s))'` or use `[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()` in PowerShell. Validate: on a box with WSL/Windows in sync, the delta should be < 30s regardless of local timezone."
 
 - truth: "preflight.sh PRE-05 k9s version check parses k9s's multi-line version output correctly"
-  status: failed
+  status: resolved
   reason: "preflight.sh's `show_tool_version` helper (or the inline k9s case) grabs k9s's ASCII-art banner (`____  __ ________`) as the version string. Reproducer: `k9s version | head -1` returns the banner's top border; the version string appears several lines down after the ASCII art. Current check: `k9s: version mismatch — expected 0.50.18, got  ____  __ ________ . Run scripts/install-tools.sh` — falsely flags k9s as broken when it's correctly installed."
   severity: minor
   test: 4
@@ -110,7 +128,7 @@ The following issues surfaced during live UAT on Test 4. ALL are unrelated to pl
     - "Update the k9s version extraction to: `k9s version | grep -oP 'Version:\\s+\\K.*' || k9s version --short 2>/dev/null`. Validate: on a box with k9s 0.50.18 installed via asdf, the version detection returns `0.50.18` (or equivalent match), not the banner."
 
 - truth: "preflight.sh PRE-03 mirrored-mode heuristic correctly distinguishes mirrored mode from NAT mode on networks where Windows host IP falls inside the WSL interface subnet"
-  status: failed
+  status: resolved
   reason: "The ip_in_cidr subnet-overlap heuristic fires when Windows host IP (e.g., 192.168.1.1 home router) is inside WSL's eth1 CIDR (e.g., 192.168.1.184/24). On a typical home network where WSL is NAT'd into the same /24 as the Windows host, the check always flags mirrored mode regardless of the actual networkingMode setting. The script's own output includes a 'False-positive note' acknowledging this edge case, but the fail() is emitted unconditionally."
   severity: minor
   test: 4
@@ -121,7 +139,7 @@ The following issues surfaced during live UAT on Test 4. ALL are unrelated to pl
     - "Add a stronger signal before calling fail(): e.g., check `wsl.exe --status` output for 'networkingMode: mirrored', or read the actual /etc/wsl.conf / .wslconfig if accessible, or downgrade this to warn() when the false-positive scenario is detected (Windows host IP is exactly the default gateway AND the CIDR is a common home-router range like 192.168.x.0/24)."
 
 - truth: "install-docker.sh ensures hwclock binary is installed as a prerequisite for hwclock-resume.service"
-  status: failed
+  status: resolved
   reason: "install-docker.sh installs hwclock-resume.service pointing at /sbin/hwclock in Section 7 (enabled via systemctl enable), but on Ubuntu 24.04 the `hwclock` binary lives in util-linux-extra (split from util-linux in newer Ubuntu versions) and isn't installed by default on minimal WSL2 images. Result: hwclock-resume.service fails on every resume with 'hwclock: command not found', silently. Also prevents the preflight.sh remediation suggestion `sudo hwclock -s` from working."
   severity: major
   test: 4
