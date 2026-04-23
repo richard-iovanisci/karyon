@@ -50,6 +50,9 @@ Out of scope (owned elsewhere):
 ### Delete Script — Build-Cache Defense (`scripts/delete-clusters.sh`)
 - **D-14:** Script removes the three clusters first, then `k8s-net` (order matters — containers must detach before network removal). **Top-of-file blocking comment**: `# INTENTIONALLY NOT calling docker system prune or docker builder prune — CUDA build layers must survive the task rebuild SLO (REQ-DESTROY-03).` **Post-run verification**: `docker images karyon/k3s-cuda | grep -q k3s-cuda` → if the image has vanished, `fail` loudly (catches anyone who slips a prune command in downstream). Defense-in-depth before Phase 6's DESTROY-04 lint ships.
 
+### NVIDIA Device Plugin Version Override (REQ-IMG-04)
+- **D-15:** `DEVICE_PLUGIN_VERSION` is pinned to **v0.17.4** for this phase, overriding REQ-IMG-04's "v0.19.0+" wording. Rationale: the researcher confirmed in the Phase 2 planning discussion log (2026-04-23) that v0.19.x had not cut a stable release compatible with RTX 5090 / Blackwell / sm_120 at research time; v0.17.4 is the current nvcr.io/nvidia/k8s-device-plugin stable release for this GPU generation. REQUIREMENTS.md text ("v0.19.0+") remains authoritative for future bumps — this D-15 is the phase-scoped exception. References: `02-CONTEXT.md §decisions D-03` (DEVICE_PLUGIN_VERSION ARG), `images/device-plugin-daemonset.yaml` image tag, `images/Dockerfile.k3s-cuda` ARG default, `tests/bats/cuda-image-04-device-plugin.bats` IMG-04 assertion.
+
 ### Claude's Discretion
 
 These were not explicitly discussed; planner/researcher decides:
