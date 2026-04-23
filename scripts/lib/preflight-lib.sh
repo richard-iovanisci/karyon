@@ -223,8 +223,7 @@ preflight_check_mirrored_mode() {
       # did NOT confirm mirrored mode.
       local is_home_router_cidr=0
       if ip_in_cidr "${cidr%%/*}" "192.168.0.0/16" \
-         || ip_in_cidr "${cidr%%/*}" "10.0.0.0/8" \
-         || ip_in_cidr "${cidr%%/*}" "172.16.0.0/12"; then
+         || ip_in_cidr "${cidr%%/*}" "10.0.0.0/8"; then
         is_home_router_cidr=1
       fi
 
