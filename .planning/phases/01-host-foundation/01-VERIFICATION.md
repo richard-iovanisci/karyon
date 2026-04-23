@@ -1,39 +1,28 @@
 ---
 phase: 01-host-foundation
-verified: 2026-04-23T15:30:00Z
+verified: 2026-04-23T15:55:00Z
 status: human_needed
-score: 9/10 must-haves verified
+score: 10/10 must-haves verified
 overrides_applied: 0
 re_verification:
   previous_status: human_needed
-  previous_score: 16/16
-  previous_round: round-1 (plan 01-08 gap closure)
-  this_round: round-2 (plan 01-09 gap closure)
+  previous_score: 9/10 (round-2a before WR-02 fix)
+  previous_round: round-2a (plan 01-09 raw output)
+  this_round: round-2b (WR-02 fix applied)
   gaps_closed:
     - "PRE-12 clock skew false positive — UtcNow.ToUnixTimeSeconds() replaces Get-Date -UFormat %s"
     - "PRE-05 k9s parser — grep -oP 'Version:\\s+\\K\\S+' replaces head -1"
     - "install-docker.sh missing util-linux-extra — Section 0 now installs it with dpkg -s guard"
     - "PRE-03 mirrored-mode false positive — authoritative wsl.exe --status pre-check + warn()-downgrade for home-router subnets"
+    - "WR-02: 172.16.0.0/12 removed from home-router CIDR whitelist — scripts/lib/preflight-lib.sh now matches must_have truth 5 exactly (192.168.0.0/16 and 10.0.0.0/8). Commit 2ebae5c. Bats 25/25 still pass."
   wr01_status: "FALSE POSITIVE — WR-01 from 01-REVIEW.md is incorrect. Bash $() command substitution strips NUL bytes from UTF-16LE output (verified by simulation), so grep matches correctly. Truth 6 is VERIFIED."
-  wr02_status: "REAL but UNCERTAIN — 172.16.0.0/12 in code exceeds must_have truth 5 scope (192.168.0.0/16 or 10.0.0.0/8 only). The task action in 01-09-PLAN.md explicitly authorized 172.16/12, creating an internal plan inconsistency. Requires human decision to accept or revert."
+  wr02_status: "RESOLVED — 172.16.0.0/12 removed in commit 2ebae5c per developer decision. Code now matches must_have truth 5."
   regressions: []
-gaps:
-  - truth: "preflight_check_mirrored_mode() downgrades to warn() only for 192.168.0.0/16 or 10.0.0.0/8 (must_have truth 5)"
-    status: partial
-    reason: "Code includes 172.16.0.0/12 in the warn()-downgrade whitelist (line 227 of preflight-lib.sh). Must_have truth 5 authorizes only '192.168.0.0/16 or 10.0.0.0/8 private ranges'. The task action in 01-09-PLAN.md explicitly listed 172.16/12 (internal plan inconsistency). Impact: corporate/VPN networks on 172.16/12 blocks would get warn() instead of the D-01-required fail() on subnet overlap — if they happen to also have the Windows host as default gateway and wsl.exe does not confirm mirrored."
-    artifacts:
-      - path: "scripts/lib/preflight-lib.sh"
-        issue: "Line 227: `|| ip_in_cidr \"${cidr%%/*}\" \"172.16.0.0/12\"` — adds an unauthorized CIDR range to the warn()-downgrade predicate"
-    missing:
-      - "Remove 172.16.0.0/12 from the is_home_router_cidr check to match the must_have truth exactly: keep only 192.168.0.0/16 and 10.0.0.0/8"
-      - "OR: accept the deviation via override (the task action text did include it — see override suggestion below)"
+gaps: []
 human_verification:
-  - test: "preflight.sh exits 0 on the live rich@Area-51 WSL2 box after plan 01-09 edits (phase goal re-validation)"
+  - test: "preflight.sh exits 0 on the live rich@Area-51 WSL2 box after plan 01-09 + WR-02 fix edits (phase goal re-validation)"
     expected: "After re-running scripts/install-docker.sh (to install util-linux-extra), running `bash scripts/preflight.sh` exits 0 with all 14 PRE-xx checks passing. Specifically: PRE-12 reports skew < 30s (not 14400s), PRE-05 k9s reports '0.50.18 (matches 0.50.18)' (not ASCII art), PRE-03 reports warn (not fail) on 192.168.1.1/24 home router subnet."
     why_human: "The prior UAT (01-HUMAN-UAT.md Test 4) produced 3 pass_with_caveats entries that plan 01-09 was designed to close. Only a live re-run on rich@Area-51 can confirm the 3 specific failures are now closed."
-  - test: "WR-02 disposition: accept or revert 172.16.0.0/12 from home-router CIDR whitelist"
-    expected: "Developer decides: (a) accept 172.16.0.0/12 inclusion (add override), or (b) revert by removing the 172.16.0.0/12 line from preflight-lib.sh:227 to match must_have truth 5 exactly."
-    why_human: "The plan has an internal inconsistency — must_have truth 5 says '192.168.0.0/16 or 10.0.0.0/8' but the task action text includes 172.16.0.0/12. This is a policy decision: does the project want to treat 172.16/12 as a home-router CIDR (less safe for corporate/VPN users) or not?"
 ---
 
 # Phase 01: Host Foundation Verification Report (Round 2)

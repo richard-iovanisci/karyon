@@ -86,16 +86,16 @@ why_human: Only a live re-run on rich@Area-51 (the WSL2 box where Test 4 origina
 
 ### 6. WR-02 policy decision (172.16.0.0/12 in home-router CIDR whitelist)
 expected: Developer picks one of: (a) accept the 172.16.0.0/12 inclusion in preflight_check_mirrored_mode()'s warn()-downgrade whitelist — record an override in 01-VERIFICATION.md frontmatter, OR (b) revert by removing line 227 of scripts/lib/preflight-lib.sh to match must_have truth 5 exactly (`192.168.0.0/16 or 10.0.0.0/8` only).
-result: pending
-why_human: The plan has an internal inconsistency — must_have truth 5 says `192.168.0.0/16 or 10.0.0.0/8` but the task action text includes 172.16.0.0/12. This is a policy decision: treat 172.16/12 as a home-router CIDR (less safe for corporate/VPN users) or not?
+result: resolved
+resolution: Option (b) — reverted. 172.16.0.0/12 removed from preflight_check_mirrored_mode() warn()-downgrade whitelist in commit 2ebae5c. Remaining CIDRs match must_have truth 5 exactly: `192.168.0.0/16` and `10.0.0.0/8`. Bash syntax clean on scripts/lib/preflight-lib.sh; all 25 bats tests still pass.
 
 ## Summary
 
 total: 6
-passed: 3
+passed: 4
 pass_with_caveats: 1
 issues: 0
-pending: 2
+pending: 1
 skipped: 0
 blocked: 0
 
