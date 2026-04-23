@@ -1,28 +1,29 @@
 ---
 phase: 01-host-foundation
-verified: 2026-04-23T15:55:00Z
-status: human_needed
+verified: 2026-04-23T16:10:00Z
+status: passed
 score: 10/10 must-haves verified
 overrides_applied: 0
 re_verification:
   previous_status: human_needed
-  previous_score: 9/10 (round-2a before WR-02 fix)
-  previous_round: round-2a (plan 01-09 raw output)
-  this_round: round-2b (WR-02 fix applied)
+  previous_score: 10/10 (round-2b before live UAT)
+  previous_round: round-2b (WR-02 fix applied, awaiting live UAT)
+  this_round: round-2c (live UAT passed + k9s parser second-pass fix)
   gaps_closed:
-    - "PRE-12 clock skew false positive — UtcNow.ToUnixTimeSeconds() replaces Get-Date -UFormat %s"
-    - "PRE-05 k9s parser — grep -oP 'Version:\\s+\\K\\S+' replaces head -1"
-    - "install-docker.sh missing util-linux-extra — Section 0 now installs it with dpkg -s guard"
-    - "PRE-03 mirrored-mode false positive — authoritative wsl.exe --status pre-check + warn()-downgrade for home-router subnets"
-    - "WR-02: 172.16.0.0/12 removed from home-router CIDR whitelist — scripts/lib/preflight-lib.sh now matches must_have truth 5 exactly (192.168.0.0/16 and 10.0.0.0/8). Commit 2ebae5c. Bats 25/25 still pass."
+    - "PRE-12 clock skew false positive — UtcNow.ToUnixTimeSeconds() replaces Get-Date -UFormat %s (live: skew within 1s of threshold 30s)"
+    - "PRE-05 k9s parser — initial grep -oP '\\K' failed live due to ANSI color codes; second-pass fix uses `k9s version --short | awk '/^Version/ {print $NF; exit}'` (live: reports v0.50.18 matches 0.50.18)"
+    - "install-docker.sh missing util-linux-extra — Section 0 now installs it with dpkg -s guard (live: no hwclock errors)"
+    - "PRE-03 mirrored-mode false positive — authoritative wsl.exe --status pre-check + warn()-downgrade for home-router subnets (live: emits warn not fail on 192.168.1.1/24)"
+    - "WR-02: 172.16.0.0/12 removed from home-router CIDR whitelist — scripts/lib/preflight-lib.sh now matches must_have truth 5 exactly (192.168.0.0/16 and 10.0.0.0/8)"
   wr01_status: "FALSE POSITIVE — WR-01 from 01-REVIEW.md is incorrect. Bash $() command substitution strips NUL bytes from UTF-16LE output (verified by simulation), so grep matches correctly. Truth 6 is VERIFIED."
   wr02_status: "RESOLVED — 172.16.0.0/12 removed in commit 2ebae5c per developer decision. Code now matches must_have truth 5."
   regressions: []
+live_uat:
+  ran_on: rich@Area-51 (WSL2 Ubuntu 24.04.2, RTX 5090)
+  ran_at: 2026-04-23T16:05:00Z
+  result: "45 passed, 1 warnings (expected home-router downgrade), 0 failed. Exit 0. Phase goal achieved."
 gaps: []
-human_verification:
-  - test: "preflight.sh exits 0 on the live rich@Area-51 WSL2 box after plan 01-09 + WR-02 fix edits (phase goal re-validation)"
-    expected: "After re-running scripts/install-docker.sh (to install util-linux-extra), running `bash scripts/preflight.sh` exits 0 with all 14 PRE-xx checks passing. Specifically: PRE-12 reports skew < 30s (not 14400s), PRE-05 k9s reports '0.50.18 (matches 0.50.18)' (not ASCII art), PRE-03 reports warn (not fail) on 192.168.1.1/24 home router subnet."
-    why_human: "The prior UAT (01-HUMAN-UAT.md Test 4) produced 3 pass_with_caveats entries that plan 01-09 was designed to close. Only a live re-run on rich@Area-51 can confirm the 3 specific failures are now closed."
+human_verification: []
 ---
 
 # Phase 01: Host Foundation Verification Report (Round 2)

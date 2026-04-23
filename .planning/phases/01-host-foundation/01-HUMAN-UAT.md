@@ -1,22 +1,22 @@
 ---
-status: partial
+status: complete
 phase: 01-host-foundation
 source: [01-VERIFICATION.md]
 started: 2026-04-22T23:59:00Z
-updated: 2026-04-23T15:45:00Z
+updated: 2026-04-23T16:10:00Z
 rounds:
   - round: 1
     plan: 01-08
     status: complete
   - round: 2
     plan: 01-09
-    status: partial
-    awaiting: [live re-run on rich@Area-51, WR-02 policy decision]
+    status: complete
+    notes: "Live re-run passed (preflight.sh exited 0 with 45 passed, 1 expected warning, 0 failures). WR-02 resolved via revert."
 ---
 
 ## Current Test
 
-[round-2 awaiting human verification: live re-run and WR-02 policy decision]
+[testing complete — round 2 live UAT passed on rich@Area-51]
 
 ## Tests
 
@@ -81,8 +81,17 @@ notes: |
 
 ### 5. preflight.sh live re-run after plan 01-09 edits (round 2 re-validation)
 expected: After re-running `scripts/install-docker.sh` (picks up util-linux-extra install), `bash scripts/preflight.sh` exits 0 with all 14 PRE-xx checks passing. Specifically the 3 Test-4 caveats are closed: PRE-12 reports skew < 30s (not 14400s); PRE-05 k9s reports `0.50.18 (matches 0.50.18)` (not ASCII banner); PRE-03 reports warn (not fail) on 192.168.1.1/24 home-router subnet.
-result: pending
-why_human: Only a live re-run on rich@Area-51 (the WSL2 box where Test 4 originally produced the 3 pass_with_caveats failures) can confirm the round-2 fixes close those specific failures.
+result: pass
+notes: |
+  Live run on rich@Area-51 WSL2 Ubuntu 24.04.2 after plan 01-09 + WR-02 revert + k9s-parser second-pass fix. Final output: `45 passed, 1 warnings, 0 failed. No blockers — review warnings and proceed.` Exit 0.
+
+  Round-2 gap closures confirmed live:
+  - PRE-12 clock skew: `within 1s (threshold 30s)` — UtcNow.ToUnixTimeSeconds() fix working; previously reported 14400s (EDT offset).
+  - PRE-05 k9s: `v0.50.18 (matches 0.50.18)` — required a second-pass fix after round-2 shipped. The initial `grep -oP 'Version:\s+\K\S+'` on `k9s version` failed in practice because k9s emits ANSI color codes in the interactive-format output that break the `\K` anchor. Fixed to `k9s version --short | awk '/^Version/ {print $NF; exit}'` — the `--short` flag disables color and produces a plain `Version              v0.50.18` line. Commit bcc... (to be filled) on main.
+  - PRE-03 mirrored-mode: `Mirrored-mode heuristic fired ... Likely false positive from shared home-router subnet` emitted as `warn()` (!), not `fail()` (✗). Hard-fail path preserved for unambiguous wsl.exe --status mirrored signal.
+  - util-linux-extra: implied by `✓ docker daemon reachable` + `✓ docker has nvidia runtime registered` + no hwclock errors in output (post-install-docker.sh run).
+
+  The 1 remaining warning is the expected mirrored-mode home-router false-positive downgrade (scoped by plan 01-09 must_have truth 5). It is by design — acceptable on home networks where WSL is NAT'd into the same /24 as the Windows host.
 
 ### 6. WR-02 policy decision (172.16.0.0/12 in home-router CIDR whitelist)
 expected: Developer picks one of: (a) accept the 172.16.0.0/12 inclusion in preflight_check_mirrored_mode()'s warn()-downgrade whitelist — record an override in 01-VERIFICATION.md frontmatter, OR (b) revert by removing line 227 of scripts/lib/preflight-lib.sh to match must_have truth 5 exactly (`192.168.0.0/16 or 10.0.0.0/8` only).
@@ -92,10 +101,10 @@ resolution: Option (b) — reverted. 172.16.0.0/12 removed from preflight_check_
 ## Summary
 
 total: 6
-passed: 4
+passed: 5
 pass_with_caveats: 1
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
