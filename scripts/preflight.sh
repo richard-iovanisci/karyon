@@ -243,7 +243,7 @@ show_tool_version() {
     asdf)    asdf --version 2>/dev/null ;;
     jq)      jq --version 2>/dev/null ;;
     yq)      yq --version 2>/dev/null | head -1 ;;
-    k9s)     k9s version 2>/dev/null | grep -oP 'Version:\s+\K\S+' ;;
+    k9s)     k9s version --short 2>/dev/null | awk '/^Version/ {print $NF; exit}' ;;
     *)       "$t" --version 2>&1 | head -1 ;;
   esac
 }
