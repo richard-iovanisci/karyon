@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
-status: executing
-stopped_at: Phase 2 context gathered
+status: blocked
+stopped_at: Phase 2 Plan 02-05 Task 2 — spoke-ml k3s apiserver never comes up; likely caused by images/config.toml.tmpl default_runtime_name override. See .planning/phases/02-cluster-layer/.continue-here.md for full diagnosis and resume path.
 last_updated: "2026-04-24T00:10:14.555Z"
 last_activity: 2026-04-24
 progress:
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 
 ## Current Position
 
-Phase: 02 (cluster-layer) — EXECUTING
+Phase: 02 (cluster-layer) — BLOCKED at Plan 05 Task 2 (live cluster bring-up)
 Plan: 5 of 7
-Status: Ready to execute
+Status: Blocked — see .planning/phases/02-cluster-layer/.continue-here.md
 Last activity: 2026-04-24
 
 Progress: [████████░░] 81%
