@@ -51,11 +51,11 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 
 ### Cluster Layer
 
-- [ ] **CLU-01**: `scripts/create-clusters.sh` idempotently creates the `k8s-net` Docker network if missing
-- [ ] **CLU-02**: Creates `hub-flux` cluster on API port 6443 using `rancher/k3s:v1.34.6-k3s1`, attached to `k8s-net`
-- [ ] **CLU-03**: Creates `spoke-ml` cluster on API port 6444 with `--gpus all`, using the custom k3s+CUDA image, attached to `k8s-net`
-- [ ] **CLU-04**: Creates `spoke-apps` cluster on API port 6445 using `rancher/k3s:v1.34.6-k3s1`, attached to `k8s-net`
-- [ ] **CLU-05**: Each cluster passes its TLS SAN via `--k3s-arg '--tls-san=k3d-<name>-server-0@server:*'` (NOT as a top-level `--tls-san` flag — this is not a k3d flag)
+- [x] **CLU-01**: `scripts/create-clusters.sh` idempotently creates the `k8s-net` Docker network if missing
+- [x] **CLU-02**: Creates `hub-flux` cluster on API port 6443 using `rancher/k3s:v1.34.6-k3s1`, attached to `k8s-net`
+- [x] **CLU-03**: Creates `spoke-ml` cluster on API port 6444 with `--gpus all`, using the custom k3s+CUDA image, attached to `k8s-net`
+- [x] **CLU-04**: Creates `spoke-apps` cluster on API port 6445 using `rancher/k3s:v1.34.6-k3s1`, attached to `k8s-net`
+- [x] **CLU-05**: Each cluster passes its TLS SAN via `--k3s-arg '--tls-san=k3d-<name>-server-0@server:*'` (NOT as a top-level `--tls-san` flag — this is not a k3d flag)
 - [ ] **CLU-06**: `scripts/delete-clusters.sh` removes all three clusters and the `k8s-net` network without pruning Docker build cache
 
 ### Flux Hub Bootstrap
@@ -205,11 +205,11 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 | IMG-04 | Phase 2 | Complete |
 | IMG-05 | Phase 2 | Complete |
 | IMG-06 | Phase 2 | Pending |
-| CLU-01 | Phase 2 | Pending |
-| CLU-02 | Phase 2 | Pending |
-| CLU-03 | Phase 2 | Pending |
-| CLU-04 | Phase 2 | Pending |
-| CLU-05 | Phase 2 | Pending |
+| CLU-01 | Phase 2 | Complete |
+| CLU-02 | Phase 2 | Complete |
+| CLU-03 | Phase 2 | Complete |
+| CLU-04 | Phase 2 | Complete |
+| CLU-05 | Phase 2 | Complete |
 | CLU-06 | Phase 2 | Pending |
 | FLUX-01 | Phase 3 | Pending |
 | FLUX-02 | Phase 3 | Pending |
