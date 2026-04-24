@@ -61,13 +61,13 @@ Plans:
 **Plans**: 7 plans (5 waves)
 
 Plans:
-- [ ] 02-01-PLAN.md — Wave 0 test scaffolding: 12 bats files + test_helper.bash extension (REQ coverage: IMG-01..06, CLU-01..06)
-- [ ] 02-02-PLAN.md — Dockerfile.k3s-cuda + image-tag.sh (IMG-01, IMG-02; Wave 1)
-- [ ] 02-03-PLAN.md — config.toml.tmpl + device-plugin-daemonset.yaml (IMG-03, IMG-04; Wave 1)
-- [ ] 02-04-PLAN.md — scripts/build-image.sh + activate IMG-03/05 live bats (IMG-01..06; Wave 2)
-- [ ] 02-05-PLAN.md — scripts/create-clusters.sh with D-13 SAN verify (CLU-01..05; Wave 3; checkpoint)
-- [ ] 02-06-PLAN.md — scripts/delete-clusters.sh with D-14 cache defense (CLU-06, IMG-06; Wave 3; checkpoint)
-- [ ] 02-07-PLAN.md — Taskfile.yml stub (build-image/create-clusters/delete-clusters; Wave 4)
+- [x] 02-01-PLAN.md — Wave 0 test scaffolding: 12 bats files + test_helper.bash extension (REQ coverage: IMG-01..06, CLU-01..06)
+- [x] 02-02-PLAN.md — Dockerfile.k3s-cuda + image-tag.sh (IMG-01, IMG-02; Wave 1)
+- [x] 02-03-PLAN.md — config.toml.tmpl + device-plugin-daemonset.yaml (IMG-03, IMG-04; Wave 1)
+- [x] 02-04-PLAN.md — scripts/build-image.sh + activate IMG-03/05 live bats (IMG-01..06; Wave 2)
+- [x] 02-05-PLAN.md — scripts/create-clusters.sh with D-13 SAN verify (CLU-01..05; Wave 3; checkpoint)
+- [x] 02-06-PLAN.md — scripts/delete-clusters.sh with D-14 cache defense (CLU-06, IMG-06; Wave 3; checkpoint)
+- [x] 02-07-PLAN.md — Taskfile.yml stub (build-image/create-clusters/delete-clusters; Wave 4)
 
 ### Phase 3: Flux Hub Bootstrap
 **Goal**: `flux --context k3d-hub-flux get kustomizations -A` shows the root `flux-system` Kustomization as `Ready=True`; the hub is self-managing and commits to `clusters/hub-flux/**` round-trip through reconciliation.
@@ -140,7 +140,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 
 ## Parallelization Notes
 
-**config.json:** `parallelization=true`, `granularity=standard`, `mode=yolo`, `model_profile=quality`.
+**config.json:** `parallelization=true`, `granularity=standard`, `mode=yolo`, `model_profile=inherit`.
 
 **Hard ordering (cannot parallelize):**
 - Phase 1 → Phase 2: cluster creation requires Docker + GPU chain + pinned tools.
