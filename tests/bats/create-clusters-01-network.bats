@@ -14,9 +14,8 @@ teardown() {
 }
 
 @test "CLU-01: scripts/create-clusters.sh declares k8s-net subnet 172.30.0.0/16 and driver bridge" {
-  skip "awaiting implementation in plan 02-05 (scripts/create-clusters.sh created)"
-  # run grep -E '^readonly K8S_NET_SUBNET="172\.30\.0\.0/16"' "$SCRIPT"
-  # [ "$status" -eq 0 ]
-  # run grep -E '^readonly K8S_NET_DRIVER="bridge"' "$SCRIPT"
-  # [ "$status" -eq 0 ]
+  run grep -E '^readonly K8S_NET_SUBNET="172\.30\.0\.0/16"' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -E '^readonly K8S_NET_DRIVER="bridge"' "$SCRIPT"
+  [ "$status" -eq 0 ]
 }

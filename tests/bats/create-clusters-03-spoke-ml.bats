@@ -14,8 +14,8 @@ teardown() {
 }
 
 @test "CLU-03: spoke-ml advertises nvidia.com/gpu capacity >= 1" {
-  skip "awaiting implementation in plans 02-02..02-05 (CUDA image + create-clusters)"
-  # run bash -c "kubectl --context k3d-spoke-ml get nodes -o jsonpath='{.items[*].status.capacity.nvidia\.com/gpu}'"
-  # [ "$status" -eq 0 ]
-  # [ -n "$output" ] && [ "$output" -ge 1 ]
+  run bash -c "kubectl --context k3d-spoke-ml get nodes -o jsonpath='{.items[*].status.capacity.nvidia\.com/gpu}'"
+  [ "$status" -eq 0 ]
+  [ -n "$output" ]
+  [ "$output" -ge 1 ]
 }

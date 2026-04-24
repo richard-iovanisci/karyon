@@ -14,8 +14,7 @@ teardown() {
 }
 
 @test "CLU-02: hub-flux cluster reports 1 Ready node" {
-  skip "awaiting implementation in plan 02-05 (create-clusters.sh creates hub-flux)"
-  # run bash -c "kubectl --context k3d-hub-flux get nodes --no-headers 2>/dev/null | grep -c Ready"
-  # [ "$status" -eq 0 ]
-  # [ "$output" -ge 1 ]
+  run bash -c "kubectl --context k3d-hub-flux get nodes --no-headers 2>/dev/null | grep -c Ready"
+  [ "$status" -eq 0 ]
+  [ "$output" -ge 1 ]
 }

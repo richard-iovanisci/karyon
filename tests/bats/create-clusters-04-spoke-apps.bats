@@ -14,8 +14,7 @@ teardown() {
 }
 
 @test "CLU-04: spoke-apps cluster reports 1 Ready node" {
-  skip "awaiting implementation in plan 02-05 (create-clusters.sh creates spoke-apps)"
-  # run bash -c "kubectl --context k3d-spoke-apps get nodes --no-headers 2>/dev/null | grep -c Ready"
-  # [ "$status" -eq 0 ]
-  # [ "$output" -ge 1 ]
+  run bash -c "kubectl --context k3d-spoke-apps get nodes --no-headers 2>/dev/null | grep -c Ready"
+  [ "$status" -eq 0 ]
+  [ "$output" -ge 1 ]
 }

@@ -13,16 +13,16 @@ teardown() {
   :
 }
 
-@test "CLU-05: --k3s-arg --tls-san wildcard nodefilter present in helper AND apiserver certs carry expected SAN" {
-  skip "awaiting implementation in plan 02-05 (scripts/create-clusters.sh created)"
-  # run grep -F -- "--tls-san=k3d-\${name}-server-0@server:*" "$SCRIPT"
-  # [ "$status" -eq 0 ]
+@test "CLU-05: scripts/create-clusters.sh uses --k3s-arg --tls-san=k3d-NAME-server-0@server:* (wildcard nodefilter)" {
+  run grep -F -- "--tls-san=k3d-\${name}-server-0@server:*" "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- "@server:0" "$SCRIPT"
+  [ "$status" -ne 0 ]
 }
 
 @test "CLU-05 (live): hub-flux apiserver cert SAN includes k3d-hub-flux-server-0" {
   require_live
-  skip "awaiting implementation in plan 02-05 (cluster up)"
-  # run bash -c "openssl s_client -connect 127.0.0.1:6443 -servername k3d-hub-flux-server-0 </dev/null 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -c 'DNS:k3d-hub-flux-server-0'"
-  # [ "$status" -eq 0 ]
-  # [ "$output" -ge 1 ]
+  run bash -c "openssl s_client -connect 127.0.0.1:6443 -servername k3d-hub-flux-server-0 </dev/null 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -c 'DNS:k3d-hub-flux-server-0'"
+  [ "$status" -eq 0 ]
+  [ "$output" -ge 1 ]
 }
