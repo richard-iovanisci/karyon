@@ -42,11 +42,11 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 
 ### CUDA Image
 
-- [ ] **IMG-01**: `images/Dockerfile.k3s-cuda` uses `FROM nvidia/cuda:12.8.1-base-ubuntu22.04` for the final stage, with k3s binaries layered in from `rancher/k3s:v1.34.6-k3s1` as a build stage
-- [ ] **IMG-02**: Dockerfile exposes an `ARG K3S_TAG` that tracks the pinned k3s line and defaults to `v1.34.6-k3s1`
-- [ ] **IMG-03**: Image includes a custom `config.toml.tmpl` setting `default_runtime_name = "nvidia"` (third leg of the 3-part k3d GPU contract)
-- [ ] **IMG-04**: A NVIDIA device-plugin manifest (Helm chart `nvidia-device-plugin` v0.19.0+, delivered via Flux HelmRelease on spoke-ml, is the preferred path per research)
-- [ ] **IMG-05**: The device-plugin manifest is also baked into the custom image at `/var/lib/rancher/k3s/server/manifests/` so `nvidia.com/gpu` capacity is available from t=0
+- [x] **IMG-01**: `images/Dockerfile.k3s-cuda` uses `FROM nvidia/cuda:12.8.1-base-ubuntu22.04` for the final stage, with k3s binaries layered in from `rancher/k3s:v1.34.6-k3s1` as a build stage
+- [x] **IMG-02**: Dockerfile exposes an `ARG K3S_TAG` that tracks the pinned k3s line and defaults to `v1.34.6-k3s1`
+- [x] **IMG-03**: Image includes a custom `config.toml.tmpl` setting `default_runtime_name = "nvidia"` (third leg of the 3-part k3d GPU contract)
+- [x] **IMG-04**: A NVIDIA device-plugin manifest (Helm chart `nvidia-device-plugin` v0.19.0+, delivered via Flux HelmRelease on spoke-ml, is the preferred path per research) — phase-scoped override to v0.17.4 per 02-CONTEXT.md D-15
+- [x] **IMG-05**: The device-plugin manifest is also baked into the custom image at `/var/lib/rancher/k3s/server/manifests/` so `nvidia.com/gpu` capacity is available from t=0
 - [ ] **IMG-06**: The image build is cached across `task destroy` — `task destroy` must not prune Docker build cache
 
 ### Cluster Layer
@@ -199,11 +199,11 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 | PRE-12 | Phase 1 | Pending |
 | PRE-13 | Phase 1 | Pending |
 | PRE-14 | Phase 1 | Pending |
-| IMG-01 | Phase 2 | Pending |
-| IMG-02 | Phase 2 | Pending |
-| IMG-03 | Phase 2 | Pending |
-| IMG-04 | Phase 2 | Pending |
-| IMG-05 | Phase 2 | Pending |
+| IMG-01 | Phase 2 | Complete |
+| IMG-02 | Phase 2 | Complete |
+| IMG-03 | Phase 2 | Complete |
+| IMG-04 | Phase 2 | Complete |
+| IMG-05 | Phase 2 | Complete |
 | IMG-06 | Phase 2 | Pending |
 | CLU-01 | Phase 2 | Pending |
 | CLU-02 | Phase 2 | Pending |
