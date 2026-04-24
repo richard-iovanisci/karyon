@@ -12,7 +12,7 @@
 #   /var/lib/rancher/k3s/agent/etc/containerd/config.toml
 # which containerd 2.0 then loads.
 #
-# {{ template "base" . }} pulls in the canonical k3s base template
+# The standalone base-template call below pulls in the canonical k3s base template.
 # (ContainerdConfigTemplateV3 in k3s/pkg/agent/templates/templates.go).
 # The base template already registers runtimes.nvidia when the
 # nvidia-container-runtime binary is present in the image (it is —
