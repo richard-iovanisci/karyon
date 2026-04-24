@@ -1,20 +1,20 @@
 ---
-status: partial
+status: resolved
 phase: 02-cluster-layer
 source: [02-VERIFICATION.md]
 started: 2026-04-24T20:10:00Z
-updated: 2026-04-24T20:10:00Z
+updated: 2026-04-24T20:30:00Z
 ---
 
 ## Current Test
 
-[awaiting human testing]
+[all tests resolved on rich@Area-51, 2026-04-24T20:30:00Z]
 
 ## Tests
 
 ### 1. All three clusters report Ready (exact column match, not substring)
 expected: Each cluster returns exactly one node with status `Ready` (not `NotReady`)
-result: [pending]
+result: passed — live run on rich@Area-51 2026-04-24T20:30:00Z returned `k3d-hub-flux-server-0 Ready`, `k3d-spoke-ml-server-0 Ready`, `k3d-spoke-apps-server-0 Ready` (column 2 exact match)
 
 Run:
 ```bash
@@ -29,7 +29,7 @@ Why human: CLU-02 / CLU-04 bats tests use `grep -c Ready`, which also matches `N
 
 ### 2. spoke-ml advertises nvidia.com/gpu capacity ≥ 1
 expected: Output is a non-empty integer >= 1
-result: [pending]
+result: passed — live run returned `1` (RTX 5090 GPU advertised by device-plugin DaemonSet)
 
 Run:
 ```bash
@@ -42,7 +42,7 @@ Why human: CLU-03 live-gated bats test passed on the Plan 02-05 checkpoint but c
 
 ### 3. All three apiserver cert SANs confirmed
 expected: Each openssl probe returns `1` (SAN present in cert)
-result: [pending]
+result: passed — live run returned `hub-flux (:6443): 1`, `spoke-ml (:6444): 1`, `spoke-apps (:6445): 1` (SAN present on all three apiserver certs)
 
 Run:
 ```bash
@@ -62,10 +62,11 @@ Why human: CLU-05 live bats test only probes hub-flux; spoke-ml and spoke-apps S
 ## Summary
 
 total: 3
-passed: 0
+passed: 3
 issues: 0
-pending: 3
+pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
+
