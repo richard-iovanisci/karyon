@@ -39,3 +39,11 @@ require_live() {
     skip "live test — set KARYON_LIVE_TESTS=1 to run (requires docker + k3d + GPU for some suites)"
   fi
 }
+
+# require_live_destructive: skip unless both KARYON_LIVE_TESTS and KARYON_LIVE_TESTS_DESTRUCTIVE are set.
+# Use ONLY for tests that destroy persistent state (e.g., delete-clusters live test).
+require_live_destructive() {
+  if [[ -z "${KARYON_LIVE_TESTS:-}" || -z "${KARYON_LIVE_TESTS_DESTRUCTIVE:-}" ]]; then
+    skip "destructive live test — set KARYON_LIVE_TESTS=1 KARYON_LIVE_TESTS_DESTRUCTIVE=1 to run (tears down k3d clusters)"
+  fi
+}
