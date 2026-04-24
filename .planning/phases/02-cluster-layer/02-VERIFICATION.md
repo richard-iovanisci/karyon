@@ -1,10 +1,12 @@
 ---
 phase: 02-cluster-layer
 verified: 2026-04-24T20:00:00Z
-status: human_needed
-score: 5/5 roadmap success criteria verified
+resolved: 2026-04-24T20:30:00Z
+status: passed
+score: 5/5 roadmap success criteria verified; 3/3 human items resolved (see 02-HUMAN-UAT.md)
 overrides_applied: 0
 re_verification: false
+human_verification_resolution: "All three human items resolved on rich@Area-51 at 2026-04-24T20:30:00Z — see 02-HUMAN-UAT.md (status: resolved). Live probes: (1) `k3d-hub-flux-server-0 Ready`, `k3d-spoke-ml-server-0 Ready`, `k3d-spoke-apps-server-0 Ready`; (2) spoke-ml advertises `nvidia.com/gpu=1`; (3) all three apiserver certs carry their k3d-<name>-server-0 SAN (openssl probes returned 1/1/1)."
 human_verification:
   - test: "kubectl --context k3d-hub-flux get nodes (and same for spoke-ml, spoke-apps) — confirm all three clusters are Ready"
     expected: "Each cluster returns exactly one node with status Ready (not NotReady)"
@@ -20,8 +22,8 @@ human_verification:
 # Phase 2: Cluster Layer Verification Report
 
 **Phase Goal:** `kubectl --context k3d-<name> get nodes` returns `Ready` for all three clusters, `spoke-ml` advertises `nvidia.com/gpu` capacity >= 1, and every apiserver's serving cert includes the `k3d-<name>-server-0` SAN.
-**Verified:** 2026-04-24T20:00:00Z
-**Status:** human_needed
+**Verified:** 2026-04-24T20:00:00Z (static) · 2026-04-24T20:30:00Z (human items resolved via 02-HUMAN-UAT.md)
+**Status:** passed
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
@@ -32,11 +34,11 @@ human_verification:
 |---|-------|--------|----------|
 | 1 | `docker build` produces a karyon/k3s-cuda image FROM nvidia/cuda:12.8.1-base-ubuntu22.04 with k3s binaries from rancher/k3s:v1.34.6-k3s1, config.toml.tmpl baked in, device-plugin DaemonSet baked at k3s auto-apply path, and build cache surviving `task destroy` | VERIFIED | Dockerfile.k3s-cuda exists (83 lines), ARG K3S_TAG=v1.34.6-k3s1, ARG CUDA_TAG=12.8.1-base-ubuntu22.04, both COPY destinations confirmed by grep; build-image.sh exercises them; Plan 02-04 Task 2 checkpoint approved on rich@Area-51 (nvidia-smi RTX 5090 confirmed); delete-clusters.sh carries D-14 comment + Section 3 image-survival post-run check; Plan 02-06 Task 2 checkpoint confirmed image survived teardown |
 | 2 | `scripts/create-clusters.sh` idempotently creates k8s-net (172.30.0.0/16, bridge), then hub-flux (:6443, stock), spoke-ml (:6444, --gpus all, CUDA image), spoke-apps (:6445, stock), each with `--k3s-arg '--tls-san=k3d-<name>-server-0@server:*'` | VERIFIED | Script exists (184 lines), executable, syntax-valid; grep confirms: K8S_NET_SUBNET="172.30.0.0/16", K8S_NET_DRIVER="bridge", K3S_STOCK_IMAGE="rancher/k3s:v1.34.6-k3s1", `--tls-san=k3d-${name}-server-0@server:*` wildcard (not @server:0), --gpus all exactly once (spoke-ml only), create_cluster() helper defined, 10-retry SAN loop present; Plan 02-05 Task 2 checkpoint confirmed 3 clusters up, spoke-ml nvidia.com/gpu=1, all 3 SANs correct |
-| 3 | `kubectl --context k3d-spoke-ml get nodes` capacity.nvidia.com/gpu >= 1; all three apiserver certs include k3d-<name>-server-0 SAN | HUMAN NEEDED | Live checkpoint evidence in SUMMARY (1 GPU, 3 SANs all confirmed 1/1/1 on rich@Area-51). Automated bats for GPU are live-gated and were approved at checkpoint. WARN-04 in 02-REVIEW.md notes the live bats only probe hub-flux SAN; spoke-ml and spoke-apps SANs verified only at checkpoint, not in bats. |
+| 3 | `kubectl --context k3d-spoke-ml get nodes` capacity.nvidia.com/gpu >= 1; all three apiserver certs include k3d-<name>-server-0 SAN | VERIFIED | Live re-probe on rich@Area-51 at 2026-04-24T20:30:00Z (recorded in 02-HUMAN-UAT.md, status: resolved): spoke-ml advertises `nvidia.com/gpu=1`; openssl probes returned `hub-flux (:6443): 1`, `spoke-ml (:6444): 1`, `spoke-apps (:6445): 1`. WARN-04 in 02-REVIEW.md (spoke-ml / spoke-apps SANs not in bats) remains an advisory coverage gap deferred to Phase 6; live correctness confirmed manually. |
 | 4 | `scripts/delete-clusters.sh` removes three clusters + k8s-net; karyon/k3s-cuda image survives teardown | VERIFIED | Script exists (68 lines), D-14 "INTENTIONALLY NOT calling" comment at line 4 confirmed by grep; per-cluster delete loop (NOT --all); docker network rm present; Section 3 post-run image-survival check present; zero actual prune invocations (all 3 grep hits are comment-only lines); Plan 02-06 Task 2 checkpoint: image survived, idempotent rerun showed >= 4 skips, rebuild < 5 min |
 | 5 | No script under scripts/ calls docker system prune or docker builder prune | VERIFIED | `grep -rE 'docker (system\|builder) prune' scripts/` produces only comment-only matches in delete-clusters.sh (lines 4, 52, 58); no executable invocations anywhere in scripts/ |
 
-**Score:** 5/5 roadmap success criteria verified at the static/code level. Two require human re-confirmation (live cluster state + spoke-ml/spoke-apps SAN coverage gap).
+**Score:** 5/5 roadmap success criteria verified. Static/code level: 5/5; live human re-probes: 3/3 resolved on 2026-04-24T20:30:00Z (see 02-HUMAN-UAT.md). WARN-04 (spoke-ml/spoke-apps SAN bats coverage gap) remains an advisory Phase-6 follow-up but does not block Phase 2 completion — live correctness is confirmed.
 
 ### Deferred Items
 
