@@ -116,9 +116,9 @@ create_cluster() {
       exit 1
     fi
 
-    # (c) API PORT drift (serverlb exposes the apiserver on the expected host port)
-    if ! echo "$actual_ports" | grep -qE "${port}/tcp=${port}"; then
-      fail "cluster ${name} API PORT drift (serverlb ports=${actual_ports:-?}, expected=${port}/tcp=${port}).
+    # (c) API PORT drift (serverlb always exposes container port 6443; host port varies per cluster)
+    if ! echo "$actual_ports" | grep -qE "6443/tcp=${port}"; then
+      fail "cluster ${name} API PORT drift (serverlb ports=${actual_ports:-?}, expected=6443/tcp=${port}).
          Fix: scripts/delete-clusters.sh && scripts/create-clusters.sh"
       exit 1
     fi
