@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: "02-06 Task 2 checkpoint:human-verify — awaiting live teardown on dev box"
-last_updated: "2026-04-24T00:00:00Z"
-last_activity: "2026-04-24 02-06 Task 1 complete (1b5b7ff) — paused at Task 2 live-teardown checkpoint"
+stopped_at: Completed 02-06 delete-clusters plan — CLU-06/IMG-06 closed
+last_updated: "2026-04-24T17:51:40.242Z"
+last_activity: 2026-04-24 -- Phase --phase execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 16
-  completed_plans: 14
-  percent: 88
+  completed_plans: 15
+  percent: 94
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-24 -- Phase --phase execution started
 
-Progress: [████████▊░] 88%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [████████▊░] 88%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 02-cluster-layer P06 | 45min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Phase 3: `flux bootstrap --path` is effectively immutable — hard-code `clusters/hub-flux` in the bootstrap script, reject env overrides.
 - Phase 4: Legacy Secret-backed SA tokens (not `kubectl create token`) — indefinite lifetime is correct for a lab and avoids token-expiry as a failure mode.
 - Phase 6: gitleaks pre-commit MUST be installed before the first `git push` — public-repo + leaked PAT is unrecoverable.
+- D-14 blocking comment is exact-text greppable ('INTENTIONALLY NOT calling') — Phase 6 DESTROY-04 lint will grep for this literal; not a free-form comment
+- require_live_destructive() double-gate prevents accidental cluster destruction during KARYON_LIVE_TESTS=1 full-suite runs
 
 ### Pending Todos
 
@@ -84,8 +87,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 2 context gathered
-Resume file: --resume-file
+Last session: 2026-04-24T17:51:40.236Z
+Stopped at: Completed 02-06 delete-clusters plan — CLU-06/IMG-06 closed
+Resume file: None
 
 **Planned Phase:** 02 (Cluster Layer) — 7 plans — 2026-04-23T18:38:22.700Z

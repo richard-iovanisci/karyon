@@ -47,7 +47,8 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 - [x] **IMG-03**: Image includes a custom `config.toml.tmpl` setting `default_runtime_name = "nvidia"` (third leg of the 3-part k3d GPU contract)
 - [x] **IMG-04**: A NVIDIA device-plugin manifest (Helm chart `nvidia-device-plugin` v0.19.0+, delivered via Flux HelmRelease on spoke-ml, is the preferred path per research) — phase-scoped override to v0.17.4 per 02-CONTEXT.md D-15
 - [x] **IMG-05**: The device-plugin manifest is also baked into the custom image at `/var/lib/rancher/k3s/server/manifests/` so `nvidia.com/gpu` capacity is available from t=0
-- [ ] **IMG-06**: The image build is cached across `task destroy` — `task destroy` must not prune Docker build cache
+- [x] **IMG-06
+**: The image build is cached across `task destroy` — `task destroy` must not prune Docker build cache
 
 ### Cluster Layer
 
@@ -56,7 +57,8 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 - [x] **CLU-03**: Creates `spoke-ml` cluster on API port 6444 with `--gpus all`, using the custom k3s+CUDA image, attached to `k8s-net`
 - [x] **CLU-04**: Creates `spoke-apps` cluster on API port 6445 using `rancher/k3s:v1.34.6-k3s1`, attached to `k8s-net`
 - [x] **CLU-05**: Each cluster passes its TLS SAN via `--k3s-arg '--tls-san=k3d-<name>-server-0@server:*'` (NOT as a top-level `--tls-san` flag — this is not a k3d flag)
-- [ ] **CLU-06**: `scripts/delete-clusters.sh` removes all three clusters and the `k8s-net` network without pruning Docker build cache
+- [x] **CLU-06
+**: `scripts/delete-clusters.sh` removes all three clusters and the `k8s-net` network without pruning Docker build cache
 
 ### Flux Hub Bootstrap
 
