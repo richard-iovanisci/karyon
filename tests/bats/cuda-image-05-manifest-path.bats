@@ -15,7 +15,6 @@ teardown() {
 }
 
 @test "IMG-05: device-plugin manifest baked at k3s auto-apply path /var/lib/rancher/k3s/server/manifests/nvidia-device-plugin-daemonset.yaml" {
-  skip "awaiting implementation in plan 02-03 (manifest created), 02-02 (COPY in Dockerfile), and 02-04 (image built)"
-  # run docker run --rm --entrypoint test "$TAG" -f /var/lib/rancher/k3s/server/manifests/nvidia-device-plugin-daemonset.yaml
-  # [ "$status" -eq 0 ]
+  run docker run --rm --entrypoint test "$TAG" -f /var/lib/rancher/k3s/server/manifests/nvidia-device-plugin-daemonset.yaml
+  [ "$status" -eq 0 ]
 }

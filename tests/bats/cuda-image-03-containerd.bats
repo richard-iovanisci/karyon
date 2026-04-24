@@ -15,8 +15,7 @@ teardown() {
 }
 
 @test "IMG-03: images/config.toml.tmpl baked at /var/lib/rancher/k3s/agent/etc/containerd/ sets default_runtime_name = \"nvidia\"" {
-  skip "awaiting implementation in plan 02-03 (config.toml.tmpl created) and plan 02-04 (image built)"
-  # run docker run --rm --entrypoint cat "$TAG" /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
-  # [ "$status" -eq 0 ]
-  # [[ "$output" =~ default_runtime_name\ =\ \"nvidia\" ]]
+  run docker run --rm --entrypoint cat "$TAG" /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ default_runtime_name\ =\ \"nvidia\" ]]
 }
