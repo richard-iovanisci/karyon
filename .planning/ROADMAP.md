@@ -80,7 +80,13 @@ Plans:
   2. `kubectl --context k3d-hub-flux -n flux-system get deploy` shows `source-controller`, `kustomize-controller`, `helm-controller`, `notification-controller` all Ready; `flux --context k3d-hub-flux check` passes.
   3. `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` are sourced exclusively from the gitignored `.env`; the script never prints the token value (verifiable by piping to a log and grepping for the literal PAT).
   4. `docs/flux-hub-spoke.md` exists and explicitly states: `gotk-components.yaml` + `gotk-sync.yaml` are bootstrap-managed (do not hand-edit), but `kustomization.yaml` IS the supported patch surface (survives re-bootstrap); `--path` is effectively immutable after first run.
-**Plans**: TBD
+**Plans**: 4 plans (2 waves)
+
+Plans:
+- [ ] 03-01-PLAN.md — Wave 0 bats test scaffolding (bootstrap-flux-01-idempotent + bootstrap-flux-02-docs): static-grep + live/destructive contract for FLUX-01..05
+- [ ] 03-02-PLAN.md — scripts/bootstrap-flux.sh (5-section orchestration: preflight gate, context+idempotency, flux bootstrap, post-bootstrap verification, D-13 patch-surface marker)
+- [ ] 03-03-PLAN.md — docs/flux-hub-spoke.md (FLUX-05: 3 patch-surface rules + D-15 kustomize-controller example + D-16 skip-message cross-ref + D-14 Phase-4 stub)
+- [ ] 03-04-PLAN.md — Taskfile.yml append: bootstrap-flux task entry (single-line invocation; Phase 6 owns full REPO-05 reorg)
 
 ### Phase 4: Spoke Registration
 **Goal**: `kubectl --context k3d-hub-flux -n flux-system get secret spoke-ml-kubeconfig spoke-apps-kubeconfig` returns both Secrets, each with a `value.yaml` key containing a kubeconfig whose `server:` is `https://k3d-<spoke>-server-0:6443`, and the hub's `kustomize-controller` pod can reach each spoke's apiserver with TLS validated and bearer-token auth succeeding.
@@ -133,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 |-------|----------------|--------|-----------|
 | 1. Host Foundation | 9/9 | Complete | 2026-04-23 |
 | 2. Cluster Layer | 0/TBD | Not started | - |
-| 3. Flux Hub Bootstrap | 0/TBD | Not started | - |
+| 3. Flux Hub Bootstrap | 0/4 | Planned | - |
 | 4. Spoke Registration | 0/TBD | Not started | - |
 | 5. Workloads + Health + Rebuild | 0/TBD | Not started | - |
 | 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
