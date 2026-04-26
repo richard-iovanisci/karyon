@@ -36,9 +36,7 @@ source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 readonly FLUX_PATH="clusters/hub-flux"
 readonly KUBE_CTX="k3d-hub-flux"
 readonly FLUX_NS="flux-system"
-# shellcheck disable=SC2034  # Used by Section 5, appended by Task 2.
 readonly KUST_FILE="${REPO_ROOT}/${FLUX_PATH}/${FLUX_NS}/kustomization.yaml"
-
 # ---------- Section 1: Preflight gate + gitleaks advisory (D-05, Phase-6 hand-off) ----------
 section "Preflight gate"
 PREFLIGHT_LOG="/tmp/preflight-$$.log"
@@ -139,3 +137,104 @@ if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
     --branch main
   pass "flux bootstrap complete"
 fi
+
+# ---------- Section 4: Post-bootstrap verification (D-09, D-10) ----------
+# Runs on BOTH code paths (skip-if-healthy AND fresh-bootstrap) to close the loop:
+# the skip path re-proves health; the fresh path proves bootstrap succeeded.
+section "Post-bootstrap verification"
+
+# D-09 gate 1: flux check
+if ! flux --context "${KUBE_CTX}" check >/dev/null 2>&1; then
+  fail "flux check failed post-bootstrap.
+     Debug: flux --context ${KUBE_CTX} check
+     Logs:  flux --context ${KUBE_CTX} logs"
+  exit 1
+fi
+pass "flux check: ok"
+
+# D-09 gate 2 + Pitfall 4: assert 4 deployments exist BEFORE kubectl wait --all
+# (wait --all on an empty set trivially returns 0 — would mask a total bootstrap failure).
+deploy_count="$(kubectl --context "${KUBE_CTX}" -n "${FLUX_NS}" get deploy --no-headers 2>/dev/null | wc -l)"
+if [[ "${deploy_count}" -ne 4 ]]; then
+  fail "expected 4 flux controllers in ${FLUX_NS}, found ${deploy_count}.
+     Fix: kubectl --context ${KUBE_CTX} -n ${FLUX_NS} get deploy,pod"
+  exit 1
+fi
+# D-10: idiomatic 120s wait — not a custom bash poll.
+if ! kubectl --context "${KUBE_CTX}" -n "${FLUX_NS}" wait \
+       --for=condition=Available deploy --all --timeout=120s >/dev/null 2>&1; then
+  fail "flux controllers did not reach Ready in 120s.
+     Inspect: kubectl --context ${KUBE_CTX} -n ${FLUX_NS} get deploy,pod
+     Logs:    flux --context ${KUBE_CTX} logs"
+  exit 1
+fi
+pass "4 flux controllers Available within 120s"
+
+# D-09 gate 3: flux-system Kustomization Ready=True.
+# Use kubectl jsonpath (not `flux get ... | awk`) — avoids Pitfall 5 (grep Ready matching
+# NotReady substring) AND avoids the column-index fragility of `flux get` table output.
+ks_ready="$(kubectl --context "${KUBE_CTX}" -n "${FLUX_NS}" get kustomization "${FLUX_NS}" \
+  -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
+if [[ "${ks_ready}" != "True" ]]; then
+  fail "flux-system Kustomization not Ready=True (got: ${ks_ready:-unknown}).
+     Inspect: flux --context ${KUBE_CTX} get kustomizations ${FLUX_NS}
+     Logs:    flux --context ${KUBE_CTX} logs --kind=Kustomization"
+  exit 1
+fi
+pass "Kustomization ${FLUX_NS}: Ready=True"
+
+# ---------- Section 5: Patch-surface marker (D-13) ----------
+section "Patch-surface marker"
+
+if [[ ! -f "${KUST_FILE}" ]]; then
+  fail "expected ${KUST_FILE} missing — flux bootstrap did not commit it?
+     Inspect: ls -la ${REPO_ROOT}/${FLUX_PATH}/${FLUX_NS}/"
+  exit 1
+fi
+
+if grep -qF '# FLUX PATCH SURFACE' "${KUST_FILE}"; then
+  info "already done, skipping: patch-surface marker present"
+else
+  tmp="$(mktemp)"
+  {
+    cat <<'EOF'
+# ──────────────────────────────────────────────────────────────────────────
+# FLUX PATCH SURFACE
+#
+# This file IS the supported patch surface for the hub-flux bootstrap.
+# Edits here SURVIVE re-bootstrap — add `patches:`, `configMapGenerator:`,
+# `images:` etc. here to customize the 4 core controllers.
+#
+# Peer files in this directory — gotk-components.yaml, gotk-sync.yaml —
+# are bootstrap-managed and WILL be overwritten by `flux bootstrap`.
+# Do NOT hand-edit them.
+#
+# See: docs/flux-hub-spoke.md
+# ──────────────────────────────────────────────────────────────────────────
+EOF
+    cat "${KUST_FILE}"
+  } > "${tmp}"
+  mv "${tmp}" "${KUST_FILE}"
+  pass "applied: patch-surface marker prepended to ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml"
+fi
+
+# Developer-flow hint (codex HIGH-3): the marker prepend is a LOCAL edit. flux bootstrap
+# already pushed the bootstrap files to GitHub; for the marker to be part of the GitOps
+# tree Flux reconciles, the developer must commit + push this local diff. The script
+# intentionally does NOT auto-push (matches the broader "no automated git mutations"
+# posture). Distinguish two cases by comparing the working-tree file to its HEAD blob:
+#   - diverging  → tell the developer to commit + push
+#   - clean      → in HEAD already, no action needed
+if git -C "${REPO_ROOT}" diff --quiet -- "${FLUX_PATH}/${FLUX_NS}/kustomization.yaml" 2>/dev/null; then
+  info "patch-surface marker already in HEAD — no commit needed"
+else
+  info "patch-surface marker added to ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml — commit and push so Flux reconciles a tree containing the marker: git add ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml && git commit -m 'docs(03): add patch-surface marker' && git push"
+fi
+
+# ---------- Summary ----------
+section "Summary"
+printf "  %s%d passed%s, %s%d warnings%s, %s%d failed%s\n" \
+  "${C_GREEN}" "${PASS}" "${C_RESET}" "${C_YELLOW}" "${WARN}" "${C_RESET}" "${C_RED}" "${FAIL}" "${C_RESET}"
+if (( FAIL > 0 )); then exit 1; fi
+printf "\n%sflux hub bootstrap complete — k3d-hub-flux is now GitOps-managed from %s/%s (%s).%s\n" \
+  "${C_GREEN}" "${GITHUB_OWNER:-<owner>}" "${GITHUB_REPO:-<repo>}" "${FLUX_PATH}" "${C_RESET}"
