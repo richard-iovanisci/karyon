@@ -16,6 +16,7 @@
 load 'test_helper'
 
 setup() {
+  # 2026-04-26 (Plan 03-06): contract reviewed against post-Plan-03-05 script; all live/destructive assertions hold without modification.
   SCRIPT="${REPO_ROOT}/scripts/bootstrap-flux.sh"
 }
 
