@@ -106,12 +106,34 @@ fi
 if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
   section "flux bootstrap"
 
-  # D-11: load .env into environment (NOT stdout). Preflight PRE-09 already verified
-  # presence + non-emptiness of the 3 keys; we trust that gate and simply source.
-  set -a
-  # shellcheck disable=SC1091
-  source "${REPO_ROOT}/.env"
-  set +a
+  # D-11 + CR-02: load .env keys as DATA, not as shell. The parser only ever runs
+  # `grep -E '^KEY=' .env` against the three expected keys; it never sources or
+  # runs the file as shell. A malicious .env with extra shell statements between keys
+  # cannot trigger execution because no line is ever passed to the shell as code.
+  # Strips at most one pair of surrounding single OR double quotes from the value.
+  load_env_key() {
+    local key="$1" raw val
+    if [[ ! -f "${REPO_ROOT}/.env" ]]; then
+      fail "${REPO_ROOT}/.env missing — preflight PRE-09 should have caught this; rerun: scripts/preflight.sh"
+      exit 1
+    fi
+    raw="$(grep -E "^${key}=" "${REPO_ROOT}/.env" | tail -n1 | cut -d= -f2-)"
+    # Strip at most one pair of matching surrounding quotes (single or double).
+    val="${raw}"
+    if [[ "${val}" == \"*\" || "${val}" == \'*\' ]]; then
+      val="${val:1:${#val}-2}"
+    fi
+    if [[ -z "${val}" ]]; then
+      fail "${key} missing or empty in ${REPO_ROOT}/.env — fix the value and rerun. (Preflight PRE-09 covers presence; an empty value bypasses that gate.)"
+      exit 1
+    fi
+    printf -v "${key}" '%s' "${val}"
+    export "${key?}"
+  }
+
+  load_env_key GITHUB_OWNER
+  load_env_key GITHUB_REPO
+  load_env_key GITHUB_TOKEN
 
   # D-01..D-04 flag surface; D-11 token passing.
   # GITHUB_TOKEN is re-exported explicitly into the flux process environment.
