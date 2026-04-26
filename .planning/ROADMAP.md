@@ -80,13 +80,15 @@ Plans:
   2. `kubectl --context k3d-hub-flux -n flux-system get deploy` shows `source-controller`, `kustomize-controller`, `helm-controller`, `notification-controller` all Ready; `flux --context k3d-hub-flux check` passes.
   3. `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` are sourced exclusively from the gitignored `.env`; the script never prints the token value (verifiable by piping to a log and grepping for the literal PAT).
   4. `docs/flux-hub-spoke.md` exists and explicitly states: `gotk-components.yaml` + `gotk-sync.yaml` are bootstrap-managed (do not hand-edit), but `kustomization.yaml` IS the supported patch surface (survives re-bootstrap); `--path` is effectively immutable after first run.
-**Plans**: 4 plans (2 waves)
+**Plans**: 6 plans (4 waves; incl. 1 gap-closure round addressing CR-01 + CR-02 + live destructive proof)
 
 Plans:
-- [ ] 03-01-PLAN.md — Wave 0 bats test scaffolding (bootstrap-flux-01-idempotent + bootstrap-flux-02-docs): static-grep + live/destructive contract for FLUX-01..05
-- [ ] 03-02-PLAN.md — scripts/bootstrap-flux.sh (5-section orchestration: preflight gate, context+idempotency, flux bootstrap, post-bootstrap verification, D-13 patch-surface marker)
-- [ ] 03-03-PLAN.md — docs/flux-hub-spoke.md (FLUX-05: 3 patch-surface rules + D-15 kustomize-controller example + D-16 skip-message cross-ref + D-14 Phase-4 stub)
-- [ ] 03-04-PLAN.md — Taskfile.yml append: bootstrap-flux task entry (single-line invocation; Phase 6 owns full REPO-05 reorg)
+- [x] 03-01-PLAN.md — Wave 0 bats test scaffolding (bootstrap-flux-01-idempotent + bootstrap-flux-02-docs): static-grep + live/destructive contract for FLUX-01..05
+- [x] 03-02-PLAN.md — scripts/bootstrap-flux.sh (5-section orchestration: preflight gate, context+idempotency, flux bootstrap, post-bootstrap verification, D-13 patch-surface marker)
+- [x] 03-03-PLAN.md — docs/flux-hub-spoke.md (FLUX-05: 3 patch-surface rules + D-15 kustomize-controller example + D-16 skip-message cross-ref + D-14 Phase-4 stub)
+- [x] 03-04-PLAN.md — Taskfile.yml append: bootstrap-flux task entry (single-line invocation; Phase 6 owns full REPO-05 reorg)
+- [ ] 03-05-PLAN.md — Gap closure: replace `source .env` with data-only `load_env_key` parser (CR-02 / FLUX-03) AND sync local checkout via `git pull --ff-only` before patch-surface marker (CR-01 / FLUX-01, FLUX-04)
+- [ ] 03-06-PLAN.md — Gap closure: live/destructive bootstrap idempotency proof on real k3d-hub-flux cluster (FLUX-04; human-verification checkpoint)
 
 ### Phase 4: Spoke Registration
 **Goal**: `kubectl --context k3d-hub-flux -n flux-system get secret spoke-ml-kubeconfig spoke-apps-kubeconfig` returns both Secrets, each with a `value.yaml` key containing a kubeconfig whose `server:` is `https://k3d-<spoke>-server-0:6443`, and the hub's `kustomize-controller` pod can reach each spoke's apiserver with TLS validated and bearer-token auth succeeding.
