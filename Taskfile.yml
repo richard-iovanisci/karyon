@@ -15,3 +15,8 @@ tasks:
     desc: Remove clusters + k8s-net; preserve karyon/k3s-cuda image (CLU-06, D-14)
     cmds:
       - bash scripts/delete-clusters.sh
+
+  bootstrap-flux:
+    desc: Bootstrap Flux GitOps on k3d-hub-flux from clusters/hub-flux/ (FLUX-01..04)
+    cmds:
+      - bash scripts/bootstrap-flux.sh
