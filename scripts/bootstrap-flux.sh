@@ -208,9 +208,42 @@ pass "Kustomization ${FLUX_NS}: Ready=True"
 # ---------- Section 5: Patch-surface marker (D-13) ----------
 section "Patch-surface marker"
 
+# CR-01 fix: flux bootstrap github writes manifests through a temporary git worktree
+# and pushes to GitHub — it does NOT update THIS local checkout. If KUST_FILE is
+# absent locally, the bootstrap manifests are on the remote `main` branch but not
+# here. Sync via fast-forward pull, gated on a clean worktree under ${FLUX_PATH} so
+# we never clobber local work.
 if [[ ! -f "${KUST_FILE}" ]]; then
-  fail "expected ${KUST_FILE} missing — flux bootstrap did not commit it?
-     Inspect: ls -la ${REPO_ROOT}/${FLUX_PATH}/${FLUX_NS}/"
+  info "local checkout missing ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml — bootstrap pushed manifests remotely; attempting fast-forward sync"
+  # Refuse the sync if the developer has uncommitted changes ANYWHERE under FLUX_PATH.
+  # Scope the dirty-check to FLUX_PATH only (not the whole repo) so unrelated WIP elsewhere
+  # in the tree does not block bootstrap completion.
+  if ! git -C "${REPO_ROOT}" diff --quiet -- "${FLUX_PATH}" 2>/dev/null \
+     || ! git -C "${REPO_ROOT}" diff --cached --quiet -- "${FLUX_PATH}" 2>/dev/null; then
+    fail "uncommitted changes detected under ${FLUX_PATH}/ in this checkout — refusing to fast-forward.
+   Inspect: git -C ${REPO_ROOT} status -- ${FLUX_PATH}
+   Fix:     commit or stash those changes, then rerun: bash scripts/bootstrap-flux.sh
+   (git -C ${REPO_ROOT} stash push -- ${FLUX_PATH} OR git -C ${REPO_ROOT} add ${FLUX_PATH} && git commit)"
+    exit 1
+  fi
+  # Fetch the remote main branch and fast-forward this checkout. --ff-only refuses any
+  # divergence (e.g. a force-push, a different bootstrap path) and surfaces it loudly.
+  if ! git -C "${REPO_ROOT}" pull --ff-only origin main; then
+    fail "git pull --ff-only origin main failed after flux bootstrap pushed manifests.
+   Possible causes: branch divergence (someone else pushed), wrong remote (\"origin\"
+   does not point to ${GITHUB_OWNER}/${GITHUB_REPO}), or no network connectivity.
+   Inspect: git -C ${REPO_ROOT} remote -v && git -C ${REPO_ROOT} log -3 origin/main
+   Fix:     reconcile manually, then rerun: bash scripts/bootstrap-flux.sh"
+    exit 1
+  fi
+  pass "fast-forward sync complete (${FLUX_PATH} now contains bootstrap manifests)"
+fi
+
+if [[ ! -f "${KUST_FILE}" ]]; then
+  fail "expected ${KUST_FILE} missing AFTER sync — flux bootstrap did not commit it, or origin/main does not contain the bootstrap commit.
+   Inspect: ls -la ${REPO_ROOT}/${FLUX_PATH}/${FLUX_NS}/
+            git -C ${REPO_ROOT} log --oneline -10 origin/main -- ${FLUX_PATH}/${FLUX_NS}/
+   Fix:     verify --path clusters/hub-flux is correct and the bootstrap commit is on origin/main; rerun bootstrap if needed."
   exit 1
 fi
 
