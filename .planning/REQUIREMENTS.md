@@ -62,10 +62,10 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 
 ### Flux Hub Bootstrap
 
-- [ ] **FLUX-01**: `scripts/bootstrap-flux.sh` runs `flux bootstrap github` targeting the `hub-flux` cluster
+- [x] **FLUX-01**: `scripts/bootstrap-flux.sh` runs `flux bootstrap github` targeting the `hub-flux` cluster
 - [ ] **FLUX-02**: The `--path` argument is hard-coded to `clusters/hub-flux` (effectively immutable after first run per Flux design)
-- [ ] **FLUX-03**: `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` are read from the gitignored `.env` file; the script never echoes the token value
-- [ ] **FLUX-04**: Bootstrap is idempotent — rerunning after a successful first run leaves the cluster in the same state
+- [x] **FLUX-03**: `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` are read from the gitignored `.env` file; the script never echoes the token value
+- [x] **FLUX-04**: Bootstrap is idempotent — rerunning after a successful first run leaves the cluster in the same state
 - [ ] **FLUX-05**: `docs/flux-hub-spoke.md` documents that `clusters/hub-flux/flux-system/gotk-components.yaml` and `gotk-sync.yaml` are bootstrap-managed, but `kustomization.yaml` IS the supported patch surface (corrects the starter's overly-broad "do not hand-edit" guidance)
 
 ### Spoke Registration

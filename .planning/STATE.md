@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 3 context gathered
-last_updated: "2026-04-26T19:42:04.837Z"
-last_activity: 2026-04-26 -- Phase 03 verification found 3 gaps
+status: executing
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-04-26T19:58:53.521Z"
+last_activity: 2026-04-26 -- Completed 03-05-PLAN.md
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 22
-  completed_plans: 20
-  percent: 91
+  completed_plans: 21
+  percent: 95
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 ## Current Position
 
 Phase: 03 (flux-hub-bootstrap) — EXECUTING
-Plan: Gap closure required
-Status: Verification gaps found
-Last activity: 2026-04-26 -- Phase 03 verification found 3 gaps
+Plan: 6 of 6
+Status: Ready to execute
+Last activity: 2026-04-26 -- Completed 03-05-PLAN.md
 
-Progress: [██████████] 100%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 *Updated after each plan completion*
 | Phase 02-cluster-layer P06 | 45min | 3 tasks | 3 files |
 | Phase 02-cluster-layer P07 | 5min | 1 tasks | 1 files |
+| Phase 03-flux-hub-bootstrap P05 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - D-14 blocking comment is exact-text greppable ('INTENTIONALLY NOT calling') — Phase 6 DESTROY-04 lint will grep for this literal; not a free-form comment
 - require_live_destructive() double-gate prevents accidental cluster destruction during KARYON_LIVE_TESTS=1 full-suite runs
 - Taskfile.yml Phase 2 stub: three tasks only (build-image, create-clusters, delete-clusters); Phase 6 REPO-05 owns full audit
+- Plan 03-05: Treat .env as data for only GITHUB_OWNER, GITHUB_REPO, and GITHUB_TOKEN; never source it as shell.
+- Plan 03-05: Use local git pull --ff-only sync rather than reimplementing Flux bootstrap remote Git workflow.
 
 ### Pending Todos
 
@@ -90,8 +93,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 3 context gathered
-Resume file: --resume-file
+Last session: 2026-04-26T19:58:53.255Z
+Stopped at: Completed 03-05-PLAN.md
+Resume file: None
 
 **Planned Phase:** 03 (flux-hub-bootstrap) — 6 plans — 2026-04-26T19:42:04.831Z

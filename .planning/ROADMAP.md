@@ -87,7 +87,7 @@ Plans:
 - [x] 03-02-PLAN.md — scripts/bootstrap-flux.sh (5-section orchestration: preflight gate, context+idempotency, flux bootstrap, post-bootstrap verification, D-13 patch-surface marker)
 - [x] 03-03-PLAN.md — docs/flux-hub-spoke.md (FLUX-05: 3 patch-surface rules + D-15 kustomize-controller example + D-16 skip-message cross-ref + D-14 Phase-4 stub)
 - [x] 03-04-PLAN.md — Taskfile.yml append: bootstrap-flux task entry (single-line invocation; Phase 6 owns full REPO-05 reorg)
-- [ ] 03-05-PLAN.md — Gap closure: replace `source .env` with data-only `load_env_key` parser (CR-02 / FLUX-03) AND sync local checkout via `git pull --ff-only` before patch-surface marker (CR-01 / FLUX-01, FLUX-04)
+- [x] 03-05-PLAN.md — Gap closure: replace `source .env` with data-only `load_env_key` parser (CR-02 / FLUX-03) AND sync local checkout via `git pull --ff-only` before patch-surface marker (CR-01 / FLUX-01, FLUX-04)
 - [ ] 03-06-PLAN.md — Gap closure: live/destructive bootstrap idempotency proof on real k3d-hub-flux cluster (FLUX-04; human-verification checkpoint)
 
 ### Phase 4: Spoke Registration
@@ -141,7 +141,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 |-------|----------------|--------|-----------|
 | 1. Host Foundation | 9/9 | Complete | 2026-04-23 |
 | 2. Cluster Layer | 0/TBD | Not started | - |
-| 3. Flux Hub Bootstrap | 0/4 | Planned | - |
+| 3. Flux Hub Bootstrap | 5/6 | In Progress | - |
 | 4. Spoke Registration | 0/TBD | Not started | - |
 | 5. Workloads + Health + Rebuild | 0/TBD | Not started | - |
 | 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
