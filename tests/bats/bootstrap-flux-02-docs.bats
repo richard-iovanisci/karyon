@@ -2,7 +2,7 @@
 # tests/bats/bootstrap-flux-02-docs.bats
 # Static-grep check (FLUX-05 / DOCS-03 / D-14 / D-15 / D-16):
 # docs/flux-hub-spoke.md carries the 3 patch-surface rules, the D-15 kustomize-controller
-# patch example, the D-16 skip-message reference, and the D-14 Phase-4 HTML-comment stub.
+# patch example, the D-16 skip-message reference, and the Phase 4 hub-spoke section.
 
 load 'test_helper'
 
@@ -50,9 +50,13 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "D-14: docs/flux-hub-spoke.md contains the Phase 4 HTML-comment stub" {
+@test "D-14: docs/flux-hub-spoke.md contains the Phase 4 hub-spoke section" {
   [ -f "$DOC" ]
-  # HTML comment placeholder for the Phase 4 hub-spoke reconciliation section.
+  # Phase 4 replaces the old HTML comment with the real hub-spoke section.
+  run grep -F -- '## Phase 4: Hub-spoke reconciliation' "$DOC"
+  [ "$status" -eq 0 ]
   run grep -F -- '<!-- Phase 4:' "$DOC"
+  [ "$status" -ne 0 ]
+  run grep -F -- 'spec.kubeConfig' "$DOC"
   [ "$status" -eq 0 ]
 }
