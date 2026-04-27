@@ -1,6 +1,6 @@
 ---
 phase: 04-spoke-registration
-reviewed: 2026-04-27T22:27:02Z
+reviewed: 2026-04-27T22:38:22Z
 depth: standard
 files_reviewed: 17
 files_reviewed_list:
@@ -22,75 +22,43 @@ files_reviewed_list:
   - tests/bats/register-spokes-01-static.bats
   - tests/bats/register-spokes-02-live.bats
 findings:
-  critical: 2
-  warning: 1
+  critical: 0
+  warning: 0
   info: 0
-  total: 3
-status: issues_found
+  total: 0
+status: clean
 ---
 
 # Phase 04: Code Review Report
 
-**Reviewed:** 2026-04-27T22:27:02Z
+**Reviewed:** 2026-04-27T22:38:22Z
 **Depth:** standard
 **Files Reviewed:** 17
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
-Reviewed the spoke Flux registration script, hub/spoke manifests, docs, and Bats coverage. YAML parsing, `kubectl kustomize`, shell syntax, shellcheck, and the static Bats suites were run. The implementation still has credential-handling and repair-path defects that should be fixed before shipping.
+Re-reviewed the spoke Flux registration script, hub/spoke manifests, docs, and Bats coverage after commit `2d5a4c1`.
 
-## Critical Issues
+All reviewed files meet quality standards. No issues found.
 
-### CR-01: Cluster-admin bearer token is sent through an unsafe probe command
+The previous findings are resolved:
 
-**Classification:** BLOCKER
-**File:** `scripts/register-spokes-for-flux.sh:105-110`
-**Issue:** `in_pod_wget` interpolates the long-lived spoke bearer token into the local `kubectl exec ... /bin/sh -c "wget ... Bearer ${bearer}"` argv, so the token can be observed via process listings while the command runs. The same request also uses `--no-check-certificate`; the earlier OpenSSL probe is a separate connection, so the actual bearer-token request is not bound to the verified certificate and can disclose a cluster-admin token to any endpoint that answers that DNS name.
-**Fix:** Replace the `wget --no-check-certificate` helper with a single verified HTTPS request that uses the decoded CA for the same connection and passes the bearer over stdin, not argv. For example, refactor the helper to write the CA into the probe environment, then send the HTTP request body through `kubectl exec -i` into `openssl s_client -verify_return_error -verify_hostname ... -CAfile ...`. Update the live tests to reject `--no-check-certificate` for bearer-token calls.
+- Bearer-token probe data is sent through stdin to `kubectl exec -i` and `openssl s_client`; no token-bearing `kubectl exec` argv path remains.
+- No `--no-check-certificate` bearer-token probe remains in the reviewed script or tests.
+- Hub kustomization repair validates the actual YAML resources list with `yq`, including the `../spokes` resource, instead of trusting only sentinel text.
+- Temporary OpenSSL verifier pods are cleaned on the explicit fallback failure paths in both the registration script and live test helpers.
 
-```bash
-printf 'GET %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nConnection: close\r\n\r\n' \
-  "${path}" "${host}" "${bearer}" |
-  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i deploy/kustomize-controller -- \
-    openssl s_client -quiet -verify_return_error -verify_hostname "${host}" \
-      -CAfile "${cert_tmp}" -connect "${host}:6443"
-```
+Verification performed:
 
-### CR-02: Hub kustomization repair can skip missing resources or write invalid YAML
-
-**Classification:** BLOCKER
-**File:** `scripts/register-spokes-for-flux.sh:537-555`
-**Issue:** The wire-up gate treats the sentinel comment as proof that `- ../spokes` is present. If the sentinel remains but the resource line is removed, the script logs "already done" and leaves the hub unable to reconcile spoke Kustomizations. The fallback `awk` appender is also not YAML-aware: when `resources:` uses the common indented list style (`  - gotk-components.yaml`), it writes `- ../spokes` at column 1, producing invalid YAML.
-**Fix:** Check and update the actual `resources` list rather than using the comment as state. Use `yq` or a YAML-aware helper to ensure `../spokes` exists, then validate the result before moving it into place.
-
-```bash
-tmp="$(mktemp)"
-yq eval '(.resources // []) as $r | .resources = ($r + ["../spokes"] | unique)' \
-  "${HUB_KUST_FILE}" > "${tmp}"
-yq eval -e '.resources[] == "../spokes"' "${tmp}" >/dev/null
-mv "${tmp}" "${HUB_KUST_FILE}"
-```
-
-## Warnings
-
-### WR-01: Temporary OpenSSL probe pod can be left behind on failure
-
-**Classification:** WARNING
-**File:** `scripts/register-spokes-for-flux.sh:147-148`
-**Issue:** After the fallback pod is recreated, the second `kubectl wait` runs under `set -e`; if it fails, the script exits immediately and never deletes the temporary `karyon-openssl-probe-*` pod. Similar early exits before the explicit delete in `verify_tls_with_openssl` can also leave the probe pod behind.
-**Fix:** Wrap the fallback probe lifecycle in a cleanup trap or subshell so every return path removes the pod.
-
-```bash
-(
-  trap 'kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true' EXIT
-  ensure_openssl_probe_pod "${pod}"
-  # copy CA and run probes here
-)
-```
+- Parsed all reviewed YAML manifests with `yq`.
+- Built `clusters/hub-flux`, `clusters/spoke-ml`, and `clusters/spoke-apps` with `kubectl kustomize`.
+- Ran `shellcheck scripts/register-spokes-for-flux.sh`.
+- Ran static Bats suites: `tests/bats/bootstrap-flux-02-docs.bats` and `tests/bats/register-spokes-01-static.bats`.
+- Ran `tests/bats/register-spokes-02-live.bats` without live/destructive env flags; all tests skipped as designed, so live cluster behavior was not exercised in this review.
 
 ---
 
-_Reviewed: 2026-04-27T22:27:02Z_
+_Reviewed: 2026-04-27T22:38:22Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
