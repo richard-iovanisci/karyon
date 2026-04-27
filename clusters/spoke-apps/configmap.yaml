@@ -1,0 +1,11 @@
+# clusters/spoke-apps/configmap.yaml
+# REQ-SPOKE-05 seed - ConfigMap NAME is karyon-spoke-id (same on both spokes;
+# the namespace and data.spoke value differ - that is the cross-cluster
+# falsifier per ROADMAP success #5 / Phase 4 D-03).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: karyon-spoke-id
+  namespace: karyon-spoke-apps
+data:
+  spoke: spoke-apps
