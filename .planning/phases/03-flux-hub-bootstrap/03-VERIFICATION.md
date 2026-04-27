@@ -1,47 +1,31 @@
 ---
 phase: 03-flux-hub-bootstrap
-verified: 2026-04-26T19:13:34Z
-status: gaps_found
-score: 3/7 must-haves verified
+verified: 2026-04-27T12:29:32Z
+status: human_needed
+score: 6/7 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "`flux --context k3d-hub-flux get kustomizations -A` shows root `flux-system` Ready=True and the hub is self-managing from `clusters/hub-flux/**`."
-    status: failed
-    reason: "Read-only live checks show Flux is not bootstrapped on k3d-hub-flux: `flux check` reports missing Flux CRDs/controllers and `kubectl -n flux-system get deploy` returns no resources."
-    artifacts:
-      - path: "scripts/bootstrap-flux.sh"
-        issue: "First-run path can succeed remotely, then fail locally at Section 5 because it requires `clusters/hub-flux/flux-system/kustomization.yaml` to already exist in this checkout."
-      - path: "clusters/hub-flux/flux-system/kustomization.yaml"
-        issue: "Missing in this checkout; the round-trip patch-surface marker/reconciliation path is not established."
-    missing:
-      - "Sync or otherwise materialize bootstrap-generated manifests locally before applying the patch-surface marker, or apply the marker through the same remote Git workflow as bootstrap."
-      - "After the code fix, run the destructive live bootstrap proof and verify root `flux-system` Kustomization Ready=True."
-  - truth: "Bootstrap is idempotent: rerunning after a successful first bootstrap leaves the cluster in the same state and exits 0."
-    status: failed
-    reason: "The only idempotency proof is skipped unless live/destructive gates are set, and the current first-run implementation has the CR-01 local-file assumption that can fail before a clean rerun proof exists."
-    artifacts:
-      - path: "tests/bats/bootstrap-flux-01-idempotent.bats"
-        issue: "The live/destructive idempotency test is correctly defined but skipped in non-live regression."
-      - path: "scripts/bootstrap-flux.sh"
-        issue: "Section 5 hard-fails when the local kustomization file is absent after bootstrap."
-    missing:
-      - "Close the first-run local-manifest gap, then run `KARYON_LIVE_TESTS=1 KARYON_LIVE_TESTS_DESTRUCTIVE=1 bats tests/bats/bootstrap-flux-01-idempotent.bats --tap`."
-  - truth: "GITHUB_OWNER, GITHUB_REPO, and GITHUB_TOKEN are read from gitignored `.env`, and the script never exposes the token value."
-    status: failed
-    reason: "`.env` is gitignored and the script does not directly echo `GITHUB_TOKEN`, but `source \"${REPO_ROOT}/.env\"` executes arbitrary shell from the secrets file. A malformed `.env` can run commands or print data during bootstrap."
-    artifacts:
-      - path: "scripts/bootstrap-flux.sh"
-        issue: "Lines 111-114 source `.env` as shell code instead of parsing the three expected keys as data."
-    missing:
-      - "Replace `source .env` with a narrow parser for `GITHUB_OWNER`, `GITHUB_REPO`, and `GITHUB_TOKEN` that exports values without executing other shell syntax."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/7
+  gaps_closed:
+    - "Flux is now bootstrapped on k3d-hub-flux: flux check passes, all four controllers are Ready, and root flux-system Kustomization is Ready=True."
+    - "First-run local-manifest failure is fixed: bootstrap-flux.sh validates clean/fast-forwardable state before remote mutation and syncs origin/main before patching the local kustomization."
+    - ".env is no longer sourced as shell: load_env_key reads only GITHUB_OWNER, GITHUB_REPO, and GITHUB_TOKEN as data, with no eval/source/set -a path."
+    - "Live/destructive FLUX-04 idempotency proof was run and captured in /tmp/karyon-03-06-live.tap with zero not-ok lines."
+  gaps_remaining: []
+  regressions: []
+human_verification:
+  - test: "Push the local Phase 3/marker commits to the GitHub branch Flux reconciles, then confirm Flux advances to that pushed revision."
+    expected: "origin/main contains clusters/hub-flux/flux-system/kustomization.yaml with # FLUX PATCH SURFACE, flux-system GitRepository and Kustomization revisions advance beyond feafc20d to that commit, and Ready remains True."
+    why_human: "Current cluster is reconciling origin/main at feafc20d, while local main is ahead and origin/main lacks the marker. Pushing is a live GitHub side effect and must be operator-approved."
 ---
 
 # Phase 3: Flux Hub Bootstrap Verification Report
 
 **Phase Goal:** `flux --context k3d-hub-flux get kustomizations -A` shows the root `flux-system` Kustomization as `Ready=True`; the hub is self-managing and commits to `clusters/hub-flux/**` round-trip through reconciliation.
-**Verified:** 2026-04-26T19:13:34Z
-**Status:** gaps_found
-**Re-verification:** No - initial verification
+**Verified:** 2026-04-27T12:29:32Z
+**Status:** human_needed
+**Re-verification:** Yes - after gap closure
 
 ## Goal Achievement
 
@@ -49,113 +33,107 @@ gaps:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Root `flux-system` Kustomization is `Ready=True` on `k3d-hub-flux` and the hub self-manages from `clusters/hub-flux/**`. | FAILED | `flux --context k3d-hub-flux get kustomizations -A` failed with missing Flux Kustomization API; `flux check` reports missing CRDs/controllers; `kubectl --context k3d-hub-flux -n flux-system get deploy` reports no resources. |
-| 2 | `scripts/bootstrap-flux.sh` runs `flux bootstrap github` against hub-flux with `--path clusters/hub-flux` hard-coded and no env override. | VERIFIED | `scripts/bootstrap-flux.sh:35-39` defines readonly `FLUX_PATH=clusters/hub-flux` and `KUBE_CTX=k3d-hub-flux`; `scripts/bootstrap-flux.sh:70-76` requires current context `k3d-hub-flux`; `scripts/bootstrap-flux.sh:129-137` invokes `flux bootstrap github` with `--path "${FLUX_PATH}"`. |
-| 3 | First-run bootstrap completes locally and commits to `clusters/hub-flux/**` round-trip through reconciliation. | FAILED | Review CR-01 is confirmed by code: `scripts/bootstrap-flux.sh:189-193` exits if local `clusters/hub-flux/flux-system/kustomization.yaml` is missing. This checkout has no such file. |
-| 4 | Rerunning bootstrap after success is a no-op and exits 0. | FAILED | Static skip logic exists at `scripts/bootstrap-flux.sh:79-103`, but the live/destructive proof is skipped in non-live Bats and first-run success is blocked by the local-manifest gap. |
-| 5 | `.env` provides GitHub owner/repo/token without token exposure. | FAILED | `.gitignore:5` ignores `.env`; direct token logging grep found no executable `echo`/`printf`/helper/`tee` leak. However `scripts/bootstrap-flux.sh:111-114` sources `.env` as shell code, matching review CR-02. |
-| 6 | Docs explain bootstrap-managed files, `kustomization.yaml` as patch surface, and immutable `--path`. | VERIFIED | `docs/flux-hub-spoke.md:18-22` classifies gotk files vs patch surface; `docs/flux-hub-spoke.md:35-42` documents the patch surface; `docs/flux-hub-spoke.md:73-83` documents `--path` immutability. |
-| 7 | `task bootstrap-flux` invokes the bootstrap script through the project task surface. | VERIFIED | `Taskfile.yml:19-22` defines `bootstrap-flux` with `bash scripts/bootstrap-flux.sh`; `task --list` parses and lists all 4 tasks. |
+| 1 | Root `flux-system` Kustomization is `Ready=True` on `k3d-hub-flux`; Flux controllers are installed and the hub is self-managing from the Git source. | VERIFIED | `flux --context k3d-hub-flux check` passed all checks; `flux --context k3d-hub-flux get kustomizations -A` reports `flux-system Ready=True`; all four deployments in `flux-system` are `1/1`; current applied revision is `main@sha1:feafc20d144ed9e3b0960c139905570e76501104`. |
+| 2 | A commit under `clusters/hub-flux/**` containing the patch-surface marker has round-tripped through GitHub and Flux reconciliation. | HUMAN NEEDED | Local HEAD contains `# FLUX PATCH SURFACE`, but `origin/main` does not: `git diff --stat origin/main -- clusters/hub-flux/flux-system/kustomization.yaml` shows 13 local insertions. `flux get sources git -A` shows Flux still reconciling `main@sha1:feafc20d` from `origin/main`. |
+| 3 | `scripts/bootstrap-flux.sh` runs `flux bootstrap github` against hub-flux with `--path clusters/hub-flux` hard-coded and no env override. | VERIFIED | `scripts/bootstrap-flux.sh` defines readonly `FLUX_PATH=clusters/hub-flux` and `KUBE_CTX=k3d-hub-flux`; invokes `flux bootstrap github` with `--path "${FLUX_PATH}"`, `--personal`, `--private=false`, `--network-policy=false`, `--token-auth`, and `--branch main`. Static Bats tests 1-2 pass. |
+| 4 | First-run bootstrap can complete locally after Flux writes generated manifests remotely. | VERIFIED | The previous local-file assumption is gone. The script checks clean `clusters/hub-flux/`, validates `origin` against `.env`, checks fast-forwardability before remote mutation when the local kustomization is absent, and runs `git pull --ff-only origin main` before marker insertion. The captured live proof shows first run exited 0. |
+| 5 | Rerunning bootstrap after success is a no-op and exits 0. | VERIFIED | `/tmp/karyon-03-06-live.tap` contains `ok 8 FLUX-04 + D-13 (live/destructive, combined)` and zero `not ok` lines; that test runs the script twice, checks the second run output for `already done, skipping: flux bootstrap`, and verifies marker survival. |
+| 6 | `GITHUB_OWNER`, `GITHUB_REPO`, and `GITHUB_TOKEN` are read from gitignored `.env`, and token values are not exposed. | VERIFIED | `.gitignore` includes `.env`; `bootstrap-flux.sh` uses `load_env_key` for the three keys and has no `source .env`, `set -a`, or `eval`; non-comment grep finds no `echo`/`printf`/helper/`tee` path for `GITHUB_TOKEN`. `verify-flux-bootstrap-live.sh --precheck-only` printed only `PRESENT` for key presence. |
+| 7 | Docs and task surface expose the bootstrap workflow and patch-surface contract. | VERIFIED | `docs/flux-hub-spoke.md` documents bootstrap-managed `gotk-components.yaml`/`gotk-sync.yaml`, editable `kustomization.yaml`, immutable `--path`, skip-message behavior, and the memory patch example. `Taskfile.yml` defines `bootstrap-flux` as `bash scripts/bootstrap-flux.sh`. |
 
-**Score:** 3/7 truths verified
+**Score:** 6/7 truths verified
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `scripts/bootstrap-flux.sh` | 5-section executable bootstrap script | PARTIAL | Exists, executable mode `755`, 240 lines, shellcheck-clean, wired from Taskfile. Fails first-run contract at local manifest assumption and sources `.env` unsafely. |
-| `docs/flux-hub-spoke.md` | Patch-surface documentation | VERIFIED | 102 lines; contains gotk bootstrap-managed rules, patch example, skip-message reference, Phase 4 stub, and corrected NetworkPolicy rationale. |
-| `Taskfile.yml` | `bootstrap-flux` task | VERIFIED | YAML parses; `.tasks | keys | length` is `4`; `task --list` includes `bootstrap-flux`. |
-| `tests/bats/bootstrap-flux-01-idempotent.bats` | Static script contract plus live/destructive idempotency proof | VERIFIED | 125 lines; 7 static tests pass, 1 destructive live test correctly skips without gates. |
-| `tests/bats/bootstrap-flux-02-docs.bats` | Static docs contract | VERIFIED | 58 lines; 4 static tests pass. |
-| `clusters/hub-flux/flux-system/kustomization.yaml` | Bootstrap-generated local patch surface after first run | MISSING | Not present in this checkout; script currently fails if Flux pushes it remotely but the local checkout has not pulled it. |
+| `scripts/bootstrap-flux.sh` | Executable Flux bootstrap wrapper | VERIFIED | 372 lines, executable, `bash -n` and `shellcheck -x` pass; wired to preflight, `.env` parser, Flux bootstrap, post-bootstrap checks, and patch marker. |
+| `scripts/verify-flux-bootstrap-live.sh` | Human-gated live proof runner | VERIFIED | 307 lines, executable, `bash -n` and `shellcheck -x` pass; `--precheck-only` passed without printing secret values. |
+| `tests/bats/bootstrap-flux-01-idempotent.bats` | Static + live/destructive bootstrap/idempotency contract | VERIFIED | 126 lines; non-live static tests pass; captured live destructive proof passed in `/tmp/karyon-03-06-live.tap`. |
+| `tests/bats/bootstrap-flux-02-docs.bats` | Static docs contract | VERIFIED | 58 lines; all four docs tests pass. |
+| `docs/flux-hub-spoke.md` | Flux patch-surface documentation | VERIFIED | 126 lines; contains the three patch-surface rules, local branch sync guidance, kustomize-controller patch example, skip-message reference, and Phase 4 stub. |
+| `Taskfile.yml` | Task entry for bootstrap | VERIFIED | `bootstrap-flux` task invokes `bash scripts/bootstrap-flux.sh`. |
+| `clusters/hub-flux/flux-system/kustomization.yaml` | Local Flux patch surface marker | LOCAL ONLY | Local HEAD contains the marker at lines 1-13; `origin/main` still has the unmarked bootstrap-generated file, so Flux has not yet reconciled the marker commit. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `Taskfile.yml` | `scripts/bootstrap-flux.sh` | `bash scripts/bootstrap-flux.sh` | WIRED | Command present at `Taskfile.yml:22`. |
-| `scripts/bootstrap-flux.sh` | `scripts/lib/preflight-lib.sh` | `source "${SCRIPT_DIR}/lib/preflight-lib.sh"` | WIRED | Present at `scripts/bootstrap-flux.sh:33`. |
-| `scripts/bootstrap-flux.sh` | `scripts/preflight.sh` | `bash "${SCRIPT_DIR}/preflight.sh"` | WIRED | Present at `scripts/bootstrap-flux.sh:48`. |
-| `scripts/bootstrap-flux.sh` | `.env` | `source "${REPO_ROOT}/.env"` | UNSAFE | Data reaches environment, but by shell execution rather than a data parser. |
-| `scripts/bootstrap-flux.sh` | GitHub/Flux bootstrap | `GITHUB_TOKEN=... flux bootstrap github` | WIRED | Invocation exists at `scripts/bootstrap-flux.sh:129-137`; live execution not proven. |
-| `scripts/bootstrap-flux.sh` | `clusters/hub-flux/flux-system/kustomization.yaml` | Section 5 marker prepend | BROKEN | Section 5 assumes local file exists after bootstrap and exits otherwise. |
-| `docs/flux-hub-spoke.md` | `scripts/bootstrap-flux.sh` | skip-message and path references | WIRED | Docs include `already done, skipping: flux bootstrap` and `--path clusters/hub-flux`. |
+| `Taskfile.yml` | `scripts/bootstrap-flux.sh` | `bash scripts/bootstrap-flux.sh` | WIRED | Present in the `bootstrap-flux` task. |
+| `scripts/bootstrap-flux.sh` | `scripts/lib/preflight-lib.sh` | `source "${SCRIPT_DIR}/lib/preflight-lib.sh"` | WIRED | Source line present; script uses shared `section/pass/warn/fail/info`. |
+| `scripts/bootstrap-flux.sh` | `scripts/preflight.sh` | `bash "${SCRIPT_DIR}/preflight.sh"` | WIRED | Section 1 runs preflight through a `mktemp` log path. |
+| `scripts/bootstrap-flux.sh` | `.env` | `load_env_key GITHUB_OWNER/GITHUB_REPO/GITHUB_TOKEN` | WIRED | Data-only parser reads only key assignments, strips one balanced quote pair, exports values, and fails closed on missing/empty/unmatched quotes. |
+| `scripts/bootstrap-flux.sh` | GitHub/Flux bootstrap | `GITHUB_TOKEN=... flux bootstrap github ... --path "${FLUX_PATH}"` | WIRED | Live proof plus current cluster state prove Flux bootstrap ran successfully. |
+| `scripts/bootstrap-flux.sh` | `clusters/hub-flux/flux-system/kustomization.yaml` | sync then sentinel-guarded marker prepend | WIRED LOCALLY | Local file exists with marker; remote reconciliation awaits human push. |
+| Flux controllers | Git source | `GitRepository/flux-system` and `Kustomization/flux-system` | WIRED | `flux get sources git -A` and `flux get kustomizations -A` both report Ready at revision `main@sha1:feafc20d`. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |----------|---------------|--------|--------------------|--------|
-| `scripts/bootstrap-flux.sh` | `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` | `.env` sourced at runtime | Yes, but executes arbitrary shell | FAILED |
-| `scripts/bootstrap-flux.sh` | Flux controller/Kustomization status | `flux check`, `kubectl get deploy`, `kubectl get kustomization` | Current cluster reports missing CRDs/controllers | FAILED |
-| `scripts/bootstrap-flux.sh` | Patch-surface marker | Local `clusters/hub-flux/flux-system/kustomization.yaml` | No local source file present after non-live verification | FAILED |
-| `Taskfile.yml` | Bootstrap command | Static task command | Yes | VERIFIED |
+| `scripts/bootstrap-flux.sh` | `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` | `.env` via `load_env_key` | Yes; values exported without shell execution or value logging | VERIFIED |
+| `scripts/bootstrap-flux.sh` | Bootstrap manifests | `flux bootstrap github` then `git pull --ff-only origin main` | Yes; `clusters/hub-flux/flux-system/gotk-components.yaml`, `gotk-sync.yaml`, and `kustomization.yaml` exist locally | VERIFIED |
+| `scripts/bootstrap-flux.sh` | Flux readiness | `flux check`, deployment availability, Kustomization Ready condition | Yes; current cluster reports all Ready | VERIFIED |
+| `clusters/hub-flux/flux-system/kustomization.yaml` | Patch-surface marker | Local HEAD | Local only; not yet in `origin/main` | HUMAN NEEDED |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| Script syntax and lint | `bash -n scripts/bootstrap-flux.sh && shellcheck -x scripts/bootstrap-flux.sh` | `OK` | PASS |
-| Non-live regression | `bats tests/bats/ --tap` | `1..50`, 50 ok; live/destructive checks skipped by unset gates | PASS |
-| Taskfile structure | `yq eval '.tasks | keys | length' Taskfile.yml && task --list` | `4`; `bootstrap-flux` listed | PASS |
-| Live Flux readiness | `flux --context k3d-hub-flux check` | Missing Flux CRDs/controllers, check failed | FAIL |
-| Live controller readiness | `kubectl --context k3d-hub-flux -n flux-system get deploy` | No resources found in `flux-system` | FAIL |
-| Phase goal command | `flux --context k3d-hub-flux get kustomizations -A` | Failed: no Flux Kustomization API registered | FAIL |
+| Script syntax | `bash -n scripts/bootstrap-flux.sh && bash -n scripts/verify-flux-bootstrap-live.sh` | `bash-n: PASS` | PASS |
+| Shell lint | `shellcheck -x scripts/bootstrap-flux.sh scripts/verify-flux-bootstrap-live.sh` | `shellcheck: PASS` | PASS |
+| Phase 3 static Bats | `bats tests/bats/bootstrap-flux-01-idempotent.bats tests/bats/bootstrap-flux-02-docs.bats --tap` | 12 ok; live destructive test skipped as expected without gates | PASS |
+| Full non-live Bats | `bats tests/bats --tap` | `1..50`; 50 ok with expected live/destructive skips | PASS |
+| Live destructive proof evidence | `grep -c '^not ok' /tmp/karyon-03-06-live.tap` | `0`; TAP contains `ok 8 FLUX-04 + D-13...` | PASS |
+| Safe live prechecks | `bash scripts/verify-flux-bootstrap-live.sh --precheck-only` | Tools, clean flux path, `.env` key presence, origin match, context, and k3d cluster checks passed | PASS |
+| Flux health | `flux --context k3d-hub-flux check` | All checks passed; distribution `flux-v2.8.6`; controllers ready | PASS |
+| Root Kustomization | `flux --context k3d-hub-flux get kustomizations -A` | `flux-system Ready=True`, applied revision `main@sha1:feafc20d` | PASS |
+| Controllers | `kubectl --context k3d-hub-flux -n flux-system get deploy` | `helm-controller`, `kustomize-controller`, `notification-controller`, `source-controller` all `1/1` | PASS |
+| Schema drift gate | `gsd-sdk query verify.schema-drift 03 --raw` | `{ "valid": true, "issues": [], "checked": 6 }` | PASS |
+| Marker pushed to reconciled Git source | `git rev-list --left-right --count origin/main...HEAD` and `git diff --stat origin/main -- clusters/hub-flux/flux-system/kustomization.yaml` | Branch is `0 45` relative to `origin/main`; kustomization differs by 13 local marker insertions | HUMAN NEEDED |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |-------------|-------------|-------------|--------|----------|
-| FLUX-01 | 03-01, 03-02, 03-04 | `scripts/bootstrap-flux.sh` runs `flux bootstrap github` targeting `hub-flux` | BLOCKED | Command and context gate exist, but current hub is not bootstrapped and CR-01 can make first-run script exit after remote bootstrap. |
-| FLUX-02 | 03-01, 03-02 | `--path` is hard-coded to `clusters/hub-flux` | SATISFIED | Readonly `FLUX_PATH=clusters/hub-flux`; no env override pattern; docs reinforce immutability. |
-| FLUX-03 | 03-01, 03-02 | GitHub keys read from gitignored `.env`; token never echoed | BLOCKED | `.env` is ignored and no direct token echo was found, but `source .env` executes arbitrary shell from the secrets file. |
-| FLUX-04 | 03-01, 03-02 | Bootstrap idempotent on rerun | BLOCKED | Static idempotency gate exists; destructive live proof skipped; CR-01 blocks reliable first-run completion. |
-| FLUX-05 | 03-01, 03-03 | Docs define bootstrap-managed files and patch surface | SATISFIED | `docs/flux-hub-spoke.md` contains all required rule text and example; docs Bats tests pass. |
+| FLUX-01 | 03-01, 03-02, 03-04, 03-05, 03-06 | `scripts/bootstrap-flux.sh` runs `flux bootstrap github` targeting the `hub-flux` cluster | SATISFIED | Script has context gate for `k3d-hub-flux`, invokes `flux bootstrap github`, live proof passed, and current cluster is bootstrapped/Ready. |
+| FLUX-02 | 03-01, 03-02 | `--path` hard-coded to `clusters/hub-flux` | SATISFIED | Readonly `FLUX_PATH="clusters/hub-flux"` and no env override pattern; static Bats test 2 passes. |
+| FLUX-03 | 03-01, 03-02, 03-05 | GitHub keys read from gitignored `.env`; token never echoed | SATISFIED | `.gitignore` excludes `.env`; `load_env_key` data parser replaces `source`; negative token-funnel grep and safe precheck passed. |
+| FLUX-04 | 03-01, 03-02, 03-05, 03-06 | Bootstrap idempotent on rerun | SATISFIED | Captured destructive TAP proof ran the script twice and passed with zero `not ok` lines. |
+| FLUX-05 | 03-01, 03-03 | Docs define bootstrap-managed files and patch surface | SATISFIED | Docs contain `gotk-components.yaml`, `gotk-sync.yaml`, `bootstrap-managed`, `patch surface`, immutable `--path`, and Bats docs tests pass. |
 
-No orphaned Phase 3 requirements were found: ROADMAP and REQUIREMENTS both map FLUX-01 through FLUX-05 to Phase 3.
-
-### Code Review Findings Classification
-
-| Finding | Classification | Verification Decision |
-|---------|----------------|-----------------------|
-| CR-01: Bootstrap fails after successful first `flux bootstrap` because local `kustomization.yaml` may be absent | BLOCKER | Blocks the phase goal and FLUX-04. The script can leave a partially completed remote/cluster bootstrap, then fail before patch marker and local round-trip proof. |
-| CR-02: `.env` is executed as shell code | BLOCKER | Blocks FLUX-03 token-safety quality. It may not prevent a happy-path trusted `.env`, but it violates the safe "read from `.env`" contract and can expose or execute secret-adjacent data. |
-| WR-01: Gitleaks hook check reads caller working directory | WARNING | Does not block Phase 3 goal, but should be closed with CR-02/cleanup by anchoring to `${REPO_ROOT}/.git/hooks/pre-commit`. |
-| WR-02: Predictable `/tmp` preflight log path | WARNING | Does not block Phase 3 goal, but should be fixed with `mktemp` to avoid symlink/clobber and leftover host detail risk. |
+No orphaned Phase 3 FLUX requirements were found. ROADMAP and REQUIREMENTS map FLUX-01 through FLUX-05 to Phase 3, and all five are claimed by at least one Phase 3 plan.
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `scripts/bootstrap-flux.sh` | 42 | `PREFLIGHT_LOG="/tmp/preflight-$$.log"` | Warning | Predictable temp path from review WR-02. |
-| `scripts/bootstrap-flux.sh` | 61 | `.git/hooks/pre-commit` relative to caller cwd | Warning | Review WR-01; advisory can inspect the wrong repo when invoked outside repo root. |
-| `scripts/bootstrap-flux.sh` | 113 | `source "${REPO_ROOT}/.env"` | Blocker | Executes arbitrary shell from the secrets file. |
-| `scripts/bootstrap-flux.sh` | 189 | hard fail on missing local `kustomization.yaml` | Blocker | Breaks first-run bootstrap if Flux writes manifests remotely without updating this checkout. |
-| `tests/bats/bootstrap-flux-02-docs.bats` | 55 | `placeholder` in comment | Info | Intentional Phase 4 HTML-comment stub test reference, not a product stub. |
+| `tests/bats/bootstrap-flux-02-docs.bats` | 55 | `placeholder` in comment | Info | Intentional test comment for the Phase 4 HTML-comment stub; not a product stub and not blocking. |
+
+No blocker anti-patterns were found in the reviewed Phase 3 files. The previous `source .env`, predictable `/tmp/preflight-$$.log`, and relative gitleaks-hook findings are closed in the current script.
 
 ### Human Verification Required
 
-After the blocker gaps are fixed, run the destructive/live proof:
+### 1. Push Marker Commit And Confirm Reconciliation
 
-1. **First-run bootstrap and rerun idempotency**
-   **Test:** `KARYON_LIVE_TESTS=1 KARYON_LIVE_TESTS_DESTRUCTIVE=1 bats tests/bats/bootstrap-flux-01-idempotent.bats --tap`
-   **Expected:** first run exits 0, `# FLUX PATCH SURFACE` lands in `clusters/hub-flux/flux-system/kustomization.yaml`, second run exits 0 with `already done, skipping: flux bootstrap`, marker remains.
-   **Why human:** Mutates the real hub cluster and GitHub repository.
+**Test:** Push or otherwise merge the local Phase 3 commits on `main` to the GitHub branch Flux reconciles. Then run:
 
-2. **Flux root readiness and round-trip**
-   **Test:** Commit and push a harmless change under `clusters/hub-flux/**`, then run `flux --context k3d-hub-flux get kustomizations -A` and inspect reconciliation.
-   **Expected:** root `flux-system` Kustomization is `Ready=True`; the pushed change reconciles back into the hub.
-   **Why human:** Requires live Flux/GitHub side effects and operator judgment on the reconciled change.
+```bash
+git fetch origin main
+git show origin/main:clusters/hub-flux/flux-system/kustomization.yaml | grep -F '# FLUX PATCH SURFACE'
+flux --context k3d-hub-flux get sources git -A
+flux --context k3d-hub-flux get kustomizations -A
+```
 
-### Deferred Items
+**Expected:** `origin/main` contains `# FLUX PATCH SURFACE`; the Flux GitRepository and Kustomization revisions advance beyond `main@sha1:feafc20d144ed9e3b0960c139905570e76501104` to the pushed commit; root `flux-system` remains `Ready=True`.
 
-No blocking gap is deferred to a later phase. Phase 5 consumes `task bootstrap-flux` in `task rebuild`, and Phase 4 depends on `flux-system` existing; neither phase owns fixing first-run bootstrap or `.env` parsing. Phase 6 owns the real gitleaks hook, but that does not address CR-02.
+**Why human:** Pushing to GitHub is a live side effect. The current automated evidence proves the local marker and current Flux health, but also proves Flux is still reconciling the older remote commit that lacks the marker.
 
 ### Gaps Summary
 
-The static Phase 3 files exist and most non-live checks pass, but the phase goal is not achieved. The current hub does not have Flux installed or ready, the bootstrap script can fail immediately after a successful remote bootstrap because it assumes local generated files are already present, and `.env` is loaded by executing shell code. These are blockers, not merely missing live proof.
+No implementation gaps remain in the checked files. The previous blockers are closed in code and live proof. The only remaining item is operational: local Phase 3 commits, including the patch-surface marker, must be pushed to the Git branch Flux reconciles before the "commits to `clusters/hub-flux/**` round-trip through reconciliation" portion of the phase goal is fully observed.
 
 ---
 
-_Verified: 2026-04-26T19:13:34Z_
+_Verified: 2026-04-27T12:29:32Z_
 _Verifier: Claude (gsd-verifier)_
