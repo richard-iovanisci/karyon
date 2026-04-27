@@ -16,3 +16,5 @@ kind: Kustomization
 resources:
 - gotk-components.yaml
 - gotk-sync.yaml
+# KARYON SPOKES MOUNT
+- ../spokes
