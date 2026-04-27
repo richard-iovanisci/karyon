@@ -33,6 +33,7 @@ readonly EXPECTED_FORBIDDEN_NODE="k3d-hub-flux-server-0"
 readonly RECONCILER_SA="flux-reconciler"
 readonly RECONCILER_BINDING="flux-reconciler-cluster-admin"
 readonly RECONCILER_SECRET="flux-reconciler-token"
+readonly OPENSSL_PROBE_IMAGE="karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1"
 
 expected_server() {
   local spoke="$1"
@@ -107,6 +108,73 @@ in_pod_wget() {
   server="$(expected_server "${spoke}")"
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
     /bin/sh -c "wget -qO- --no-check-certificate --header='Authorization: Bearer ${bearer}' '${server}${path}'" 2>/dev/null
+}
+
+kustomize_controller_has_openssl() {
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+    /bin/sh -c 'command -v openssl >/dev/null 2>&1' >/dev/null 2>&1
+}
+
+ensure_openssl_probe_pod() {
+  local pod="$1"
+
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
+    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" run "${pod}" \
+    --image="${OPENSSL_PROBE_IMAGE}" \
+    --image-pull-policy=Never \
+    --restart=Never \
+    --command -- sleep 3600 >/dev/null
+
+  if kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" wait \
+      --for=condition=Ready "pod/${pod}" --timeout=20s >/dev/null 2>&1; then
+    return 0
+  fi
+
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
+    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  if ! docker image inspect "${OPENSSL_PROBE_IMAGE}" >/dev/null 2>&1; then
+    fail "OpenSSL probe image ${OPENSSL_PROBE_IMAGE} is not present locally.
+       Fix: task build-image && bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+  k3d image import -c hub-flux "${OPENSSL_PROBE_IMAGE}" >/dev/null
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" run "${pod}" \
+    --image="${OPENSSL_PROBE_IMAGE}" \
+    --image-pull-policy=Never \
+    --restart=Never \
+    --command -- sleep 3600 >/dev/null
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" wait \
+    --for=condition=Ready "pod/${pod}" --timeout=60s >/dev/null
+}
+
+verify_tls_with_openssl() {
+  local spoke="$1" cert_part="$2"
+  local cert_tmp="/tmp/karyon-${spoke}-apiserver-ca.pem"
+  local pod="karyon-openssl-probe-${spoke}-$$"
+
+  if kustomize_controller_has_openssl; then
+    decode_b64 "${cert_part}" |
+      kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i deploy/kustomize-controller -- \
+        /bin/sh -c "cat > '${cert_tmp}'"
+    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+      /bin/sh -c "openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"
+    return
+  fi
+
+  info "kustomize-controller lacks openssl; using temporary ${OPENSSL_PROBE_IMAGE} verifier pod"
+  ensure_openssl_probe_pod "${pod}"
+  decode_b64 "${cert_part}" |
+    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i "${pod}" -- \
+      /bin/sh -c "cat > '${cert_tmp}'"
+  if ! kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${pod}" -- \
+      /bin/sh -c "openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
+      --ignore-not-found --wait=true >/dev/null 2>&1 || true
+    return 1
+  fi
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
+    --ignore-not-found --wait=true >/dev/null 2>&1 || true
 }
 
 auth_roundtrip_healthy() {
@@ -242,7 +310,15 @@ ensure_hub_kustomization() {
 # clusters/hub-flux/spokes/${spoke}.yaml
 # Flux v1 Kustomization - hub-flux's kustomize-controller reconciles
 # clusters/${spoke}/ into k3d-${spoke} via the ${spoke}-kubeconfig Secret
-# (applied imperatively by scripts/register-spokes-for-flux.sh).
+# (applied imperatively by scripts/register-spokes-for-flux.sh; never committed
+# because it contains a bearer token).
+#
+# REQ-SPOKE-05 (this file's existence + secretRef shape).
+# REQ-SPOKE-04 (key: value.yaml explicit - RESEARCH.md Pitfall 2 reframe:
+#   the silent-misroute fault is \`spec.kubeConfig\` ENTIRELY ABSENT, which would
+#   make the controller fall back to its in-cluster SA and reconcile to HUB.
+#   ALWAYS include the entire spec.kubeConfig block; explicit \`key: value.yaml\`
+#   is belt-and-suspenders against future Flux default-key behavior changes.)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -295,7 +371,7 @@ EOF
   cat > "${tmp}" <<EOF
 # clusters/${spoke}/namespace.yaml
 # REQ-SPOKE-05 seed - distinct per spoke, falsifiable for the cross-cluster
-# negative-proof.
+# negative-proof (this Namespace exists ONLY on k3d-${spoke}).
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -306,8 +382,9 @@ EOF
   tmp="$(mktemp)"
   cat > "${tmp}" <<EOF
 # clusters/${spoke}/configmap.yaml
-# REQ-SPOKE-05 seed - ConfigMap NAME is karyon-spoke-id on both spokes;
-# namespace and data.spoke differ for the cross-cluster falsifier.
+# REQ-SPOKE-05 seed - ConfigMap NAME is karyon-spoke-id (same on both spokes;
+# the namespace and data.spoke value differ - that is the cross-cluster
+# falsifier per ROADMAP success #5 / Phase 4 D-03 / RESEARCH.md Pitfall 2).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -320,7 +397,7 @@ EOF
 }
 
 verify_spoke_credential_layer() {
-  local spoke="$1" value_b64 value_yaml expected actual bearer cert_part spoke_cert_part ready nodes expected_node cert_tmp
+  local spoke="$1" value_b64 value_yaml expected actual bearer cert_part spoke_cert_part ready nodes expected_node
   expected="$(expected_server "${spoke}")"
   value_b64="$(hub_secret_value "${spoke}")"
   if [[ -z "${value_b64}" ]]; then
@@ -328,6 +405,7 @@ verify_spoke_credential_layer() {
        Fix: bash scripts/register-spokes-for-flux.sh"
     exit 1
   fi
+  pass "presence ok: ${spoke} hub Secret data.value.yaml populated"
 
   value_yaml="$(decode_b64 "${value_b64}")"
   actual="$(yq eval '.clusters[0].cluster.server // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
@@ -351,16 +429,11 @@ verify_spoke_credential_layer() {
        Fix: bash scripts/register-spokes-for-flux.sh"
     exit 1
   fi
-  pass "verification ok: ${spoke} presence + decode + server + cert equality"
+  pass "decode ok: ${spoke} server + bearer + CA equality verified"
 
-  cert_tmp="/tmp/karyon-${spoke}-apiserver-ca.pem"
-  decode_b64 "${cert_part}" |
-    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
-      /bin/sh -c "cat > '${cert_tmp}'"
-  if ! kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
-      /bin/sh -c "openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
-    fail "${spoke} TLS proof failed from kustomize-controller.
-       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} exec deploy/kustomize-controller -- cat /tmp/karyon-${spoke}-tls.out
+  if ! verify_tls_with_openssl "${spoke}" "${cert_part}"; then
+    fail "${spoke} TLS proof failed from the hub cluster.
+       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get pods -l run=karyon-openssl-probe-${spoke}
        Fix: rerun cluster creation if the spoke apiserver cert SAN is wrong; then rerun this script."
     exit 1
   fi

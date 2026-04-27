@@ -26,6 +26,8 @@
 
 load 'test_helper'
 
+OPENSSL_PROBE_IMAGE="karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1"
+
 setup() {
   require_live_destructive
 
@@ -58,6 +60,52 @@ setup() {
 
 teardown() {
   :
+}
+
+run_openssl_tls_probe() {
+  local spoke="$1" ca_pem="$2"
+  local pod="karyon-openssl-probe-${spoke}-bats-$$"
+  local ca_file="/tmp/karyon-${spoke}-ca.crt"
+  local out_file="/tmp/karyon-${spoke}-tls.out"
+
+  if kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- \
+      /bin/sh -c 'command -v openssl >/dev/null 2>&1' >/dev/null 2>&1; then
+    printf '%s\n' "$ca_pem" |
+      kubectl --context k3d-hub-flux -n flux-system exec -i deploy/kustomize-controller -- \
+        /bin/sh -c "cat > '${ca_file}' && openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${ca_file}' -connect k3d-${spoke}-server-0:6443 </dev/null >'${out_file}' 2>&1; rc=\$?; rm -f '${ca_file}' '${out_file}'; exit \$rc"
+    return
+  fi
+
+  kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
+    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  kubectl --context k3d-hub-flux -n flux-system run "$pod" \
+    --image="$OPENSSL_PROBE_IMAGE" \
+    --image-pull-policy=Never \
+    --restart=Never \
+    --command -- sleep 3600 >/dev/null
+
+  if ! kubectl --context k3d-hub-flux -n flux-system wait \
+      --for=condition=Ready "pod/$pod" --timeout=20s >/dev/null 2>&1; then
+    kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
+      --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    docker image inspect "$OPENSSL_PROBE_IMAGE" >/dev/null 2>&1 || return 1
+    k3d image import -c hub-flux "$OPENSSL_PROBE_IMAGE" >/dev/null || return 1
+    kubectl --context k3d-hub-flux -n flux-system run "$pod" \
+      --image="$OPENSSL_PROBE_IMAGE" \
+      --image-pull-policy=Never \
+      --restart=Never \
+      --command -- sleep 3600 >/dev/null
+    kubectl --context k3d-hub-flux -n flux-system wait \
+      --for=condition=Ready "pod/$pod" --timeout=60s >/dev/null || return 1
+  fi
+
+  printf '%s\n' "$ca_pem" |
+    kubectl --context k3d-hub-flux -n flux-system exec -i "$pod" -- \
+      /bin/sh -c "cat > '${ca_file}' && openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${ca_file}' -connect k3d-${spoke}-server-0:6443 </dev/null >'${out_file}' 2>&1; rc=\$?; rm -f '${ca_file}' '${out_file}'; exit \$rc"
+  local rc=$?
+  kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
+    --ignore-not-found --wait=true >/dev/null 2>&1 || true
+  return "$rc"
 }
 
 # ---- SPOKE-04: hub-side <spoke>-kubeconfig Secret has data.value.yaml populated ----
@@ -209,19 +257,19 @@ teardown() {
 # We exec into the pod and use openssl for the CA/TLS proof plus busybox wget
 # for bearer-token auth and node-name negative-proof.
 
-@test "SPOKE-06 (live, in-pod): openssl validates spoke-ml CA and hostname from inside kustomize-controller" {
+@test "SPOKE-06 (live, in-pod): openssl validates spoke-ml CA and hostname from inside the hub cluster" {
   local ca_pem
   ca_pem="$(kubectl --context k3d-spoke-ml -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.ca\.crt}' | base64 -d)"
   [ -n "$ca_pem" ]
-  run bash -c "printf '%s\n' \"\$1\" | kubectl --context k3d-hub-flux -n flux-system exec -i deploy/kustomize-controller -- /bin/sh -c 'cat > /tmp/karyon-spoke-ml-ca.crt && openssl s_client -verify_return_error -verify_hostname k3d-spoke-ml-server-0 -CAfile /tmp/karyon-spoke-ml-ca.crt -connect k3d-spoke-ml-server-0:6443 </dev/null >/tmp/karyon-spoke-ml-tls.out 2>&1; rc=\$?; rm -f /tmp/karyon-spoke-ml-ca.crt /tmp/karyon-spoke-ml-tls.out; exit \$rc'" _ "$ca_pem"
+  run run_openssl_tls_probe "spoke-ml" "$ca_pem"
   [ "$status" -eq 0 ]
 }
 
-@test "SPOKE-06 (live, in-pod): openssl validates spoke-apps CA and hostname from inside kustomize-controller" {
+@test "SPOKE-06 (live, in-pod): openssl validates spoke-apps CA and hostname from inside the hub cluster" {
   local ca_pem
   ca_pem="$(kubectl --context k3d-spoke-apps -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.ca\.crt}' | base64 -d)"
   [ -n "$ca_pem" ]
-  run bash -c "printf '%s\n' \"\$1\" | kubectl --context k3d-hub-flux -n flux-system exec -i deploy/kustomize-controller -- /bin/sh -c 'cat > /tmp/karyon-spoke-apps-ca.crt && openssl s_client -verify_return_error -verify_hostname k3d-spoke-apps-server-0 -CAfile /tmp/karyon-spoke-apps-ca.crt -connect k3d-spoke-apps-server-0:6443 </dev/null >/tmp/karyon-spoke-apps-tls.out 2>&1; rc=\$?; rm -f /tmp/karyon-spoke-apps-ca.crt /tmp/karyon-spoke-apps-tls.out; exit \$rc'" _ "$ca_pem"
+  run run_openssl_tls_probe "spoke-apps" "$ca_pem"
   [ "$status" -eq 0 ]
 }
 
