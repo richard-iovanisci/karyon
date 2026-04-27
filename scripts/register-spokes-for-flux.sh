@@ -1,0 +1,488 @@
+#!/usr/bin/env bash
+# scripts/register-spokes-for-flux.sh
+#
+# Creates per-spoke RBAC (SA + cluster-admin CRB + legacy SA-token Secret),
+# builds a credential from each spoke's Secret, and lands it on k3d-hub-flux
+# as flux-system/<spoke>-kubeconfig (key: value.yaml).
+#
+# Wires the hub-side Flux Kustomizations under clusters/hub-flux/spokes/ and
+# patches the FLUX PATCH SURFACE to add `- ../spokes`.
+#
+# Requirements satisfied: SPOKE-01..06
+# Decisions honored:      D-01..D-16
+#
+# D-11 safety: set -euo pipefail INTENTIONALLY omits trace mode. Bearer data is
+# never written to logs, helper output, committed files, tee, or --from-literal.
+# The hub Secret is applied imperatively from stdin; it is not git-tracked.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=lib/preflight-lib.sh
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/preflight-lib.sh"
+
+readonly HUB_CTX="k3d-hub-flux"
+readonly FLUX_NS="flux-system"
+readonly HUB_KUST_FILE="${REPO_ROOT}/clusters/hub-flux/flux-system/kustomization.yaml"
+readonly SPOKES_DIR="${REPO_ROOT}/clusters/hub-flux/spokes"
+readonly SPOKES_SENTINEL="# KARYON SPOKES MOUNT"
+readonly CREDENTIAL_WAIT_SECONDS=10
+readonly EXPECTED_FORBIDDEN_NODE="k3d-hub-flux-server-0"
+readonly RECONCILER_SA="flux-reconciler"
+readonly RECONCILER_BINDING="flux-reconciler-cluster-admin"
+readonly RECONCILER_SECRET="flux-reconciler-token"
+
+expected_server() {
+  local spoke="$1"
+  printf 'https://k3d-%s-server-0:6443\n' "${spoke}"
+}
+
+decode_b64() {
+  local encoded="$1"
+  base64 -d <<< "${encoded}"
+}
+
+hub_secret_value() {
+  local spoke="$1"
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" \
+    get secret "${spoke}-kubeconfig" -o jsonpath='{.data.value\.yaml}' 2>/dev/null || true
+}
+
+spoke_rbac_healthy() {
+  local spoke="$1"
+  local ctx="k3d-${spoke}"
+  local role_ref="" secret_kind="" secret_anno="" secret_part="" cert_part=""
+
+  kubectl --context "${ctx}" -n "${FLUX_NS}" get serviceaccount "${RECONCILER_SA}" >/dev/null 2>&1 || return 1
+  role_ref="$(kubectl --context "${ctx}" get clusterrolebinding "${RECONCILER_BINDING}" \
+    -o jsonpath='{.roleRef.kind}:{.roleRef.name}' 2>/dev/null || true)"
+  [[ "${role_ref}" == "ClusterRole:cluster-admin" ]] || return 1
+  secret_kind="$(kubectl --context "${ctx}" -n "${FLUX_NS}" get secret "${RECONCILER_SECRET}" \
+    -o jsonpath='{.type}' 2>/dev/null || true)"
+  secret_anno="$(kubectl --context "${ctx}" -n "${FLUX_NS}" get secret "${RECONCILER_SECRET}" \
+    -o jsonpath='{.metadata.annotations.kubernetes\.io/service-account\.name}' 2>/dev/null || true)"
+  secret_part="$(kubectl --context "${ctx}" -n "${FLUX_NS}" get secret "${RECONCILER_SECRET}" \
+    -o jsonpath='{.data.token}' 2>/dev/null || true)"
+  cert_part="$(kubectl --context "${ctx}" -n "${FLUX_NS}" get secret "${RECONCILER_SECRET}" \
+    -o jsonpath='{.data.ca\.crt}' 2>/dev/null || true)"
+
+  [[ "${secret_kind}" == "kubernetes.io/service-account-token" ]] || return 1
+  [[ "${secret_anno}" == "${RECONCILER_SA}" ]] || return 1
+  [[ -n "${secret_part}" && -n "${cert_part}" ]]
+}
+
+decoded_hub_credential() {
+  local spoke="$1"
+  local value_b64
+  value_b64="$(hub_secret_value "${spoke}")"
+  [[ -n "${value_b64}" ]] || return 1
+  decode_b64 "${value_b64}"
+}
+
+hub_secret_healthy() {
+  local spoke="$1"
+  local expected actual bearer cert_part value_yaml
+  expected="$(expected_server "${spoke}")"
+  value_yaml="$(decoded_hub_credential "${spoke}")" || return 1
+  actual="$(yq eval '.clusters[0].cluster.server // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  bearer="$(yq eval '.users[0].user.token // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  cert_part="$(yq eval '.clusters[0].cluster.certificate-authority-data // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  [[ "${actual}" == "${expected}" ]] || return 1
+  [[ -n "${bearer}" && -n "${cert_part}" ]] || return 1
+  decode_b64 "${cert_part}" >/dev/null 2>&1
+}
+
+credential_bearer_from_hub() {
+  local spoke="$1"
+  local value_yaml
+  value_yaml="$(decoded_hub_credential "${spoke}")" || return 1
+  yq eval '.users[0].user.token // ""' - <<< "${value_yaml}"
+}
+
+in_pod_wget() {
+  local spoke="$1" bearer="$2" path="$3"
+  local server
+  server="$(expected_server "${spoke}")"
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+    /bin/sh -c "wget -qO- --no-check-certificate --header='Authorization: Bearer ${bearer}' '${server}${path}'" 2>/dev/null
+}
+
+auth_roundtrip_healthy() {
+  local spoke="$1" bearer ready
+  bearer="$(credential_bearer_from_hub "${spoke}" 2>/dev/null || true)"
+  [[ -n "${bearer}" ]] || return 1
+  ready="$(in_pod_wget "${spoke}" "${bearer}" "/readyz" 2>/dev/null || true)"
+  [[ "${ready}" == "ok" ]]
+}
+
+node_route_healthy() {
+  local spoke="$1" bearer nodes expected_node
+  bearer="$(credential_bearer_from_hub "${spoke}" 2>/dev/null || true)"
+  [[ -n "${bearer}" ]] || return 1
+  expected_node="k3d-${spoke}-server-0"
+  nodes="$(in_pod_wget "${spoke}" "${bearer}" "/api/v1/nodes" 2>/dev/null || true)"
+  [[ "${nodes}" == *"${expected_node}"* && "${nodes}" != *"${EXPECTED_FORBIDDEN_NODE}"* ]]
+}
+
+apply_spoke_rbac() {
+  local spoke="$1"
+  kubectl --context "k3d-${spoke}" apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flux-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flux-reconciler
+  namespace: flux-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: flux-reconciler-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: flux-reconciler
+  namespace: flux-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flux-reconciler-token
+  namespace: flux-system
+  annotations:
+    kubernetes.io/service-account.name: flux-reconciler
+type: kubernetes.io/service-account-token
+EOF
+}
+
+wait_for_token_secret() {
+  local spoke="$1"
+  local ctx="k3d-${spoke}"
+  local secret_part="" cert_part=""
+
+  for _ in $(seq 1 "${CREDENTIAL_WAIT_SECONDS}"); do
+    secret_part="$(kubectl --context "${ctx}" -n "${FLUX_NS}" get secret "${RECONCILER_SECRET}" \
+      -o jsonpath='{.data.token}' 2>/dev/null || true)"
+    cert_part="$(kubectl --context "${ctx}" -n "${FLUX_NS}" get secret "${RECONCILER_SECRET}" \
+      -o jsonpath='{.data.ca\.crt}' 2>/dev/null || true)"
+    [[ -n "${secret_part}" && -n "${cert_part}" ]] && break
+    sleep 1
+  done
+
+  if [[ -z "${secret_part}" || -z "${cert_part}" ]]; then
+    fail "credential Secret data was not populated on ${spoke} after ${CREDENTIAL_WAIT_SECONDS}s.
+       Inspect: kubectl --context k3d-${spoke} -n ${FLUX_NS} describe secret/${RECONCILER_SECRET}
+       Fix: rerun: bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+
+  TOKEN_DECODED="$(decode_b64 "${secret_part}")"
+  CA_B64="${cert_part}"
+}
+
+build_kubeconfig() {
+  local spoke="$1" bearer="$2" cert_part="$3"
+  local server
+  server="$(expected_server "${spoke}")"
+  cat <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: ${spoke}
+  cluster:
+    server: ${server}
+    certificate-authority-data: ${cert_part}
+users:
+- name: ${RECONCILER_SA}
+  user:
+    token: ${bearer}
+contexts:
+- name: ${spoke}
+  context:
+    cluster: ${spoke}
+    user: ${RECONCILER_SA}
+current-context: ${spoke}
+EOF
+}
+
+apply_hub_secret() {
+  local spoke="$1" payload="$2"
+  printf '%s\n' "${payload}" |
+    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" create secret generic "${spoke}-kubeconfig" \
+      --from-file=value.yaml=/dev/stdin --dry-run=client -o yaml |
+    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" apply -f -
+}
+
+repair_file_if_needed() {
+  local target="$1" tmp="$2" label="$3"
+  if [[ -f "${target}" ]] && cmp -s "${tmp}" "${target}"; then
+    info "already done, skipping: ${label}"
+    rm -f "${tmp}"
+  else
+    mkdir -p "$(dirname "${target}")"
+    mv "${tmp}" "${target}"
+    pass "repaired: ${label}"
+  fi
+}
+
+ensure_hub_kustomization() {
+  local spoke="$1" tmp target
+  target="${SPOKES_DIR}/${spoke}.yaml"
+  tmp="$(mktemp)"
+  cat > "${tmp}" <<EOF
+# clusters/hub-flux/spokes/${spoke}.yaml
+# Flux v1 Kustomization - hub-flux's kustomize-controller reconciles
+# clusters/${spoke}/ into k3d-${spoke} via the ${spoke}-kubeconfig Secret
+# (applied imperatively by scripts/register-spokes-for-flux.sh).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: ${spoke}
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./clusters/${spoke}
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  kubeConfig:
+    secretRef:
+      name: ${spoke}-kubeconfig
+      key: value.yaml
+EOF
+  repair_file_if_needed "${target}" "${tmp}" "clusters/hub-flux/spokes/${spoke}.yaml"
+}
+
+ensure_spokes_index() {
+  local tmp
+  tmp="$(mktemp)"
+  cat > "${tmp}" <<'EOF'
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- spoke-ml.yaml
+- spoke-apps.yaml
+EOF
+  repair_file_if_needed "${SPOKES_DIR}/kustomization.yaml" "${tmp}" "clusters/hub-flux/spokes/kustomization.yaml"
+}
+
+ensure_spoke_seed() {
+  local spoke="$1" ns tmp dir
+  ns="karyon-${spoke}"
+  dir="${REPO_ROOT}/clusters/${spoke}"
+
+  tmp="$(mktemp)"
+  cat > "${tmp}" <<'EOF'
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- namespace.yaml
+- configmap.yaml
+EOF
+  repair_file_if_needed "${dir}/kustomization.yaml" "${tmp}" "clusters/${spoke}/kustomization.yaml"
+
+  tmp="$(mktemp)"
+  cat > "${tmp}" <<EOF
+# clusters/${spoke}/namespace.yaml
+# REQ-SPOKE-05 seed - distinct per spoke, falsifiable for the cross-cluster
+# negative-proof.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${ns}
+EOF
+  repair_file_if_needed "${dir}/namespace.yaml" "${tmp}" "clusters/${spoke}/namespace.yaml"
+
+  tmp="$(mktemp)"
+  cat > "${tmp}" <<EOF
+# clusters/${spoke}/configmap.yaml
+# REQ-SPOKE-05 seed - ConfigMap NAME is karyon-spoke-id on both spokes;
+# namespace and data.spoke differ for the cross-cluster falsifier.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: karyon-spoke-id
+  namespace: ${ns}
+data:
+  spoke: ${spoke}
+EOF
+  repair_file_if_needed "${dir}/configmap.yaml" "${tmp}" "clusters/${spoke}/configmap.yaml"
+}
+
+verify_spoke_credential_layer() {
+  local spoke="$1" value_b64 value_yaml expected actual bearer cert_part spoke_cert_part ready nodes expected_node cert_tmp
+  expected="$(expected_server "${spoke}")"
+  value_b64="$(hub_secret_value "${spoke}")"
+  if [[ -z "${value_b64}" ]]; then
+    fail "${spoke} hub Secret missing data.value.yaml.
+       Fix: bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+
+  value_yaml="$(decode_b64 "${value_b64}")"
+  actual="$(yq eval '.clusters[0].cluster.server // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  bearer="$(yq eval '.users[0].user.token // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  cert_part="$(yq eval '.clusters[0].cluster.certificate-authority-data // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  if [[ "${actual}" != "${expected}" || -z "${bearer}" || -z "${cert_part}" ]]; then
+    fail "${spoke} credential decode failed or server drifted (expected ${expected}).
+       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o yaml
+       Fix: bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+  if ! decode_b64 "${cert_part}" >/dev/null 2>&1; then
+    fail "${spoke} certificate data is not base64-decodable.
+       Fix: bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+  spoke_cert_part="$(kubectl --context "k3d-${spoke}" -n "${FLUX_NS}" get secret "${RECONCILER_SECRET}" \
+    -o jsonpath='{.data.ca\.crt}' 2>/dev/null || true)"
+  if [[ "${cert_part}" != "${spoke_cert_part}" ]]; then
+    fail "${spoke} certificate data does not match spoke credential source.
+       Fix: bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+  pass "verification ok: ${spoke} presence + decode + server + cert equality"
+
+  cert_tmp="/tmp/karyon-${spoke}-apiserver-ca.pem"
+  decode_b64 "${cert_part}" |
+    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+      /bin/sh -c "cat > '${cert_tmp}'"
+  if ! kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+      /bin/sh -c "openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+    fail "${spoke} TLS proof failed from kustomize-controller.
+       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} exec deploy/kustomize-controller -- cat /tmp/karyon-${spoke}-tls.out
+       Fix: rerun cluster creation if the spoke apiserver cert SAN is wrong; then rerun this script."
+    exit 1
+  fi
+  pass "tls ok: ${spoke} certificate validates k3d-${spoke}-server-0"
+
+  ready="$(in_pod_wget "${spoke}" "${bearer}" "/readyz" || true)"
+  if [[ "${ready}" != "ok" ]]; then
+    fail "${spoke} /readyz auth roundtrip failed.
+       Repro: kubectl --context ${HUB_CTX} -n ${FLUX_NS} exec deploy/kustomize-controller -- /bin/sh -c 'wget -qO- --no-check-certificate https://k3d-${spoke}-server-0:6443/readyz'
+       Fix: bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+  pass "auth roundtrip ok: ${spoke} /readyz returned ok"
+
+  expected_node="k3d-${spoke}-server-0"
+  nodes="$(in_pod_wget "${spoke}" "${bearer}" "/api/v1/nodes" || true)"
+  if [[ "${nodes}" != *"${expected_node}"* || "${nodes}" == *"${EXPECTED_FORBIDDEN_NODE}"* ]]; then
+    fail "P18 SILENT MISROUTE warning for ${spoke}: expected ${expected_node} and not ${EXPECTED_FORBIDDEN_NODE}.
+       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o yaml
+       Fix: do NOT push current state; rerun bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+  pass "node-name proof ok: ${spoke} routes to ${expected_node}"
+}
+
+register_spoke() {
+  local spoke="$1" mutation_needed=1 kubeconfig_yaml
+
+  section "${spoke}"
+
+  if spoke_rbac_healthy "${spoke}" && hub_secret_healthy "${spoke}" \
+      && auth_roundtrip_healthy "${spoke}" && node_route_healthy "${spoke}"; then
+    info "already done, skipping: ${spoke} runtime mutation (RBAC present, Secret decodes, auth ok, routing ok)"
+    mutation_needed=0
+  fi
+
+  if [[ "${mutation_needed}" -eq 1 ]]; then
+    apply_spoke_rbac "${spoke}"
+    pass "applied: ${spoke} RBAC in ${FLUX_NS}"
+
+    wait_for_token_secret "${spoke}"
+    pass "credential data populated for ${spoke}"
+
+    kubeconfig_yaml="$(build_kubeconfig "${spoke}" "${TOKEN_DECODED}" "${CA_B64}")"
+    apply_hub_secret "${spoke}" "${kubeconfig_yaml}"
+    pass "applied: ${spoke} hub Secret"
+  fi
+
+  ensure_hub_kustomization "${spoke}"
+  ensure_spoke_seed "${spoke}"
+  verify_spoke_credential_layer "${spoke}"
+}
+
+# ---------- Section 1: Preflight gate ----------
+section "Preflight gate"
+PREFLIGHT_LOG="$(mktemp -t karyon-preflight.XXXXXX.log)"
+if ! bash "${SCRIPT_DIR}/preflight.sh" > "${PREFLIGHT_LOG}" 2>&1; then
+  fail "preflight has blockers before registering spokes.
+     Fix: bash scripts/preflight.sh
+     Log: ${PREFLIGHT_LOG}"
+  exit 1
+fi
+pass "preflight green"
+rm -f "${PREFLIGHT_LOG}"
+
+# ---------- Section 2: Context check ----------
+section "Context check"
+ctx="$(kubectl config current-context 2>/dev/null || true)"
+if [[ "${ctx}" != "${HUB_CTX}" ]]; then
+  fail "kubectl context is ${ctx:-unset}, expected ${HUB_CTX}.
+     Fix: kubectl config use-context ${HUB_CTX}"
+  exit 1
+fi
+pass "kubectl context: ${HUB_CTX}"
+
+# ---------- Sections 3 and 4: per-spoke registration ----------
+register_spoke spoke-ml
+register_spoke spoke-apps
+
+# ---------- Section 5: Hub-side Kustomization wire-up ----------
+section "Hub-side Kustomization wire-up"
+ensure_spokes_index
+if [[ ! -f "${HUB_KUST_FILE}" ]]; then
+  fail "${HUB_KUST_FILE} missing.
+     Fix: bash scripts/bootstrap-flux.sh && bash scripts/register-spokes-for-flux.sh"
+  exit 1
+fi
+if grep -qF "${SPOKES_SENTINEL}" "${HUB_KUST_FILE}"; then
+  info "already done, skipping: spokes mount sentinel present in ${HUB_KUST_FILE}"
+else
+  tmp="$(mktemp)"
+  awk -v sentinel="${SPOKES_SENTINEL}" '
+    /^resources:/ {print; in_resources=1; next}
+    in_resources && /^[^ -]/ {
+      print sentinel
+      print "- ../spokes"
+      in_resources=0
+    }
+    {print}
+    END {
+      if (in_resources) {
+        print sentinel
+        print "- ../spokes"
+      }
+    }
+  ' "${HUB_KUST_FILE}" > "${tmp}"
+  mv "${tmp}" "${HUB_KUST_FILE}"
+  pass "applied: - ../spokes under resources in ${HUB_KUST_FILE}"
+fi
+
+# ---------- Summary ----------
+section "Summary"
+printf "  %s%d passed%s, %s%d warnings%s, %s%d failed%s\n" \
+  "${C_GREEN}" "${PASS}" "${C_RESET}" "${C_YELLOW}" "${WARN}" "${C_RESET}" "${C_RED}" "${FAIL}" "${C_RESET}"
+if (( FAIL > 0 )); then exit 1; fi
+
+info "Next: commit + push the new files so Flux reconciles them."
+info "  git add clusters/hub-flux/spokes clusters/hub-flux/flux-system/kustomization.yaml \\"
+info "          clusters/spoke-ml clusters/spoke-apps Taskfile.yml docs/flux-hub-spoke.md \\"
+info "          scripts/register-spokes-for-flux.sh tests/bats/register-spokes-*.bats"
+info "  git commit -m 'feat(04): register spokes for Flux reconciliation (SPOKE-01..06)'"
+info "  git push"
+info "  flux --context k3d-hub-flux reconcile source git flux-system"
+printf "\n%sSpoke registration complete. k3d-hub-flux can now reconcile to spoke-ml and spoke-apps.%s\n" \
+  "${C_GREEN}" "${C_RESET}"
