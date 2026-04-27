@@ -63,10 +63,10 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 ### Flux Hub Bootstrap
 
 - [x] **FLUX-01**: `scripts/bootstrap-flux.sh` runs `flux bootstrap github` targeting the `hub-flux` cluster
-- [ ] **FLUX-02**: The `--path` argument is hard-coded to `clusters/hub-flux` (effectively immutable after first run per Flux design)
+- [x] **FLUX-02**: The `--path` argument is hard-coded to `clusters/hub-flux` (effectively immutable after first run per Flux design)
 - [x] **FLUX-03**: `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` are read from the gitignored `.env` file; the script never echoes the token value
 - [x] **FLUX-04**: Bootstrap is idempotent — rerunning after a successful first run leaves the cluster in the same state
-- [ ] **FLUX-05**: `docs/flux-hub-spoke.md` documents that `clusters/hub-flux/flux-system/gotk-components.yaml` and `gotk-sync.yaml` are bootstrap-managed, but `kustomization.yaml` IS the supported patch surface (corrects the starter's overly-broad "do not hand-edit" guidance)
+- [x] **FLUX-05**: `docs/flux-hub-spoke.md` documents that `clusters/hub-flux/flux-system/gotk-components.yaml` and `gotk-sync.yaml` are bootstrap-managed, but `kustomization.yaml` IS the supported patch surface (corrects the starter's overly-broad "do not hand-edit" guidance)
 
 ### Spoke Registration
 
@@ -213,11 +213,11 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 | CLU-04 | Phase 2 | Complete |
 | CLU-05 | Phase 2 | Complete |
 | CLU-06 | Phase 2 | Pending |
-| FLUX-01 | Phase 3 | Pending |
-| FLUX-02 | Phase 3 | Pending |
-| FLUX-03 | Phase 3 | Pending |
+| FLUX-01 | Phase 3 | Complete |
+| FLUX-02 | Phase 3 | Complete |
+| FLUX-03 | Phase 3 | Complete |
 | FLUX-04 | Phase 3 | Complete |
-| FLUX-05 | Phase 3 | Pending |
+| FLUX-05 | Phase 3 | Complete |
 | SPOKE-01 | Phase 4 | Pending |
 | SPOKE-02 | Phase 4 | Pending |
 | SPOKE-03 | Phase 4 | Pending |

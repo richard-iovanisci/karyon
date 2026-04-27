@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Host Foundation** - WSL + Docker + GPU toolkit + asdf tools + preflight gate pass *(completed 2026-04-23)*
 - [ ] **Phase 2: Cluster Layer** - Custom k3s+CUDA image + `k8s-net` + three clusters with correct `--tls-san`
-- [ ] **Phase 3: Flux Hub Bootstrap** - `flux bootstrap github` on hub-flux, self-managing GitOps, documented patch surface
+- [x] **Phase 3: Flux Hub Bootstrap** - `flux bootstrap github` on hub-flux, self-managing GitOps, documented patch surface *(completed 2026-04-27)*
 - [ ] **Phase 4: Spoke Registration** - SA + cluster-admin + legacy-Secret tokens + hub-side kubeconfig Secrets with `value.yaml` key
 - [ ] **Phase 5: Workloads + Health + Rebuild** - podinfo + `nvidia-smi` pod + `task fix-dns` + `task health-check` + `task rebuild` < 20 min
 - [ ] **Phase 6: Repo Hygiene + Docs + ADRs** - Public-safe repo, 5 ADRs, README, Mermaid diagram, rebuild runbook, CI workflow
@@ -141,7 +141,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 |-------|----------------|--------|-----------|
 | 1. Host Foundation | 9/9 | Complete | 2026-04-23 |
 | 2. Cluster Layer | 0/TBD | Not started | - |
-| 3. Flux Hub Bootstrap | 6/6 | In Progress | - |
+| 3. Flux Hub Bootstrap | 6/6 | Complete | 2026-04-27 |
 | 4. Spoke Registration | 0/TBD | Not started | - |
 | 5. Workloads + Health + Rebuild | 0/TBD | Not started | - |
 | 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
