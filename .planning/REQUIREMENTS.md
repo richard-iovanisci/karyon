@@ -70,12 +70,12 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 
 ### Spoke Registration
 
-- [ ] **SPOKE-01**: `scripts/register-spokes-for-flux.sh` creates a `ServiceAccount` plus cluster-admin `ClusterRoleBinding` on each spoke
-- [ ] **SPOKE-02**: For each spoke SA, creates an explicit legacy Secret of type `kubernetes.io/service-account-token` annotated with the SA name (indefinite lifetime is acceptable for lab scope)
-- [ ] **SPOKE-03**: Generates a kubeconfig per spoke with `server: https://k3d-<spoke>-server-0:6443` (Docker-embedded-DNS hostname reachable from hub pods on `k8s-net`)
-- [ ] **SPOKE-04**: Stores each kubeconfig as a `flux-system/<spoke>-kubeconfig` Secret on `hub-flux` under the key `value.yaml` (confirmed correct key name per Flux `kustomize-controller` v1 spec)
-- [ ] **SPOKE-05**: Authors a hub-side Flux `Kustomization` per spoke under `clusters/hub-flux/spokes/` with `spec.kubeConfig.secretRef` pointing to the kubeconfig Secret and `spec.path` pointing to the spoke's tree
-- [ ] **SPOKE-06**: Each spoke kubeconfig embeds CA-data from the spoke's apiserver cert so TLS validation succeeds against the `--tls-san`
+- [x] **SPOKE-01**: `scripts/register-spokes-for-flux.sh` creates a `ServiceAccount` plus cluster-admin `ClusterRoleBinding` on each spoke
+- [x] **SPOKE-02**: For each spoke SA, creates an explicit legacy Secret of type `kubernetes.io/service-account-token` annotated with the SA name (indefinite lifetime is acceptable for lab scope)
+- [x] **SPOKE-03**: Generates a kubeconfig per spoke with `server: https://k3d-<spoke>-server-0:6443` (Docker-embedded-DNS hostname reachable from hub pods on `k8s-net`)
+- [x] **SPOKE-04**: Stores each kubeconfig as a `flux-system/<spoke>-kubeconfig` Secret on `hub-flux` under the key `value.yaml` (confirmed correct key name per Flux `kustomize-controller` v1 spec)
+- [x] **SPOKE-05**: Authors a hub-side Flux `Kustomization` per spoke under `clusters/hub-flux/spokes/` with `spec.kubeConfig.secretRef` pointing to the kubeconfig Secret and `spec.path` pointing to the spoke's tree
+- [x] **SPOKE-06**: Each spoke kubeconfig embeds CA-data from the spoke's apiserver cert so TLS validation succeeds against the `--tls-san`
 
 ### Example Workloads
 
@@ -218,12 +218,12 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 | FLUX-03 | Phase 3 | Complete |
 | FLUX-04 | Phase 3 | Complete |
 | FLUX-05 | Phase 3 | Complete |
-| SPOKE-01 | Phase 4 | Pending |
-| SPOKE-02 | Phase 4 | Pending |
-| SPOKE-03 | Phase 4 | Pending |
-| SPOKE-04 | Phase 4 | Pending |
-| SPOKE-05 | Phase 4 | Pending |
-| SPOKE-06 | Phase 4 | Pending |
+| SPOKE-01 | Phase 4 | Complete |
+| SPOKE-02 | Phase 4 | Complete |
+| SPOKE-03 | Phase 4 | Complete |
+| SPOKE-04 | Phase 4 | Complete |
+| SPOKE-05 | Phase 4 | Complete |
+| SPOKE-06 | Phase 4 | Complete |
 | DEP-01 | Phase 5 | Pending |
 | DEP-02 | Phase 5 | Pending |
 | DEP-03 | Phase 5 | Pending |

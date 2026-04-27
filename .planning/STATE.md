@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-04-27T18:04:05.915Z"
-last_activity: 2026-04-27 -- Phase 04 planning complete
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-04-27T18:20:18.284Z"
+last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 27
-  completed_plans: 22
-  percent: 81
+  completed_plans: 23
+  percent: 85
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 
 ## Current Position
 
-Phase: 04 (spoke-registration) — READY TO PLAN
-Plan: 0 of TBD
+Phase: 04 (spoke-registration) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-04-27 -- Phase 04 planning complete
+Last activity: 2026-04-27
 
-Progress: [██████████] 100%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [██████████] 100%
 | Phase 02-cluster-layer P07 | 5min | 1 tasks | 1 files |
 | Phase 03-flux-hub-bootstrap P05 | 3min | 2 tasks | 2 files |
 | Phase 03-flux-hub-bootstrap P06 | human-checkpoint | 2 tasks | 4 files |
+| Phase 04-spoke-registration P01 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Taskfile.yml Phase 2 stub: three tasks only (build-image, create-clusters, delete-clusters); Phase 6 REPO-05 owns full audit
 - Plan 03-05: Treat .env as data for only GITHUB_OWNER, GITHUB_REPO, and GITHUB_TOKEN; never source it as shell.
 - Plan 03-05: Use local git pull --ff-only sync rather than reimplementing Flux bootstrap remote Git workflow.
+- [Phase 04]: Phase 4 P18 contract treats omitted spec.kubeConfig as the real silent-misroute risk; value.yaml remains pinned as defense in depth.
+- [Phase 04]: Live in-pod probes use openssl for CA/TLS proof and busybox wget for auth/node identity because the kustomize-controller image lacks kubectl.
+- [Phase 04]: The Phase 4 live suite centralizes its destructive env gate in setup() and skips local-only or unpushed reconciliation-tree state.
 
 ### Pending Todos
 
@@ -94,8 +98,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 4 context gathered
-Resume file: --resume-file
+Last session: 2026-04-27T18:20:18.276Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z

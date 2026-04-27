@@ -105,7 +105,7 @@ Plans:
 **Plans**: 5 plans (5 waves)
 
 Plans:
-- [ ] 04-01-PLAN.md — Wave 1 bats test scaffolding (register-spokes-01-static.bats + register-spokes-02-live.bats; TDD scaffold for SPOKE-01..06 + D-02 sentinel + D-11 token safety + D-14 ADJUSTED wget auth/node probe + openssl TLS proof + inventory ID literal)
+- [x] 04-01-PLAN.md — Wave 1 bats test scaffolding (register-spokes-01-static.bats + register-spokes-02-live.bats; TDD scaffold for SPOKE-01..06 + D-02 sentinel + D-11 token safety + D-14 ADJUSTED wget auth/node probe + openssl TLS proof + inventory ID literal)
 - [ ] 04-02-PLAN.md — Wave 2 static manifests: hub-side Flux v1 Kustomizations (spoke-ml.yaml, spoke-apps.yaml, spokes/kustomization.yaml) + spoke seed trees (clusters/spoke-{ml,apps}/{kustomization,namespace,configmap}.yaml; SPOKE-04, SPOKE-05; depends on 04-01)
 - [ ] 04-03-PLAN.md — Wave 3 orchestration script: scripts/register-spokes-for-flux.sh (D-01 helper register_spoke, D-05 preflight, D-06 context gate, idempotency without bypassing file repair/verification, D-09 kubeconfig heredoc, D-10 single-source CA+token, D-11 bounded retry, D-13 verification with openssl TLS + wget auth/node probes; SPOKE-01..06)
 - [ ] 04-04-PLAN.md — Wave 4 wire-up: sentinel-guarded patch on clusters/hub-flux/flux-system/kustomization.yaml (D-02 # KARYON SPOKES MOUNT) + Taskfile.yml register-spokes task + docs/flux-hub-spoke.md Phase 4 section (DOCS-03 with P18 reframe and openssl/wget probe split; full static bats green)
