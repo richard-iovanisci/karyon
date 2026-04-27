@@ -1,3 +1,16 @@
+# ──────────────────────────────────────────────────────────────────────────
+# FLUX PATCH SURFACE
+#
+# This file IS the supported patch surface for the hub-flux bootstrap.
+# Edits here SURVIVE re-bootstrap — add `patches:`, `configMapGenerator:`,
+# `images:` etc. here to customize the 4 core controllers.
+#
+# Peer files in this directory — gotk-components.yaml, gotk-sync.yaml —
+# are bootstrap-managed and WILL be overwritten by `flux bootstrap`.
+# Do NOT hand-edit them.
+#
+# See: docs/flux-hub-spoke.md
+# ──────────────────────────────────────────────────────────────────────────
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

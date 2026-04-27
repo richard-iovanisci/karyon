@@ -216,7 +216,7 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 | FLUX-01 | Phase 3 | Pending |
 | FLUX-02 | Phase 3 | Pending |
 | FLUX-03 | Phase 3 | Pending |
-| FLUX-04 | Phase 3 | Pending |
+| FLUX-04 | Phase 3 | Complete |
 | FLUX-05 | Phase 3 | Pending |
 | SPOKE-01 | Phase 4 | Pending |
 | SPOKE-02 | Phase 4 | Pending |
