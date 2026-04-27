@@ -1,0 +1,28 @@
+# clusters/hub-flux/spokes/spoke-ml.yaml
+# Flux v1 Kustomization - hub-flux's kustomize-controller reconciles
+# clusters/spoke-ml/ into k3d-spoke-ml via the spoke-ml-kubeconfig Secret
+# (applied imperatively by scripts/register-spokes-for-flux.sh; never committed
+# because it contains a bearer token).
+#
+# REQ-SPOKE-05 (this file's existence + secretRef shape).
+# REQ-SPOKE-04 (key: value.yaml explicit - RESEARCH.md Pitfall 2 reframe:
+#   the silent-misroute fault is `spec.kubeConfig` ENTIRELY ABSENT, which would
+#   make the controller fall back to its in-cluster SA and reconcile to HUB.
+#   ALWAYS include the entire spec.kubeConfig block; explicit `key: value.yaml`
+#   is belt-and-suspenders against future Flux default-key behavior changes.)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: spoke-ml
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./clusters/spoke-ml
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  kubeConfig:
+    secretRef:
+      name: spoke-ml-kubeconfig
+      key: value.yaml

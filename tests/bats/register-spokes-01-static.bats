@@ -120,7 +120,7 @@ teardown() {
 
 @test "SPOKE-05: clusters/hub-flux/spokes/kustomization.yaml lists spoke-ml.yaml and spoke-apps.yaml as resources" {
   [ -f "$SPOKES_INDEX" ]
-  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources == ["spoke-ml.yaml", "spoke-apps.yaml"])' "$SPOKES_INDEX"
+  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 2 and .resources[0] == "spoke-ml.yaml" and .resources[1] == "spoke-apps.yaml"' "$SPOKES_INDEX"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
