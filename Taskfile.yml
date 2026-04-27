@@ -20,3 +20,8 @@ tasks:
     desc: Bootstrap Flux GitOps on k3d-hub-flux from clusters/hub-flux/ (FLUX-01..04)
     cmds:
       - bash scripts/bootstrap-flux.sh
+
+  register-spokes:
+    desc: Register spoke clusters for Flux reconciliation via spec.kubeConfig (SPOKE-01..06)
+    cmds:
+      - bash scripts/register-spokes-for-flux.sh
