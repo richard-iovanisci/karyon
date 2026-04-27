@@ -117,7 +117,7 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 
 - [ ] **DOCS-01**: `README.md` covers, in this order: Windows prereqs → WSL config → Docker install → NVIDIA setup → tools install → cluster creation → Flux bootstrap → spoke registration → example deploy → teardown
 - [ ] **DOCS-02**: `docs/architecture.md` contains a Mermaid diagram of the hub-spoke topology (rendered natively by GitHub)
-- [ ] **DOCS-03**: `docs/flux-hub-spoke.md` explains the hub-only reconciliation model, the `kustomization.yaml`-is-editable rule, and the `--path`-is-immutable contract
+- [x] **DOCS-03**: `docs/flux-hub-spoke.md` explains the hub-only reconciliation model, the `kustomization.yaml`-is-editable rule, and the `--path`-is-immutable contract
 - [ ] **DOCS-04**: `docs/gpu-notes.md` explains the 3-part k3d GPU contract, the RTX 5090 / sm_120 requirement, and the CUDA 12.8+ floor
 - [ ] **DOCS-05**: `docs/rebuild-runbook.md` is a step-by-step scorched-earth procedure including expected timings and common failure modes
 - [ ] **DOCS-06**: `docs/adr/0001-single-wsl2-shared-docker-network.md` captures the single-distro + `k8s-net` decision
@@ -250,7 +250,7 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 | REPO-07 | Phase 6 | Pending |
 | DOCS-01 | Phase 6 | Pending |
 | DOCS-02 | Phase 6 | Pending |
-| DOCS-03 | Phase 6 | Pending |
+| DOCS-03 | Phase 6 | Complete |
 | DOCS-04 | Phase 6 | Pending |
 | DOCS-05 | Phase 6 | Pending |
 | DOCS-06 | Phase 6 | Pending |

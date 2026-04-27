@@ -108,7 +108,7 @@ Plans:
 - [x] 04-01-PLAN.md — Wave 1 bats test scaffolding (register-spokes-01-static.bats + register-spokes-02-live.bats; TDD scaffold for SPOKE-01..06 + D-02 sentinel + D-11 token safety + D-14 ADJUSTED wget auth/node probe + openssl TLS proof + inventory ID literal)
 - [x] 04-02-PLAN.md — Wave 2 static manifests: hub-side Flux v1 Kustomizations (spoke-ml.yaml, spoke-apps.yaml, spokes/kustomization.yaml) + spoke seed trees (clusters/spoke-{ml,apps}/{kustomization,namespace,configmap}.yaml; SPOKE-04, SPOKE-05; depends on 04-01)
 - [x] 04-03-PLAN.md — Wave 3 orchestration script: scripts/register-spokes-for-flux.sh (D-01 helper register_spoke, D-05 preflight, D-06 context gate, idempotency without bypassing file repair/verification, D-09 kubeconfig heredoc, D-10 single-source CA+token, D-11 bounded retry, D-13 verification with openssl TLS + wget auth/node probes; SPOKE-01..06)
-- [ ] 04-04-PLAN.md — Wave 4 wire-up: sentinel-guarded patch on clusters/hub-flux/flux-system/kustomization.yaml (D-02 # KARYON SPOKES MOUNT) + Taskfile.yml register-spokes task + docs/flux-hub-spoke.md Phase 4 section (DOCS-03 with P18 reframe and openssl/wget probe split; full static bats green)
+- [x] 04-04-PLAN.md — Wave 4 wire-up: sentinel-guarded patch on clusters/hub-flux/flux-system/kustomization.yaml (D-02 # KARYON SPOKES MOUNT) + Taskfile.yml register-spokes task + docs/flux-hub-spoke.md Phase 4 section (DOCS-03 with P18 reframe and openssl/wget probe split; full static bats green)
 - [ ] 04-05-PLAN.md — Wave 5 live execution + post-push reconciliation gate: first-run + second-run idempotency proof with verification still running + checkpoint:human-verify for user push + pre-push secret scan + post-push live destructive bats (deep kubeconfig decode, TLS/auth/node probes, .status.inventory inventory ID literal + cross-cluster ConfigMap falsifier)
 
 ### Phase 5: Workloads + Health + Rebuild
@@ -149,7 +149,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 | 1. Host Foundation | 9/9 | Complete | 2026-04-23 |
 | 2. Cluster Layer | 0/TBD | Not started | - |
 | 3. Flux Hub Bootstrap | 6/6 | Complete | 2026-04-27 |
-| 4. Spoke Registration | 0/5 | Not started | - |
+| 4. Spoke Registration | 4/5 | In Progress | - |
 | 5. Workloads + Health + Rebuild | 0/TBD | Not started | - |
 | 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
 
