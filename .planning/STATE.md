@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
-status: executing
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-04-27T18:44:44.785Z"
+status: verifying
+stopped_at: Completed 04-05-PLAN.md
+last_updated: "2026-04-27T22:22:24.541Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 27
-  completed_plans: 26
-  percent: 96
+  completed_plans: 27
+  percent: 100
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 
 Phase: 04 (spoke-registration) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-27
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [██████████] 96%
 | Phase 04-spoke-registration P02 | 4min | 3 tasks | 10 files |
 | Phase 04-spoke-registration P03 | 6min | 1 tasks | 1 files |
 | Phase 04-spoke-registration P04 | 5min | 4 tasks | 4 files |
+| Phase 04-spoke-registration P05 | checkpointed | 4 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 04-spoke-registration]: Plan 04-04 mounts clusters/hub-flux/spokes through the existing Phase 3 patch surface — Uses # KARYON SPOKES MOUNT plus - ../spokes under resources.
 - [Phase 04-spoke-registration]: Plan 04-04 docs frame P18 as omitted spec.kubeConfig — key: value.yaml remains explicit defense in depth.
 - [Phase 04-spoke-registration]: Phase 3 docs tests now assert the filled Phase 4 section — The planned HTML stub was consumed by this plan.
+- [Phase 04-spoke-registration]: Plan 04-05 uses post-push live destructive Bats plus inventory IDs and cross-cluster ConfigMap falsifiers as the canonical P18 reconciliation proof.
+- [Phase 04-spoke-registration]: Plan 04-05 uses a temporary CA-only OpenSSL verifier pod when the Flux controller image lacks openssl, then deletes it after the proof.
+- [Phase 04-spoke-registration]: clusters/hub-flux/kustomization.yaml is required at the Flux bootstrap path root so origin/main includes flux-system and the mounted spokes tree.
 
 ### Pending Todos
 
@@ -109,8 +113,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-27T18:44:44.777Z
-Stopped at: Completed 04-04-PLAN.md
+Last session: 2026-04-27T22:22:24.534Z
+Stopped at: Completed 04-05-PLAN.md
 Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z
