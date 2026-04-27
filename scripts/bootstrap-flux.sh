@@ -37,9 +37,96 @@ readonly FLUX_PATH="clusters/hub-flux"
 readonly KUBE_CTX="k3d-hub-flux"
 readonly FLUX_NS="flux-system"
 readonly KUST_FILE="${REPO_ROOT}/${FLUX_PATH}/${FLUX_NS}/kustomization.yaml"
+ENV_KEYS_LOADED=0
+
+load_env_key() {
+  local key="$1" raw val first last
+  if [[ ! -f "${REPO_ROOT}/.env" ]]; then
+    fail "${REPO_ROOT}/.env missing — preflight PRE-09 should have caught this; rerun: scripts/preflight.sh"
+    exit 1
+  fi
+  raw="$(grep -E "^${key}=" "${REPO_ROOT}/.env" | tail -n1 | cut -d= -f2-)"
+  val="${raw}"
+  if [[ ${#val} -ge 2 ]]; then
+    first="${val:0:1}"
+    last="${val: -1}"
+    if [[ "${first}" == "${last}" && ( "${first}" == "'" || "${first}" == '"' ) ]]; then
+      val="${val:1:${#val}-2}"
+    elif [[ "${first}" == "'" || "${first}" == '"' ]]; then
+      fail "${key} has an unmatched leading quote in ${REPO_ROOT}/.env — fix the value and rerun."
+      exit 1
+    fi
+  elif [[ "${val}" == "'" || "${val}" == '"' ]]; then
+    fail "${key} has an unmatched quote in ${REPO_ROOT}/.env — fix the value and rerun."
+    exit 1
+  fi
+  if [[ -z "${val}" ]]; then
+    fail "${key} missing or empty in ${REPO_ROOT}/.env — fix the value and rerun. (Preflight PRE-09 covers presence; an empty value bypasses that gate.)"
+    exit 1
+  fi
+  printf -v "${key}" '%s' "${val}"
+  export "${key?}"
+}
+
+load_github_env() {
+  if [[ "${ENV_KEYS_LOADED}" -eq 1 ]]; then
+    return 0
+  fi
+  load_env_key GITHUB_OWNER
+  load_env_key GITHUB_REPO
+  load_env_key GITHUB_TOKEN
+  ENV_KEYS_LOADED=1
+}
+
+origin_matches_env_repo() {
+  local url expected_slug
+  expected_slug="${GITHUB_OWNER}/${GITHUB_REPO}"
+  url="$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null || true)"
+  case "${url}" in
+    "git@github.com:${expected_slug}.git"|"https://github.com/${expected_slug}.git"|"https://github.com/${expected_slug}")
+      return 0
+      ;;
+  esac
+  fail "git origin does not match GITHUB_OWNER/GITHUB_REPO from .env; refusing to bootstrap before mutating GitHub.
+     Fix: set origin to github.com/${expected_slug}.git or update .env to match this checkout."
+  exit 1
+}
+
+check_flux_path_clean_for_sync() {
+  local untracked
+  if ! git -C "${REPO_ROOT}" diff --quiet -- "${FLUX_PATH}" 2>/dev/null \
+     || ! git -C "${REPO_ROOT}" diff --cached --quiet -- "${FLUX_PATH}" 2>/dev/null; then
+    fail "uncommitted changes detected under ${FLUX_PATH}/ in this checkout — refusing bootstrap sync.
+     Inspect: git -C ${REPO_ROOT} status -- ${FLUX_PATH}
+     Fix:     commit or stash those changes, then rerun: bash scripts/bootstrap-flux.sh"
+    exit 1
+  fi
+  untracked="$(git -C "${REPO_ROOT}" ls-files --others --exclude-standard -- "${FLUX_PATH}" 2>/dev/null || true)"
+  if [[ -n "${untracked}" ]]; then
+    printf "%s\n" "${untracked}" >&2
+    fail "untracked files detected under ${FLUX_PATH}/ in this checkout — refusing bootstrap sync.
+     Fix: commit, stash, or remove those files, then rerun: bash scripts/bootstrap-flux.sh"
+    exit 1
+  fi
+}
+
+check_origin_main_fast_forwardable() {
+  if ! git -C "${REPO_ROOT}" fetch origin main >/dev/null 2>&1; then
+    fail "could not fetch origin/main before bootstrap.
+     Inspect: git -C ${REPO_ROOT} remote -v
+     Fix:     verify network access and that origin points to the GitHub repo in .env, then rerun: bash scripts/bootstrap-flux.sh"
+    exit 1
+  fi
+  if ! git -C "${REPO_ROOT}" merge-base --is-ancestor HEAD origin/main; then
+    fail "local main has commits that are not on origin/main; first bootstrap cannot finish with git pull --ff-only after Flux pushes manifests.
+     Fix: push local main first, or merge/rebase origin/main locally, then rerun: bash scripts/bootstrap-flux.sh"
+    exit 1
+  fi
+}
+
 # ---------- Section 1: Preflight gate + gitleaks advisory (D-05, Phase-6 hand-off) ----------
 section "Preflight gate"
-PREFLIGHT_LOG="/tmp/preflight-$$.log"
+PREFLIGHT_LOG="$(mktemp -t karyon-preflight.XXXXXX.log)"
 # Note (codex HIGH-2): scripts/preflight.sh emits port-in-use and existing-k3d-cluster
 # checks as WARN (not FAIL). After Phase 2 ran, port 6443 is bound by k3d-hub-flux's
 # load-balancer container — preflight warns but exits 0. This script tolerates that
@@ -52,13 +139,15 @@ if ! bash "${SCRIPT_DIR}/preflight.sh" > "${PREFLIGHT_LOG}" 2>&1; then
 fi
 pass "preflight green"
 rm -f "${PREFLIGHT_LOG}"
+load_github_env
 
 # Phase-6 gitleaks pre-commit advisory (codex MEDIUM-4 / RESEARCH.md Q10).
 # CONTEXT.md "Claude's Discretion" recommended warn-only — Phase 6 REPO-04 lands the
 # actual hook. This is a belt-and-suspenders advisory: PAT in .env is gitignored, so
 # pre-commit gitleaks is defense-in-depth, not the primary control. Non-fatal.
 section "Gitleaks pre-commit advisory"
-if [ -f .git/hooks/pre-commit ] && grep -qF gitleaks .git/hooks/pre-commit; then
+GITLEAKS_HOOK="${REPO_ROOT}/.git/hooks/pre-commit"
+if [ -f "${GITLEAKS_HOOK}" ] && grep -qF gitleaks "${GITLEAKS_HOOK}"; then
   pass "gitleaks pre-commit hook present"
 else
   warn "gitleaks pre-commit hook not detected — Phase 6 (REPO-04) lands gitleaks before first 'git push'. PAT in .env is gitignored; this is a belt-and-suspenders advisory."
@@ -102,6 +191,19 @@ if [[ ${ns_ok} -eq 1 && ${check_ok} -eq 1 && ${ctrl_ok} -eq 1 ]]; then
   SKIP_BOOTSTRAP=1
 fi
 
+# If bootstrap has to create manifests remotely and this checkout does not have
+# them yet, prove before the remote write that the post-bootstrap sync can finish.
+# This blocks the known local-ahead/diverged branch state that would otherwise let
+# `flux bootstrap github` mutate origin/main before `git pull --ff-only` fails.
+if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
+  check_flux_path_clean_for_sync
+  load_github_env
+  origin_matches_env_repo
+  if [[ ! -f "${KUST_FILE}" ]]; then
+    check_origin_main_fast_forwardable
+  fi
+fi
+
 # ---------- Section 3: flux bootstrap github (D-01..D-04, D-08, D-11) ----------
 if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
   section "flux bootstrap"
@@ -110,30 +212,7 @@ if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
   # `grep -E '^KEY=' .env` against the three expected keys; it never sources or
   # runs the file as shell. A malicious .env with extra shell statements between keys
   # cannot trigger execution because no line is ever passed to the shell as code.
-  # Strips at most one pair of surrounding single OR double quotes from the value.
-  load_env_key() {
-    local key="$1" raw val
-    if [[ ! -f "${REPO_ROOT}/.env" ]]; then
-      fail "${REPO_ROOT}/.env missing — preflight PRE-09 should have caught this; rerun: scripts/preflight.sh"
-      exit 1
-    fi
-    raw="$(grep -E "^${key}=" "${REPO_ROOT}/.env" | tail -n1 | cut -d= -f2-)"
-    # Strip at most one pair of matching surrounding quotes (single or double).
-    val="${raw}"
-    if [[ "${val}" == \"*\" || "${val}" == \'*\' ]]; then
-      val="${val:1:${#val}-2}"
-    fi
-    if [[ -z "${val}" ]]; then
-      fail "${key} missing or empty in ${REPO_ROOT}/.env — fix the value and rerun. (Preflight PRE-09 covers presence; an empty value bypasses that gate.)"
-      exit 1
-    fi
-    printf -v "${key}" '%s' "${val}"
-    export "${key?}"
-  }
-
-  load_env_key GITHUB_OWNER
-  load_env_key GITHUB_REPO
-  load_env_key GITHUB_TOKEN
+  load_github_env
 
   # D-01..D-04 flag surface; D-11 token passing.
   # GITHUB_TOKEN is re-exported explicitly into the flux process environment.
@@ -215,17 +294,7 @@ section "Patch-surface marker"
 # we never clobber local work.
 if [[ ! -f "${KUST_FILE}" ]]; then
   info "local checkout missing ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml — bootstrap pushed manifests remotely; attempting fast-forward sync"
-  # Refuse the sync if the developer has uncommitted changes ANYWHERE under FLUX_PATH.
-  # Scope the dirty-check to FLUX_PATH only (not the whole repo) so unrelated WIP elsewhere
-  # in the tree does not block bootstrap completion.
-  if ! git -C "${REPO_ROOT}" diff --quiet -- "${FLUX_PATH}" 2>/dev/null \
-     || ! git -C "${REPO_ROOT}" diff --cached --quiet -- "${FLUX_PATH}" 2>/dev/null; then
-    fail "uncommitted changes detected under ${FLUX_PATH}/ in this checkout — refusing to fast-forward.
-   Inspect: git -C ${REPO_ROOT} status -- ${FLUX_PATH}
-   Fix:     commit or stash those changes, then rerun: bash scripts/bootstrap-flux.sh
-   (git -C ${REPO_ROOT} stash push -- ${FLUX_PATH} OR git -C ${REPO_ROOT} add ${FLUX_PATH} && git commit)"
-    exit 1
-  fi
+  check_flux_path_clean_for_sync
   # Fetch the remote main branch and fast-forward this checkout. --ff-only refuses any
   # divergence (e.g. a force-push, a different bootstrap path) and surfaces it loudly.
   if ! git -C "${REPO_ROOT}" pull --ff-only origin main; then
@@ -284,6 +353,14 @@ if git -C "${REPO_ROOT}" diff --quiet -- "${FLUX_PATH}/${FLUX_NS}/kustomization.
   info "patch-surface marker already in HEAD — no commit needed"
 else
   info "patch-surface marker added to ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml — commit and push so Flux reconciles a tree containing the marker: git add ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml && git commit -m 'docs(03): add patch-surface marker' && git push"
+fi
+
+if git -C "${REPO_ROOT}" fetch origin main >/dev/null 2>&1; then
+  if ! git -C "${REPO_ROOT}" diff --quiet origin/main -- "${FLUX_PATH}/${FLUX_NS}/kustomization.yaml" 2>/dev/null; then
+    warn "local ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml differs from origin/main — push local main so Flux reconciles the marker/patches"
+  fi
+else
+  warn "could not fetch origin/main to compare patch-surface marker state; verify GitHub contains ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml before relying on reconciliation"
 fi
 
 # ---------- Summary ----------

@@ -25,6 +25,30 @@ The bootstrap commit lands on the `main` branch of `$GITHUB_OWNER/$GITHUB_REPO`;
 reconciles it back into the cluster via the `flux-system` `Kustomization` resource
 every minute.
 
+## Local branch sync before first bootstrap
+
+On first bootstrap, Flux writes the generated manifests through its own temporary Git
+checkout and pushes them to `origin/main`. `scripts/bootstrap-flux.sh` then pulls that
+remote commit into this checkout before adding the patch-surface marker.
+
+Before running first bootstrap, local `main` must therefore be able to fast-forward from
+`origin/main`. If local `main` has unpublished commits, push them first. If `origin/main`
+already has commits this checkout does not have, merge or rebase them first. The script
+checks this before invoking `flux bootstrap github` when the local bootstrap manifests
+are still missing, so it does not mutate GitHub and then fail on a predictable
+non-fast-forward pull.
+
+If an older run already pushed Flux manifests and then failed locally, recover with:
+
+```bash
+git fetch origin main
+git merge origin/main
+bash scripts/bootstrap-flux.sh
+```
+
+After the marker is committed locally, push local `main` so Flux reconciles a Git tree
+that contains `# FLUX PATCH SURFACE`.
+
 ## Rule 1: `gotk-components.yaml` and `gotk-sync.yaml` are bootstrap-managed
 
 Do not hand-edit these files. `flux bootstrap` re-renders them from CLI flags on every
