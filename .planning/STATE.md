@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-04-27T18:27:50.011Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-04-27T18:37:17.512Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 27
-  completed_plans: 24
-  percent: 89
+  completed_plans: 25
+  percent: 93
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 ## Current Position
 
 Phase: 04 (spoke-registration) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-04-27
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [█████████░] 89%
 | Phase 03-flux-hub-bootstrap P06 | human-checkpoint | 2 tasks | 4 files |
 | Phase 04-spoke-registration P01 | 5min | 2 tasks | 2 files |
 | Phase 04-spoke-registration P02 | 4min | 3 tasks | 10 files |
+| Phase 04-spoke-registration P03 | 6min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 04]: The Phase 4 live suite centralizes its destructive env gate in setup() and skips local-only or unpushed reconciliation-tree state.
 - [Phase 04-spoke-registration]: Plan 04-02: Both spokes use ConfigMap name karyon-spoke-id, while namespace and data.spoke differ to preserve the cross-cluster falsifier. — The same object name with different namespace and data values proves routing to the intended spoke.
 - [Phase 04-spoke-registration]: Plan 04-02: Hub-side spoke Kustomizations keep the full spec.kubeConfig block as the primary P18 defense; key: value.yaml remains pinned as defense in depth. — Required to prevent silent in-cluster fallback if spec.kubeConfig is omitted.
+- [Phase 04-spoke-registration]: Plan 04-03 keeps the registration script local-file-only — The script prints git instructions but never runs git add, git commit, or git push.
+- [Phase 04-spoke-registration]: Plan 04-03 runtime health check proves RBAC, decoded Secret content, auth, and node routing before skipping mutation — Local manifest repair and D-13 verification still run on idempotent reruns.
+- [Phase 04-spoke-registration]: Plan 04-03 in-pod verification uses openssl plus busybox wget — kustomize-controller lacks kubectl; openssl proves CA/TLS and wget proves auth/node identity.
 
 ### Pending Todos
 
@@ -101,8 +105,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-27T18:27:49.797Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-04-27T18:37:17.504Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z
