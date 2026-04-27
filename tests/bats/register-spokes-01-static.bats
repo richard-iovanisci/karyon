@@ -187,17 +187,17 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "D-13: scripts/register-spokes-for-flux.sh contains the in-pod wget and openssl probes (D-14 adjusted)" {
+@test "D-13: scripts/register-spokes-for-flux.sh contains verified openssl HTTPS probes" {
   [ -f "$SCRIPT" ]
-  # RESEARCH.md adjustment: ghcr.io/fluxcd/kustomize-controller:v1.8.4 ships no kubectl; uses busybox wget.
-  # Pin the wget invocation literal so a future regression (re-introducing kubectl) is caught.
-  run grep -F -- 'wget' "$SCRIPT"
-  [ "$status" -eq 0 ]
+  # Bearer-token probes must use the same verified TLS connection that carries
+  # the Authorization header. Do not allow wget --no-check-certificate here.
+  run grep -F -- '--no-check-certificate' "$SCRIPT"
+  [ "$status" -ne 0 ]
   run grep -F -- '/readyz' "$SCRIPT"
   [ "$status" -eq 0 ]
   run grep -F -- '/api/v1/nodes' "$SCRIPT"
   [ "$status" -eq 0 ]
-  run grep -F -- 'openssl s_client' "$SCRIPT"
+  run grep -F -- 'openssl s_client -quiet -verify_return_error' "$SCRIPT"
   [ "$status" -eq 0 ]
   run grep -F -- '-verify_return_error' "$SCRIPT"
   [ "$status" -eq 0 ]

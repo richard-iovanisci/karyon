@@ -102,24 +102,21 @@ credential_bearer_from_hub() {
   yq eval '.users[0].user.token // ""' - <<< "${value_yaml}"
 }
 
-in_pod_wget() {
-  local spoke="$1" bearer="$2" path="$3"
-  local server
-  server="$(expected_server "${spoke}")"
-  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
-    /bin/sh -c "wget -qO- --no-check-certificate --header='Authorization: Bearer ${bearer}' '${server}${path}'" 2>/dev/null
-}
-
 kustomize_controller_has_openssl() {
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
     /bin/sh -c 'command -v openssl >/dev/null 2>&1' >/dev/null 2>&1
 }
 
+cleanup_openssl_probe_pod() {
+  local pod="$1"
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
+    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
+}
+
 ensure_openssl_probe_pod() {
   local pod="$1"
 
-  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
-    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
+  cleanup_openssl_probe_pod "${pod}"
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" run "${pod}" \
     --image="${OPENSSL_PROBE_IMAGE}" \
     --image-pull-policy=Never \
@@ -136,7 +133,7 @@ ensure_openssl_probe_pod() {
   if ! docker image inspect "${OPENSSL_PROBE_IMAGE}" >/dev/null 2>&1; then
     fail "OpenSSL probe image ${OPENSSL_PROBE_IMAGE} is not present locally.
        Fix: task build-image && bash scripts/register-spokes-for-flux.sh"
-    exit 1
+    return 1
   fi
   k3d image import -c hub-flux "${OPENSSL_PROBE_IMAGE}" >/dev/null
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" run "${pod}" \
@@ -144,8 +141,57 @@ ensure_openssl_probe_pod() {
     --image-pull-policy=Never \
     --restart=Never \
     --command -- sleep 3600 >/dev/null
-  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" wait \
-    --for=condition=Ready "pod/${pod}" --timeout=60s >/dev/null
+  if ! kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" wait \
+      --for=condition=Ready "pod/${pod}" --timeout=60s >/dev/null; then
+    cleanup_openssl_probe_pod "${pod}"
+    fail "OpenSSL probe pod ${pod} did not become Ready.
+       Fix: task build-image && bash scripts/register-spokes-for-flux.sh"
+    return 1
+  fi
+}
+
+openssl_https_request() {
+  local spoke="$1" bearer="$2" path="$3" cert_part="$4"
+  local cert_tmp="/tmp/karyon-${spoke}-apiserver-ca.pem"
+  local host="k3d-${spoke}-server-0"
+  local target="deploy/kustomize-controller"
+  local pod="" output rc
+
+  if [[ "${path}" != /* ]]; then
+    return 1
+  fi
+
+  if ! kustomize_controller_has_openssl; then
+    pod="karyon-openssl-probe-${spoke}-$$"
+    info "kustomize-controller lacks openssl; using temporary ${OPENSSL_PROBE_IMAGE} verifier pod"
+    ensure_openssl_probe_pod "${pod}" || return 1
+    target="${pod}"
+  fi
+
+  if ! decode_b64 "${cert_part}" |
+      kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i "${target}" -- \
+        /bin/sh -c "cat > '${cert_tmp}'"; then
+    [[ -n "${pod}" ]] && cleanup_openssl_probe_pod "${pod}"
+    return 1
+  fi
+
+  if output="$(
+    printf 'GET %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nConnection: close\r\n\r\n' \
+      "${path}" "${host}" "${bearer}" |
+      kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i "${target}" -- \
+        /bin/sh -c "openssl s_client -quiet -verify_return_error -verify_hostname '${host}' -CAfile '${cert_tmp}' -connect '${host}:6443' 2>/dev/null"
+  )"; then
+    rc=0
+  else
+    rc=$?
+  fi
+
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${target}" -- \
+    /bin/sh -c "rm -f '${cert_tmp}'" >/dev/null 2>&1 || true
+  [[ -n "${pod}" ]] && cleanup_openssl_probe_pod "${pod}"
+
+  printf '%s\n' "${output}"
+  return "${rc}"
 }
 
 verify_tls_with_openssl() {
@@ -161,18 +207,25 @@ verify_tls_with_openssl() {
     for _ in 1 2; do
       if kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
           /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+        kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+          /bin/sh -c "rm -f '${cert_tmp}' /tmp/karyon-${spoke}-tls.out" >/dev/null 2>&1 || true
         return 0
       fi
       sleep 1
     done
+    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+      /bin/sh -c "rm -f '${cert_tmp}' /tmp/karyon-${spoke}-tls.out" >/dev/null 2>&1 || true
     return 1
   fi
 
   info "kustomize-controller lacks openssl; using temporary ${OPENSSL_PROBE_IMAGE} verifier pod"
-  ensure_openssl_probe_pod "${pod}"
-  decode_b64 "${cert_part}" |
-    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i "${pod}" -- \
-      /bin/sh -c "cat > '${cert_tmp}'"
+  ensure_openssl_probe_pod "${pod}" || return 1
+  if ! decode_b64 "${cert_part}" |
+      kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i "${pod}" -- \
+        /bin/sh -c "cat > '${cert_tmp}'"; then
+    cleanup_openssl_probe_pod "${pod}"
+    return 1
+  fi
   for _ in 1 2; do
     if kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${pod}" -- \
         /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
@@ -182,28 +235,34 @@ verify_tls_with_openssl() {
     sleep 1
   done
   if [[ "${tls_ok}" -ne 1 ]]; then
-    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
-      --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
+    cleanup_openssl_probe_pod "${pod}"
     return 1
   fi
-  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
-    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
+  kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${pod}" -- \
+    /bin/sh -c "rm -f '${cert_tmp}' /tmp/karyon-${spoke}-tls.out" >/dev/null 2>&1 || true
+  cleanup_openssl_probe_pod "${pod}"
 }
 
 auth_roundtrip_healthy() {
-  local spoke="$1" bearer ready
-  bearer="$(credential_bearer_from_hub "${spoke}" 2>/dev/null || true)"
-  [[ -n "${bearer}" ]] || return 1
-  ready="$(in_pod_wget "${spoke}" "${bearer}" "/readyz" 2>/dev/null || true)"
-  [[ "${ready}" == "ok" ]]
+  local spoke="$1" value_yaml bearer cert_part ready
+  value_yaml="$(decoded_hub_credential "${spoke}" 2>/dev/null || true)"
+  [[ -n "${value_yaml}" ]] || return 1
+  bearer="$(yq eval '.users[0].user.token // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  cert_part="$(yq eval '.clusters[0].cluster.certificate-authority-data // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  [[ -n "${bearer}" && -n "${cert_part}" ]] || return 1
+  ready="$(openssl_https_request "${spoke}" "${bearer}" "/readyz" "${cert_part}" 2>/dev/null || true)"
+  printf '%s\n' "${ready}" | tr -d '\r' | grep -qx 'ok'
 }
 
 node_route_healthy() {
-  local spoke="$1" bearer nodes expected_node
-  bearer="$(credential_bearer_from_hub "${spoke}" 2>/dev/null || true)"
-  [[ -n "${bearer}" ]] || return 1
+  local spoke="$1" value_yaml bearer cert_part nodes expected_node
+  value_yaml="$(decoded_hub_credential "${spoke}" 2>/dev/null || true)"
+  [[ -n "${value_yaml}" ]] || return 1
+  bearer="$(yq eval '.users[0].user.token // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  cert_part="$(yq eval '.clusters[0].cluster.certificate-authority-data // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
+  [[ -n "${bearer}" && -n "${cert_part}" ]] || return 1
   expected_node="k3d-${spoke}-server-0"
-  nodes="$(in_pod_wget "${spoke}" "${bearer}" "/api/v1/nodes" 2>/dev/null || true)"
+  nodes="$(openssl_https_request "${spoke}" "${bearer}" "/api/v1/nodes" "${cert_part}" 2>/dev/null || true)"
   [[ "${nodes}" == *"${expected_node}"* && "${nodes}" != *"${EXPECTED_FORBIDDEN_NODE}"* ]]
 }
 
@@ -409,6 +468,62 @@ EOF
   repair_file_if_needed "${dir}/configmap.yaml" "${tmp}" "clusters/${spoke}/configmap.yaml"
 }
 
+ensure_hub_spokes_mount() {
+  local tmp tmp_with_sentinel
+
+  if [[ ! -f "${HUB_KUST_FILE}" ]]; then
+    fail "${HUB_KUST_FILE} missing.
+       Fix: bash scripts/bootstrap-flux.sh && bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+
+  tmp="$(mktemp)"
+  # shellcheck disable=SC2016 # yq expression intentionally uses single quotes.
+  if ! yq eval '(.resources // []) as $r | .resources = ($r + ["../spokes"] | unique)' \
+      "${HUB_KUST_FILE}" > "${tmp}"; then
+    rm -f "${tmp}"
+    fail "${HUB_KUST_FILE} is not valid YAML.
+       Fix: repair the Flux patch surface, then rerun bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+
+  if ! yq eval -e '.resources[] == "../spokes"' "${tmp}" >/dev/null; then
+    rm -f "${tmp}"
+    fail "${HUB_KUST_FILE} could not be repaired with ../spokes.
+       Fix: inspect ${HUB_KUST_FILE}, then rerun bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+
+  tmp_with_sentinel="$(mktemp)"
+  awk -v sentinel="${SPOKES_SENTINEL}" '
+    $0 ~ /^[[:space:]]*-[[:space:]]+\.\.\/spokes[[:space:]]*$/ && !inserted {
+      if (!seen_sentinel) {
+        match($0, /^[[:space:]]*/)
+        print substr($0, RSTART, RLENGTH) sentinel
+      }
+      inserted=1
+    }
+    index($0, sentinel) { seen_sentinel=1 }
+    { print }
+  ' "${tmp}" > "${tmp_with_sentinel}"
+  rm -f "${tmp}"
+
+  if ! yq eval -e '.resources[] == "../spokes"' "${tmp_with_sentinel}" >/dev/null; then
+    rm -f "${tmp_with_sentinel}"
+    fail "${HUB_KUST_FILE} repair validation failed.
+       Fix: inspect ${HUB_KUST_FILE}, then rerun bash scripts/register-spokes-for-flux.sh"
+    exit 1
+  fi
+
+  if cmp -s "${tmp_with_sentinel}" "${HUB_KUST_FILE}"; then
+    rm -f "${tmp_with_sentinel}"
+    info "already done, skipping: spokes mount resource present in ${HUB_KUST_FILE}"
+  else
+    mv "${tmp_with_sentinel}" "${HUB_KUST_FILE}"
+    pass "repaired: ../spokes resource under resources in ${HUB_KUST_FILE}"
+  fi
+}
+
 verify_spoke_credential_layer() {
   local spoke="$1" value_b64 value_yaml expected actual bearer cert_part spoke_cert_part ready nodes expected_node
   expected="$(expected_server "${spoke}")"
@@ -452,17 +567,17 @@ verify_spoke_credential_layer() {
   fi
   pass "tls ok: ${spoke} certificate validates k3d-${spoke}-server-0"
 
-  ready="$(in_pod_wget "${spoke}" "${bearer}" "/readyz" || true)"
-  if [[ "${ready}" != "ok" ]]; then
+  ready="$(openssl_https_request "${spoke}" "${bearer}" "/readyz" "${cert_part}" || true)"
+  if ! printf '%s\n' "${ready}" | tr -d '\r' | grep -qx 'ok'; then
     fail "${spoke} /readyz auth roundtrip failed.
-       Repro: kubectl --context ${HUB_CTX} -n ${FLUX_NS} exec deploy/kustomize-controller -- /bin/sh -c 'wget -qO- --no-check-certificate https://k3d-${spoke}-server-0:6443/readyz'
+       Repro: rerun bash scripts/register-spokes-for-flux.sh and inspect the verified openssl HTTPS probe.
        Fix: bash scripts/register-spokes-for-flux.sh"
     exit 1
   fi
   pass "auth roundtrip ok: ${spoke} /readyz returned ok"
 
   expected_node="k3d-${spoke}-server-0"
-  nodes="$(in_pod_wget "${spoke}" "${bearer}" "/api/v1/nodes" || true)"
+  nodes="$(openssl_https_request "${spoke}" "${bearer}" "/api/v1/nodes" "${cert_part}" || true)"
   if [[ "${nodes}" != *"${expected_node}"* || "${nodes}" == *"${EXPECTED_FORBIDDEN_NODE}"* ]]; then
     fail "P18 SILENT MISROUTE warning for ${spoke}: expected ${expected_node} and not ${EXPECTED_FORBIDDEN_NODE}.
        Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o yaml
@@ -529,33 +644,7 @@ register_spoke spoke-apps
 # ---------- Section 5: Hub-side Kustomization wire-up ----------
 section "Hub-side Kustomization wire-up"
 ensure_spokes_index
-if [[ ! -f "${HUB_KUST_FILE}" ]]; then
-  fail "${HUB_KUST_FILE} missing.
-     Fix: bash scripts/bootstrap-flux.sh && bash scripts/register-spokes-for-flux.sh"
-  exit 1
-fi
-if grep -qF "${SPOKES_SENTINEL}" "${HUB_KUST_FILE}"; then
-  info "already done, skipping: spokes mount sentinel present in ${HUB_KUST_FILE}"
-else
-  tmp="$(mktemp)"
-  awk -v sentinel="${SPOKES_SENTINEL}" '
-    /^resources:/ {print; in_resources=1; next}
-    in_resources && /^[^ -]/ {
-      print sentinel
-      print "- ../spokes"
-      in_resources=0
-    }
-    {print}
-    END {
-      if (in_resources) {
-        print sentinel
-        print "- ../spokes"
-      }
-    }
-  ' "${HUB_KUST_FILE}" > "${tmp}"
-  mv "${tmp}" "${HUB_KUST_FILE}"
-  pass "applied: - ../spokes under resources in ${HUB_KUST_FILE}"
-fi
+ensure_hub_spokes_mount
 
 # ---------- Summary ----------
 section "Summary"

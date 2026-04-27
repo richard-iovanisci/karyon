@@ -159,16 +159,17 @@ Two defenses:
 - Every spoke Kustomization YAML in `clusters/hub-flux/spokes/` includes both
   `spec.kubeConfig.secretRef.name` AND `key: value.yaml` explicitly. Do NOT
   remove either.
-- `scripts/register-spokes-for-flux.sh` runs two in-pod probes per spoke from
-  inside `kustomize-controller` on hub. First, `openssl s_client
-  -verify_return_error -verify_hostname k3d-<spoke>-server-0 -CAfile <decoded CA>`
-  proves the kubeconfig's embedded CA validates the spoke apiserver cert
-  (SPOKE-06). Then `wget --no-check-certificate --header='Authorization:
-  Bearer <TOKEN>' https://k3d-<spoke>-server-0:6443/api/v1/nodes` proves auth
-  and target-cluster identity by returning a node named `k3d-<spoke>-server-0`
-  (NOT `k3d-hub-flux-server-0`). If either probe fails, the script aborts before
-  declaring success. The kustomize-controller image v1.8.4 ships no `kubectl`,
-  hence the openssl + wget form.
+- `scripts/register-spokes-for-flux.sh` runs verified in-pod HTTPS probes per
+  spoke from inside the hub cluster. `openssl s_client -verify_return_error
+  -verify_hostname k3d-<spoke>-server-0 -CAfile <decoded CA>` proves the
+  kubeconfig's embedded CA validates the spoke apiserver cert (SPOKE-06), then
+  the same verified TLS connection carries the bearer-token HTTP requests for
+  `/readyz` and `/api/v1/nodes` over stdin rather than argv. The node response
+  must include `k3d-<spoke>-server-0` and must not include
+  `k3d-hub-flux-server-0`. If either probe fails, the script aborts before
+  declaring success. The kustomize-controller image v1.8.4 ships no `kubectl`;
+  if it also lacks `openssl`, the script uses a temporary hub-side verifier pod
+  and deletes it after the probe.
 
 ### Verification
 

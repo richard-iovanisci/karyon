@@ -44,6 +44,7 @@ setup() {
     tests/bats/register-spokes-02-live.bats
   )
   local dirty
+  # shellcheck disable=SC2015 # In Bats this intentionally falls back to true on git/status errors.
   dirty="$(cd "${REPO_ROOT}" && git status --porcelain -- "${phase_paths[@]}" 2>/dev/null || true)"
   if [[ -n "${dirty}" ]]; then
     skip "Phase 4 has uncommitted local changes under the reconciliation tree. Commit and push them, then wait 1-2 min for Flux to reconcile (or run: flux --context k3d-hub-flux reconcile source git flux-system && flux --context k3d-hub-flux reconcile kustomization flux-system), then rerun this test."
@@ -60,6 +61,12 @@ setup() {
 
 teardown() {
   :
+}
+
+delete_openssl_probe_pod() {
+  local pod="$1"
+  kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
+    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
 }
 
 run_openssl_tls_probe() {
@@ -88,8 +95,7 @@ run_openssl_tls_probe() {
     return
   fi
 
-  kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
-    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
+  delete_openssl_probe_pod "$pod"
   kubectl --context k3d-hub-flux -n flux-system run "$pod" \
     --image="$OPENSSL_PROBE_IMAGE" \
     --image-pull-policy=Never \
@@ -98,8 +104,7 @@ run_openssl_tls_probe() {
 
   if ! kubectl --context k3d-hub-flux -n flux-system wait \
       --for=condition=Ready "pod/$pod" --timeout=20s >/dev/null 2>&1; then
-    kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
-      --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
+    delete_openssl_probe_pod "$pod"
     docker image inspect "$OPENSSL_PROBE_IMAGE" >/dev/null 2>&1 || return 1
     k3d image import -c hub-flux "$OPENSSL_PROBE_IMAGE" >/dev/null || return 1
     kubectl --context k3d-hub-flux -n flux-system run "$pod" \
@@ -107,8 +112,11 @@ run_openssl_tls_probe() {
       --image-pull-policy=Never \
       --restart=Never \
       --command -- sleep 3600 >/dev/null
-    kubectl --context k3d-hub-flux -n flux-system wait \
-      --for=condition=Ready "pod/$pod" --timeout=60s >/dev/null || return 1
+    if ! kubectl --context k3d-hub-flux -n flux-system wait \
+        --for=condition=Ready "pod/$pod" --timeout=60s >/dev/null; then
+      delete_openssl_probe_pod "$pod"
+      return 1
+    fi
   fi
 
   printf '%s\n' "$ca_pem" |
@@ -126,8 +134,65 @@ run_openssl_tls_probe() {
   [ "$tls_ok" -eq 1 ] && rc=0
   kubectl --context k3d-hub-flux -n flux-system exec "$pod" -- \
     /bin/sh -c "rm -f '${ca_file}' '${out_file}'" >/dev/null 2>&1 || true
-  kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
-    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
+  delete_openssl_probe_pod "$pod"
+  return "$rc"
+}
+
+run_verified_https_probe() {
+  local spoke="$1" token="$2" ca_pem="$3" path="$4"
+  local pod="karyon-openssl-probe-${spoke}-https-bats-$$"
+  local ca_file="/tmp/karyon-${spoke}-https-ca.crt"
+  local host="k3d-${spoke}-server-0"
+  local target="deploy/kustomize-controller"
+  local output rc
+
+  if ! kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- \
+      /bin/sh -c 'command -v openssl >/dev/null 2>&1' >/dev/null 2>&1; then
+    delete_openssl_probe_pod "$pod"
+    kubectl --context k3d-hub-flux -n flux-system run "$pod" \
+      --image="$OPENSSL_PROBE_IMAGE" \
+      --image-pull-policy=Never \
+      --restart=Never \
+      --command -- sleep 3600 >/dev/null
+    if ! kubectl --context k3d-hub-flux -n flux-system wait \
+        --for=condition=Ready "pod/$pod" --timeout=20s >/dev/null 2>&1; then
+      delete_openssl_probe_pod "$pod"
+      docker image inspect "$OPENSSL_PROBE_IMAGE" >/dev/null 2>&1 || return 1
+      k3d image import -c hub-flux "$OPENSSL_PROBE_IMAGE" >/dev/null || return 1
+      kubectl --context k3d-hub-flux -n flux-system run "$pod" \
+        --image="$OPENSSL_PROBE_IMAGE" \
+        --image-pull-policy=Never \
+        --restart=Never \
+        --command -- sleep 3600 >/dev/null
+      if ! kubectl --context k3d-hub-flux -n flux-system wait \
+          --for=condition=Ready "pod/$pod" --timeout=60s >/dev/null; then
+        delete_openssl_probe_pod "$pod"
+        return 1
+      fi
+    fi
+    target="$pod"
+  fi
+
+  if ! printf '%s\n' "$ca_pem" |
+      kubectl --context k3d-hub-flux -n flux-system exec -i "$target" -- \
+        /bin/sh -c "cat > '${ca_file}'"; then
+    [[ "$target" = "$pod" ]] && delete_openssl_probe_pod "$pod"
+    return 1
+  fi
+  if output="$(
+    printf 'GET %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nConnection: close\r\n\r\n' \
+      "$path" "$host" "$token" |
+      kubectl --context k3d-hub-flux -n flux-system exec -i "$target" -- \
+        /bin/sh -c "openssl s_client -quiet -verify_return_error -verify_hostname '${host}' -CAfile '${ca_file}' -connect '${host}:6443' 2>/dev/null"
+  )"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  kubectl --context k3d-hub-flux -n flux-system exec "$target" -- \
+    /bin/sh -c "rm -f '${ca_file}'" >/dev/null 2>&1 || true
+  [[ "$target" = "$pod" ]] && delete_openssl_probe_pod "$pod"
+  printf '%s\n' "$output"
   return "$rc"
 }
 
@@ -277,8 +342,8 @@ run_openssl_tls_probe() {
 # ---- SPOKE-03/06 (live): in-pod TLS + auth + node-name probes for BOTH spokes ----
 #
 # RESEARCH.md adjustment: ghcr.io/fluxcd/kustomize-controller:v1.8.4 ships no kubectl.
-# We exec into the pod and use openssl for the CA/TLS proof plus busybox wget
-# for bearer auth and node-name negative-proof.
+# We exec into the pod and use openssl for the CA/TLS proof, bearer auth, and
+# node-name negative-proof. Bearer material is sent over stdin, not argv.
 
 @test "SPOKE-06 (live, in-pod): openssl validates spoke-ml CA and hostname from inside the hub cluster" {
   local ca_pem
@@ -296,28 +361,36 @@ run_openssl_tls_probe() {
   [ "$status" -eq 0 ]
 }
 
-@test "SPOKE-03/06 (live, in-pod): kustomize-controller pod can wget /readyz with each spoke bearer token" {
-  local token_ml token_apps
+@test "SPOKE-03/06 (live, in-pod): verified HTTPS probe reaches /readyz with each spoke bearer token" {
+  local token_ml token_apps ca_ml ca_apps ready_ml ready_apps
   token_ml="$(kubectl --context k3d-spoke-ml -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.token}' | base64 -d)"
   token_apps="$(kubectl --context k3d-spoke-apps -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.token}' | base64 -d)"
+  ca_ml="$(kubectl --context k3d-spoke-ml -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.ca\.crt}' | base64 -d)"
+  ca_apps="$(kubectl --context k3d-spoke-apps -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.ca\.crt}' | base64 -d)"
   [ -n "$token_ml" ]
   [ -n "$token_apps" ]
-  run kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- \
-    /bin/sh -c "wget -qO- --no-check-certificate --header='Authorization: Bearer ${token_ml}' 'https://k3d-spoke-ml-server-0:6443/readyz' && printf '\n' && wget -qO- --no-check-certificate --header='Authorization: Bearer ${token_apps}' 'https://k3d-spoke-apps-server-0:6443/readyz'"
-  [ "$status" -eq 0 ]
-  [[ "$output" == $'ok\nok' ]]
+  [ -n "$ca_ml" ]
+  [ -n "$ca_apps" ]
+  ready_ml="$(run_verified_https_probe "spoke-ml" "$token_ml" "$ca_ml" "/readyz")"
+  ready_apps="$(run_verified_https_probe "spoke-apps" "$token_apps" "$ca_apps" "/readyz")"
+  printf '%s\n' "$ready_ml" | tr -d '\r' | grep -qx 'ok'
+  printf '%s\n' "$ready_apps" | tr -d '\r' | grep -qx 'ok'
 }
 
 @test "SPOKE-03/06 (live, in-pod): node-name negative-proof for both spokes" {
-  local token_ml token_apps
+  local token_ml token_apps ca_ml ca_apps nodes_ml nodes_apps
   token_ml="$(kubectl --context k3d-spoke-ml -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.token}' | base64 -d)"
   token_apps="$(kubectl --context k3d-spoke-apps -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.token}' | base64 -d)"
+  ca_ml="$(kubectl --context k3d-spoke-ml -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.ca\.crt}' | base64 -d)"
+  ca_apps="$(kubectl --context k3d-spoke-apps -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.ca\.crt}' | base64 -d)"
   [ -n "$token_ml" ]
   [ -n "$token_apps" ]
-  run kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- \
-    /bin/sh -c "wget -qO- --no-check-certificate --header='Authorization: Bearer ${token_ml}' 'https://k3d-spoke-ml-server-0:6443/api/v1/nodes' 2>/dev/null | grep -oE '\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\"' | head -1; wget -qO- --no-check-certificate --header='Authorization: Bearer ${token_apps}' 'https://k3d-spoke-apps-server-0:6443/api/v1/nodes' 2>/dev/null | grep -oE '\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\"' | head -1"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'"k3d-spoke-ml-server-0"'* ]]
-  [[ "$output" == *'"k3d-spoke-apps-server-0"'* ]]
-  [[ "$output" != *'"k3d-hub-flux-server-0"'* ]]
+  [ -n "$ca_ml" ]
+  [ -n "$ca_apps" ]
+  nodes_ml="$(run_verified_https_probe "spoke-ml" "$token_ml" "$ca_ml" "/api/v1/nodes")"
+  nodes_apps="$(run_verified_https_probe "spoke-apps" "$token_apps" "$ca_apps" "/api/v1/nodes")"
+  [[ "$nodes_ml" == *'"k3d-spoke-ml-server-0"'* ]]
+  [[ "$nodes_apps" == *'"k3d-spoke-apps-server-0"'* ]]
+  [[ "$nodes_ml" != *'"k3d-hub-flux-server-0"'* ]]
+  [[ "$nodes_apps" != *'"k3d-hub-flux-server-0"'* ]]
 }

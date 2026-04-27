@@ -106,7 +106,7 @@ The final docs metadata commit is recorded separately after STATE/ROADMAP/REQUIR
 |-----------|--------|
 | 1. Script idempotent without bypassing verification | Passed before checkpoint; second run proved skip messages while verification still ran. |
 | 2. Hub Secrets have valid kubeconfigs with expected k3d DNS URL, CA equality, and non-empty token | Passed before checkpoint and revalidated by live Bats tests 1-4. |
-| 3. In-pod openssl validates TLS and wget returns ok for both spokes | Passed before checkpoint and revalidated by live Bats tests 15-17. |
+| 3. In-pod openssl validates TLS and verified HTTPS auth probes return ok for both spokes | Passed before checkpoint, then hardened during review fix so bearer-token requests use the same verified TLS connection. |
 | 4. Hub-side spoke Kustomizations have explicit `spec.kubeConfig.secretRef.{name,key=value.yaml}` | Static contract passed before checkpoint; pushed tree reconciled at `f55cf81e`. |
 | 5. Negative proof of correct routing via inventory and cross-cluster ConfigMap absence/presence | Passed in live Bats tests 11-14 and explicit post-suite checks. |
 
