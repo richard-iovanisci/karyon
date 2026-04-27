@@ -119,7 +119,7 @@ ensure_openssl_probe_pod() {
   local pod="$1"
 
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
-    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" run "${pod}" \
     --image="${OPENSSL_PROBE_IMAGE}" \
     --image-pull-policy=Never \
@@ -132,7 +132,7 @@ ensure_openssl_probe_pod() {
   fi
 
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
-    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
   if ! docker image inspect "${OPENSSL_PROBE_IMAGE}" >/dev/null 2>&1; then
     fail "OpenSSL probe image ${OPENSSL_PROBE_IMAGE} is not present locally.
        Fix: task build-image && bash scripts/register-spokes-for-flux.sh"
@@ -152,14 +152,20 @@ verify_tls_with_openssl() {
   local spoke="$1" cert_part="$2"
   local cert_tmp="/tmp/karyon-${spoke}-apiserver-ca.pem"
   local pod="karyon-openssl-probe-${spoke}-$$"
+  local tls_ok=0
 
   if kustomize_controller_has_openssl; then
     decode_b64 "${cert_part}" |
       kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i deploy/kustomize-controller -- \
         /bin/sh -c "cat > '${cert_tmp}'"
-    kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
-      /bin/sh -c "openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"
-    return
+    for _ in 1 2; do
+      if kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+          /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+        return 0
+      fi
+      sleep 1
+    done
+    return 1
   fi
 
   info "kustomize-controller lacks openssl; using temporary ${OPENSSL_PROBE_IMAGE} verifier pod"
@@ -167,14 +173,21 @@ verify_tls_with_openssl() {
   decode_b64 "${cert_part}" |
     kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i "${pod}" -- \
       /bin/sh -c "cat > '${cert_tmp}'"
-  if ! kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${pod}" -- \
-      /bin/sh -c "openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+  for _ in 1 2; do
+    if kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${pod}" -- \
+        /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+      tls_ok=1
+      break
+    fi
+    sleep 1
+  done
+  if [[ "${tls_ok}" -ne 1 ]]; then
     kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
-      --ignore-not-found --wait=true >/dev/null 2>&1 || true
+      --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
     return 1
   fi
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" delete pod "${pod}" \
-    --ignore-not-found --wait=true >/dev/null 2>&1 || true
+    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
 }
 
 auth_roundtrip_healthy() {

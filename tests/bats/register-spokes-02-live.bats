@@ -67,17 +67,29 @@ run_openssl_tls_probe() {
   local pod="karyon-openssl-probe-${spoke}-bats-$$"
   local ca_file="/tmp/karyon-${spoke}-ca.crt"
   local out_file="/tmp/karyon-${spoke}-tls.out"
+  local tls_ok=0
 
   if kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- \
       /bin/sh -c 'command -v openssl >/dev/null 2>&1' >/dev/null 2>&1; then
     printf '%s\n' "$ca_pem" |
       kubectl --context k3d-hub-flux -n flux-system exec -i deploy/kustomize-controller -- \
-        /bin/sh -c "cat > '${ca_file}' && openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${ca_file}' -connect k3d-${spoke}-server-0:6443 </dev/null >'${out_file}' 2>&1; rc=\$?; rm -f '${ca_file}' '${out_file}'; exit \$rc"
+        /bin/sh -c "cat > '${ca_file}'"
+    for _ in 1 2; do
+      if kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- \
+          /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${ca_file}' -connect k3d-${spoke}-server-0:6443 </dev/null >'${out_file}' 2>&1"; then
+        tls_ok=1
+        break
+      fi
+      sleep 1
+    done
+    kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- \
+      /bin/sh -c "rm -f '${ca_file}' '${out_file}'" >/dev/null 2>&1 || true
+    [ "$tls_ok" -eq 1 ]
     return
   fi
 
   kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
-    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
   kubectl --context k3d-hub-flux -n flux-system run "$pod" \
     --image="$OPENSSL_PROBE_IMAGE" \
     --image-pull-policy=Never \
@@ -87,7 +99,7 @@ run_openssl_tls_probe() {
   if ! kubectl --context k3d-hub-flux -n flux-system wait \
       --for=condition=Ready "pod/$pod" --timeout=20s >/dev/null 2>&1; then
     kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
-      --ignore-not-found --wait=false >/dev/null 2>&1 || true
+      --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
     docker image inspect "$OPENSSL_PROBE_IMAGE" >/dev/null 2>&1 || return 1
     k3d image import -c hub-flux "$OPENSSL_PROBE_IMAGE" >/dev/null || return 1
     kubectl --context k3d-hub-flux -n flux-system run "$pod" \
@@ -101,10 +113,21 @@ run_openssl_tls_probe() {
 
   printf '%s\n' "$ca_pem" |
     kubectl --context k3d-hub-flux -n flux-system exec -i "$pod" -- \
-      /bin/sh -c "cat > '${ca_file}' && openssl s_client -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${ca_file}' -connect k3d-${spoke}-server-0:6443 </dev/null >'${out_file}' 2>&1; rc=\$?; rm -f '${ca_file}' '${out_file}'; exit \$rc"
-  local rc=$?
+      /bin/sh -c "cat > '${ca_file}'"
+  for _ in 1 2; do
+    if kubectl --context k3d-hub-flux -n flux-system exec "$pod" -- \
+        /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${ca_file}' -connect k3d-${spoke}-server-0:6443 </dev/null >'${out_file}' 2>&1"; then
+      tls_ok=1
+      break
+    fi
+    sleep 1
+  done
+  local rc=1
+  [ "$tls_ok" -eq 1 ] && rc=0
+  kubectl --context k3d-hub-flux -n flux-system exec "$pod" -- \
+    /bin/sh -c "rm -f '${ca_file}' '${out_file}'" >/dev/null 2>&1 || true
   kubectl --context k3d-hub-flux -n flux-system delete pod "$pod" \
-    --ignore-not-found --wait=true >/dev/null 2>&1 || true
+    --ignore-not-found --grace-period=0 --force --wait=true >/dev/null 2>&1 || true
   return "$rc"
 }
 
