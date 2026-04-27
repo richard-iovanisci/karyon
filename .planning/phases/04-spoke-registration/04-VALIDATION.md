@@ -10,7 +10,7 @@ created: 2026-04-27
 # Phase 4 — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
-> Source: `04-RESEARCH.md` §Validation Architecture (HIGH-risk phase per ROADMAP — Nyquist sampling combines static-greps + in-script gates + post-push live-destructive bats).
+> Source: `04-RESEARCH.md` §Validation Architecture plus `04-REVIEWS.md` review revisions (HIGH-risk phase per ROADMAP — Nyquist sampling combines static/yq checks + in-script gates + post-push live-destructive bats).
 
 ---
 
@@ -29,7 +29,7 @@ created: 2026-04-27
 ## Sampling Rate
 
 - **After every task commit:** Run `bats tests/bats/register-spokes-01-static.bats --tap` (static greps; <1s; catches filename/sentinel/literal drift; ~80% of regression risk)
-- **After every plan wave:** Run the full suite **AND** the in-script 4-gate verification (D-13: presence + decode + auth roundtrip + node-name negative-proof) by re-running `bash scripts/register-spokes-for-flux.sh` against a fresh `task rebuild`
+- **After every plan wave:** Run the full suite **AND** the in-script D-13 verification (presence + deep decode + CA/TLS proof via openssl + auth roundtrip + node-name negative-proof) by re-running `bash scripts/register-spokes-for-flux.sh` against a fresh `task rebuild`
 - **Before `/gsd-verify-work`:** Full suite must be green AND `flux --context k3d-hub-flux get kustomizations -n flux-system` shows both `spoke-ml` and `spoke-apps` `Ready=True`
 - **Max feedback latency:** 60 seconds (full live-destructive suite)
 
@@ -48,22 +48,23 @@ created: 2026-04-27
 | SPOKE-04 | Hub Secret has `data.value.yaml` populated (D-13 step 1: presence) | in-script gate + live | `kubectl --context k3d-hub-flux -n flux-system get secret spoke-ml-kubeconfig -o jsonpath='{.data.value\.yaml}' \| head -c 1` returns non-empty | ❌ Wave 0 | ⬜ pending |
 | SPOKE-05 | `clusters/hub-flux/spokes/{spoke-ml,spoke-apps}.yaml` exist with `spec.path`, `spec.kubeConfig.secretRef.name`, `spec.kubeConfig.secretRef.key: value.yaml` (explicit) | static | `bats tests/bats/register-spokes-01-static.bats -f 'SPOKE-05'` (greps for required fields) | ❌ Wave 0 | ⬜ pending |
 | SPOKE-05 | Both spoke Kustomizations reach `Ready=True` post-push; `.status.inventory.entries[].id` contains literal `karyon-spoke-ml_karyon-spoke-id__ConfigMap` (and `karyon-spoke-apps_karyon-spoke-id__ConfigMap`) | live destructive (post-push) | `bats tests/bats/register-spokes-02-live.bats -f 'inventory'` | ❌ Wave 0 | ⬜ pending |
-| SPOKE-06 | CA-data + bearer token both extracted from spoke's `flux-reconciler-token` Secret (single source of truth) | in-script gate (D-13 step 2 yq parse) + live (auth roundtrip via wget against `/readyz`) | the script's `yq eval` parse + the in-pod wget probe in `-02-live.bats` | included in `-02-live.bats` | ⬜ pending |
+| SPOKE-06 | CA-data + bearer token both extracted from spoke's `flux-reconciler-token` Secret (single source of truth), and CA validates the spoke apiserver cert hostname | in-script gate (D-13 step 2 yq parse + openssl CA/TLS proof) + live (openssl proof + auth roundtrip via wget against `/readyz`) | the script's `yq eval` parse + in-pod `openssl s_client -verify_return_error -verify_hostname ... -CAfile ...` + wget probe in `-02-live.bats` | included in `-02-live.bats` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
-**Cross-cutting in-script gates (D-13, all 4 per spoke; not strictly per-REQ but block phase completion):**
+**Cross-cutting in-script gates (D-13, all per spoke; not strictly per-REQ but block phase completion):**
 - Gate 1: Presence — `kubectl ... get secret <spoke>-kubeconfig -o jsonpath='{.data.value\.yaml}'` non-empty
-- Gate 2: Decode — base64-decoded `value.yaml` parses as YAML; `.clusters[0].cluster.server` equals expected URL (via `yq eval`)
-- Gate 3: Auth roundtrip — in-pod `wget --no-check-certificate --header="Authorization: Bearer <TOKEN>" https://k3d-<spoke>-server-0:6443/readyz` returns `ok` (D-14 ADJUSTED — image lacks kubectl, busybox-wget used instead)
-- Gate 4: Node-name negative-proof (P18 trip-wire) — in-pod `wget ... /api/v1/nodes` returns JSON whose `metadata.name` for the single node CONTAINS `k3d-<spoke>-server-0` and DOES NOT contain `k3d-hub-flux-server-0`
+- Gate 2: Decode — base64-decoded `value.yaml` parses as YAML; `.clusters[0].cluster.server` equals expected URL, `.users[0].user.token` is non-empty, `.clusters[0].cluster.certificate-authority-data` is base64-decodable and equals the spoke `flux-reconciler-token` Secret CA (via `yq eval`)
+- Gate 3: CA/TLS proof — in-pod `openssl s_client -verify_return_error -verify_hostname k3d-<spoke>-server-0 -CAfile <decoded CA>` succeeds from the hub `kustomize-controller` pod
+- Gate 4: Auth roundtrip — in-pod `wget --no-check-certificate --header="Authorization: Bearer <TOKEN>" https://k3d-<spoke>-server-0:6443/readyz` returns `ok` (D-14 ADJUSTED — image lacks kubectl, busybox-wget used for auth only)
+- Gate 5: Node-name negative-proof (P18 trip-wire) — in-pod `wget ... /api/v1/nodes` returns JSON whose `metadata.name` for the single node CONTAINS `k3d-<spoke>-server-0` and DOES NOT contain `k3d-hub-flux-server-0`
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `tests/bats/register-spokes-01-static.bats` — static contract for the script + manifest files. Pins literals: `flux-reconciler` (SA), `flux-reconciler-cluster-admin` (CRB), `flux-reconciler-token` (token Secret), `value.yaml` (key, ≥4 occurrences), `# KARYON SPOKES MOUNT` (sentinel), `kubernetes.io/service-account.name: flux-reconciler` (singular annotation), `https://k3d-<spoke>-server-0:6443` (server URL pattern), `set -euo pipefail` present, `set -x` absent, no `git push` in script body, no token funneling through `echo`/`printf`/`pass`/`info`/`warn`/`fail`/`tee`.
-- [ ] `tests/bats/register-spokes-02-live.bats` — live/destructive contract: `<spoke>-kubeconfig` Secret with `value.yaml` key exists on hub; in-pod wget probe (D-14 ADJUSTED) reaches each spoke's apiserver and returns the right node-name; `flux get kustomization <spoke>` `Ready=True` post-push; `.status.inventory.entries[].id` contains literal `karyon-spoke-ml_karyon-spoke-id__ConfigMap` regex AND `karyon-spoke-apps_karyon-spoke-id__ConfigMap`; cross-cluster falsifier asserts `karyon-spoke-id` ConfigMap exists ONLY on the targeted spoke (not on hub, not on the OTHER spoke).
+- [ ] `tests/bats/register-spokes-01-static.bats` — static/yq contract for the script + manifest files. Pins literals and semantic fields: `flux-reconciler` (SA), `flux-reconciler-cluster-admin` (CRB), `flux-reconciler-token` (token Secret), actual YAML `spec.kubeConfig.secretRef.key: value.yaml`, `# KARYON SPOKES MOUNT` (sentinel), `kubernetes.io/service-account.name: flux-reconciler` (singular annotation), `https://k3d-<spoke>-server-0:6443` (server URL pattern), `set -euo pipefail` present, `set -x` absent, no executable `git add`/`git commit`/`git push` in script body, no token/kubeconfig funneling except the single safe stdin Secret pipe.
+- [ ] `tests/bats/register-spokes-02-live.bats` — live/destructive contract: `<spoke>-kubeconfig` Secret with `value.yaml` key exists on hub and decodes deeply; in-pod openssl proves CA/TLS for both spokes; in-pod wget probes reach each spoke's apiserver and return `/readyz` + the right node-name; `flux get kustomization <spoke>` `Ready=True` post-push; `.status.inventory.entries[].id` contains literal `karyon-spoke-ml_karyon-spoke-id__ConfigMap` regex AND `karyon-spoke-apps_karyon-spoke-id__ConfigMap`; cross-cluster falsifier asserts `karyon-spoke-id` ConfigMap exists ONLY on the targeted spoke (not on hub, not on the OTHER spoke).
 - No new framework install needed — bats-core already present from Phase 1/2/3.
 - No new shared fixtures needed — `tests/bats/test_helper.bash` already exposes `require_live`, `require_live_destructive`, `REPO_ROOT`, `SCRIPTS_DIR`.
 
