@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-04-27T18:20:18.284Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-27T18:27:50.011Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 27
-  completed_plans: 23
-  percent: 85
+  completed_plans: 24
+  percent: 89
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 ## Current Position
 
 Phase: 04 (spoke-registration) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-27
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [█████████░] 85%
 | Phase 03-flux-hub-bootstrap P05 | 3min | 2 tasks | 2 files |
 | Phase 03-flux-hub-bootstrap P06 | human-checkpoint | 2 tasks | 4 files |
 | Phase 04-spoke-registration P01 | 5min | 2 tasks | 2 files |
+| Phase 04-spoke-registration P02 | 4min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 04]: Phase 4 P18 contract treats omitted spec.kubeConfig as the real silent-misroute risk; value.yaml remains pinned as defense in depth.
 - [Phase 04]: Live in-pod probes use openssl for CA/TLS proof and busybox wget for auth/node identity because the kustomize-controller image lacks kubectl.
 - [Phase 04]: The Phase 4 live suite centralizes its destructive env gate in setup() and skips local-only or unpushed reconciliation-tree state.
+- [Phase 04-spoke-registration]: Plan 04-02: Both spokes use ConfigMap name karyon-spoke-id, while namespace and data.spoke differ to preserve the cross-cluster falsifier. — The same object name with different namespace and data values proves routing to the intended spoke.
+- [Phase 04-spoke-registration]: Plan 04-02: Hub-side spoke Kustomizations keep the full spec.kubeConfig block as the primary P18 defense; key: value.yaml remains pinned as defense in depth. — Required to prevent silent in-cluster fallback if spec.kubeConfig is omitted.
 
 ### Pending Todos
 
@@ -98,8 +101,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-27T18:20:18.276Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-04-27T18:27:49.797Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z
