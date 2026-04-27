@@ -123,4 +123,65 @@ all three are true, it logs `already done, skipping: flux bootstrap` and proceed
 directly to post-bootstrap verification plus the patch-surface marker idempotency check.
 `flux bootstrap github` is not invoked a second time.
 
-<!-- Phase 4: hub-spoke reconciliation (spec.kubeConfig, <spoke>-kubeconfig Secrets, value.yaml key) -->
+## Phase 4: Hub-spoke reconciliation
+
+After `bash scripts/register-spokes-for-flux.sh` runs, the hub knows how to
+reconcile manifests into each spoke. Three artifacts make this work:
+
+1. **Per-spoke RBAC.** `flux-reconciler` SA + cluster-admin CRB + legacy
+   `flux-reconciler-token` Secret in `flux-system` on each spoke. The legacy
+   Secret has indefinite lifetime — chosen over `kubectl create token`
+   (TokenRequest) because token expiry is not a useful failure mode in a lab.
+
+2. **Hub-side `<spoke>-kubeconfig` Secret.** Lives in `flux-system` on
+   `k3d-hub-flux`, key `value.yaml` (the explicit key REQ-SPOKE-04 locks).
+   Contains the spoke's CA-data + bearer token + `https://k3d-<spoke>-server-0:6443`
+   server URL. Applied imperatively (never committed — bearer token).
+
+3. **Hub-side Flux `Kustomization` per spoke.** Lives at
+   `clusters/hub-flux/spokes/<spoke>.yaml`, mounted into the existing
+   flux-system Kustomization via the patch surface (`- ../spokes` added to
+   `clusters/hub-flux/flux-system/kustomization.yaml`'s `resources:`). MUST
+   include `spec.kubeConfig.secretRef.{name,key}` — both fields explicit. The
+   `key: value.yaml` is belt-and-suspenders against future Flux defaults.
+
+### Silent-misroute pitfall (P18)
+
+**The real failure mode is a Kustomization YAML that omits `spec.kubeConfig`
+entirely.** When that block is absent, the kustomize-controller reconciles via
+its own in-cluster ServiceAccount, lands manifests on the hub instead of the
+spoke, and reports `Ready=True`. Verified empirically against Flux 2.8.6
+(2026-04-27): a wrong / missing `secretRef.key` produces `Ready=False` (loud);
+a missing `spec.kubeConfig` block silently misroutes to hub.
+
+Two defenses:
+
+- Every spoke Kustomization YAML in `clusters/hub-flux/spokes/` includes both
+  `spec.kubeConfig.secretRef.name` AND `key: value.yaml` explicitly. Do NOT
+  remove either.
+- `scripts/register-spokes-for-flux.sh` runs two in-pod probes per spoke from
+  inside `kustomize-controller` on hub. First, `openssl s_client
+  -verify_return_error -verify_hostname k3d-<spoke>-server-0 -CAfile <decoded CA>`
+  proves the kubeconfig's embedded CA validates the spoke apiserver cert
+  (SPOKE-06). Then `wget --no-check-certificate --header='Authorization:
+  Bearer <TOKEN>' https://k3d-<spoke>-server-0:6443/api/v1/nodes` proves auth
+  and target-cluster identity by returning a node named `k3d-<spoke>-server-0`
+  (NOT `k3d-hub-flux-server-0`). If either probe fails, the script aborts before
+  declaring success. The kustomize-controller image v1.8.4 ships no `kubectl`,
+  hence the openssl + wget form.
+
+### Verification
+
+After committing + pushing the new `clusters/hub-flux/spokes/`, `clusters/spoke-ml/`,
+`clusters/spoke-apps/` trees:
+
+```bash
+flux --context k3d-hub-flux get kustomizations -n flux-system
+# spoke-ml and spoke-apps both Ready=True
+```
+
+Live/destructive bats: `KARYON_LIVE_TESTS=1 KARYON_LIVE_TESTS_DESTRUCTIVE=1 \
+bats tests/bats/register-spokes-02-live.bats` — asserts the full
+`.status.inventory` negative-proof (the seed `karyon-spoke-id` ConfigMap
+appears in each spoke Kustomization's inventory and lives ONLY on the
+targeted spoke).
