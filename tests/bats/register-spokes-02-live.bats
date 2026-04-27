@@ -278,7 +278,7 @@ run_openssl_tls_probe() {
 #
 # RESEARCH.md adjustment: ghcr.io/fluxcd/kustomize-controller:v1.8.4 ships no kubectl.
 # We exec into the pod and use openssl for the CA/TLS proof plus busybox wget
-# for bearer-token auth and node-name negative-proof.
+# for bearer auth and node-name negative-proof.
 
 @test "SPOKE-06 (live, in-pod): openssl validates spoke-ml CA and hostname from inside the hub cluster" {
   local ca_pem
