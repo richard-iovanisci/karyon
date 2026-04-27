@@ -102,7 +102,14 @@ Plans:
   3. A hand-crafted in-hub-pod probe (`kubectl --context k3d-hub-flux -n flux-system exec deploy/kustomize-controller -- sh -c 'nslookup k3d-spoke-ml-server-0 && curl -ksS --cacert <embedded CA> https://k3d-spoke-ml-server-0:6443/readyz'`) returns `ok` for both spokes.
   4. `clusters/hub-flux/spokes/spoke-ml.yaml` and `spoke-apps.yaml` exist as Flux `Kustomization` resources with `spec.kubeConfig.secretRef.name: <spoke>-kubeconfig`, `spec.kubeConfig.secretRef.key: value.yaml` (explicit), and `spec.path: ./clusters/<spoke>`.
   5. Negative-proof check: the Kustomization's `.status.inventory` contains at least one resource whose namespace/name only exists on the targeted spoke (not on the hub) — proves reconciliation landed on the right cluster, not the hub (guards against P18 silent-misroute).
-**Plans**: TBD
+**Plans**: 5 plans (4 waves)
+
+Plans:
+- [ ] 04-01-PLAN.md — Wave 1 bats test scaffolding (register-spokes-01-static.bats + register-spokes-02-live.bats; TDD scaffold for SPOKE-01..06 + D-02 sentinel + D-11 token safety + D-14 ADJUSTED wget probe + inventory ID literal)
+- [ ] 04-02-PLAN.md — Wave 1 static manifests: hub-side Flux v1 Kustomizations (spoke-ml.yaml, spoke-apps.yaml, spokes/kustomization.yaml) + spoke seed trees (clusters/spoke-{ml,apps}/{kustomization,namespace,configmap}.yaml; SPOKE-04, SPOKE-05)
+- [ ] 04-03-PLAN.md — Wave 2 orchestration script: scripts/register-spokes-for-flux.sh (D-01 helper register_spoke, D-05 preflight, D-06 context gate, D-07 3-part-AND idempotency, D-09 kubeconfig heredoc, D-10 single-source CA+token, D-11 bounded retry, D-13 4-gate verification with D-14 ADJUSTED wget probe per RESEARCH.md adjustment 1; SPOKE-01..06)
+- [ ] 04-04-PLAN.md — Wave 3 wire-up: sentinel-guarded patch on clusters/hub-flux/flux-system/kustomization.yaml (D-02 # KARYON SPOKES MOUNT) + Taskfile.yml register-spokes task + docs/flux-hub-spoke.md Phase 4 section (DOCS-03 with P18 reframe per RESEARCH.md adjustment 2; full static bats green)
+- [ ] 04-05-PLAN.md — Wave 4 live execution + post-push reconciliation gate: first-run + second-run idempotency proof + checkpoint:human-verify for user push + post-push live destructive bats (.status.inventory inventory ID literal + cross-cluster ConfigMap falsifier)
 
 ### Phase 5: Workloads + Health + Rebuild
 **Goal**: `task rebuild` chains destroy → create-clusters → bootstrap-flux → register-spokes → deploy-examples → health-check in under 20 minutes on the target dev box with warm CUDA image cache, ending with `task health-check` green.
@@ -142,7 +149,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 | 1. Host Foundation | 9/9 | Complete | 2026-04-23 |
 | 2. Cluster Layer | 0/TBD | Not started | - |
 | 3. Flux Hub Bootstrap | 6/6 | Complete | 2026-04-27 |
-| 4. Spoke Registration | 0/TBD | Not started | - |
+| 4. Spoke Registration | 0/5 | Not started | - |
 | 5. Workloads + Health + Rebuild | 0/TBD | Not started | - |
 | 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
 
