@@ -17,6 +17,8 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [x] `task create-clusters` idempotently creates hub-flux (6443), spoke-ml (6444 + `--gpus all`), spoke-apps (6445) on `rancher/k3s:v1.34.6-k3s1` *(Validated in Phase 2: Cluster Layer — CLU-01..05)*
 - [x] Custom `k3s+CUDA` image (CUDA 12.8+ base) for spoke-ml, cached across `task destroy` runs *(Validated in Phase 2: Cluster Layer — IMG-01..06; cache-preservation primitive in scripts/delete-clusters.sh via D-14; `task destroy` wrapper itself deferred to Phase 5)*
 - [x] NVIDIA device plugin DaemonSet deployed to spoke-ml exposing `nvidia.com/gpu` *(Validated in Phase 2: Cluster Layer — IMG-04; pinned to v0.17.4 per D-15 Blackwell override of REQUIREMENTS.md v0.19.0+)*
+- [x] `task register-spokes` provisions SA + cluster-admin CRB on each spoke and stores remote kubeconfig Secrets on hub-flux under `value.yaml` with `server: https://k3d-<spoke>-server-0:6443` *(Validated in Phase 4: Spoke Registration — SPOKE-01..04)*
+- [x] Hub-only Flux control plane reconciles Kustomizations into spokes via `spec.kubeConfig` without running Flux on the spokes *(Validated in Phase 4: Spoke Registration — SPOKE-05..06; live Flux Ready at post-push revision and cross-cluster falsifiers passed)*
 
 ### Active
 
@@ -28,8 +30,6 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [ ] Tool versions pinned via checked-in `.tool-versions` and installed via asdf
 - [ ] `task preflight` verifies env, resources, GPU chain, tools, ports, and residual k3d/network state
 - [ ] `task bootstrap-flux` runs `flux bootstrap github` on hub-flux idempotently (path = `clusters/hub-flux`)
-- [ ] `task register-spokes` provisions SA + cluster-admin CRB on each spoke and stores a remote kubeconfig Secret on hub-flux (key `value.yaml`, server `https://k3d-<spoke>-server-0:6443`)
-- [ ] Hub-only Flux control plane reconciles Kustomizations into spokes via `spec.kubeConfig` (no Flux on spokes)
 - [ ] `task deploy-examples` deploys a sample app to spoke-apps and a GPU smoke-test pod to spoke-ml
 - [ ] `task fix-dns` stops/starts the hub to clear stale CoreDNS NodeHosts after Docker/WSL restart
 - [ ] `task health-check` verifies clusters, nodes, Flux controllers, spoke Kustomizations, and cross-cluster DNS resolution
@@ -97,7 +97,7 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 | Docker Engine installed natively in WSL (not Docker Desktop) | Avoids extra WSL distros consuming shared memory (→ ADR-001) | — Pending |
 | k3d over Kind | Official GPU support, lower idle RAM, explicit `--network` control (→ ADR-002) | — Pending |
 | Flux over ArgoCD | Simpler for lab scope; trade-off: no clean ApplicationSet cluster-generator equivalent; acceptable for 2–3 spokes (→ ADR-003) | — Pending |
-| Hub-only Flux control plane (v1) | Reduces controller footprint on spokes; hub uses `spec.kubeConfig` + kubeconfig Secrets to reconcile into spokes (→ ADR-004) | — Pending |
+| Hub-only Flux control plane (v1) | Reduces controller footprint on spokes; hub uses `spec.kubeConfig` + kubeconfig Secrets to reconcile into spokes (→ ADR-004) | — Validated in Phase 4 |
 | Pin k3s to `rancher/k3s:v1.34.6-k3s1`; pin CUDA base to 12.8+ | Flux-compatible current line; CUDA 12.8 is floor for RTX 5090 sm_120 (→ ADR-005) | — Pending |
 | Tool versions via asdf + `.tool-versions` | Reproducible versions; shim precedence avoids collisions with system binaries | — Pending |
 | Public repo with gitignored `.env` + `.env.example` template | Shareable by design; zero real secrets in git; explicit contract for substitution | — Pending |
@@ -124,4 +124,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after Phase 2 (cluster-layer) completion*
+*Last updated: 2026-04-28 after Phase 4 (spoke-registration) completion*
