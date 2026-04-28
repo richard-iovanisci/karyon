@@ -40,3 +40,13 @@ tasks:
     desc: Verify clusters, Flux, spokes, DNS, GPU capacity, TLS SANs, and examples
     cmds:
       - bash scripts/health-check.sh
+
+  destroy:
+    desc: Confirm and remove all k3d clusters plus k8s-net while preserving CUDA cache
+    cmds:
+      - bash scripts/destroy.sh
+
+  rebuild:
+    desc: Full destructive rebuild ending in health-check under 20 minutes with warm cache
+    cmds:
+      - bash scripts/rebuild.sh
