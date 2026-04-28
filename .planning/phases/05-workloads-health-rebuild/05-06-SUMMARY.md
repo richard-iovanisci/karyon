@@ -34,7 +34,7 @@ key-files:
 key-decisions:
   - "Plan 05-06 treats /tmp/karyon-rebuild.log as the canonical non-committed proof artifact; verification parses it without rerunning task rebuild."
   - "The final live proof requires HEAD == origin/main and clean examples/clusters paths before any destructive command runs."
-  - "The failed first rebuild was resolved by preserving Phase 5 example references during spoke seed repair before accepting the second destructive approval."
+  - "Failed rebuild attempts are fixed and pushed before another destructive proof is accepted."
 
 patterns-established:
   - "Execution-only live tasks may have no source task commit; record the proof in the plan summary and commit only metadata."
@@ -43,36 +43,37 @@ patterns-established:
 requirements-completed: [DEP-01, DEP-02, DEP-03, DEP-04, HEALTH-01, HEALTH-02, HEALTH-03, HEALTH-04, HEALTH-05, HEALTH-06, HEALTH-07, DESTROY-01, DESTROY-02, DESTROY-03, DESTROY-04, DESTROY-05, DESTROY-06]
 
 # Metrics
-duration: checkpointed; continuation live proof 5 min
+duration: checkpointed; final live proof 5 min
 completed: 2026-04-28
 ---
 
 # Phase 05 Plan 06: Live Rebuild Timing Proof Summary
 
-**Single approved destructive rebuild completed in 193 seconds with green health, podinfo, GPU, and live state-checker proofs.**
+**Final approved destructive rebuild completed in 190 seconds with green health, podinfo, GPU, and live state-checker proofs.**
 
 ## Performance
 
-- **Duration:** checkpointed; continuation proof ran from 2026-04-28T16:19:34Z to 2026-04-28T16:24:16Z.
-- **Started:** checkpoint preconditions completed before this continuation; first failed rebuild exited after 185s before the root-cause fix.
-- **Completed:** 2026-04-28T16:24:16Z.
-- **Tasks:** 3 total; Task 1 checkpoint completed before continuation, Tasks 2-3 completed in this continuation.
-- **Files modified:** 2 source/test files from the root-cause fix plus this summary.
+- **Duration:** checkpointed; final proof completed at 2026-04-28T17:25:00Z.
+- **Started:** earlier approved rebuild attempts exposed two defects before this final proof: spoke seed repair dropped example refs, then an OpenSSL probe could stall indefinitely.
+- **Completed:** 2026-04-28T17:25:00Z.
+- **Tasks:** 3 total; Task 1 checkpoint completed before continuation, Tasks 2-3 completed with the final pushed-code proof.
+- **Files modified:** source/test review fixes plus this summary.
 
 ## Accomplishments
 
-- Re-verified destructive preconditions immediately before the second approved rebuild: `HEAD == origin/main == 2f578fe0e3ca3a25abf0e073c3a30add441dd94b`, `examples/` and `clusters/` clean, warm `karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1` image present, `.env` non-empty, and no existing 05-06 summary.
-- Ran `KARYON_REBUILD_APPROVED=yes task rebuild` exactly once in this continuation; it exited `0`.
-- Verified `/tmp/karyon-rebuild.log` has all strict chain markers in order and reports `rebuild elapsed seconds: 193`.
+- Re-verified destructive preconditions immediately before the final approved rebuild: `HEAD == origin/main == 346221d72dbfd4e3bd855d9731d65414ac3180ea`, `examples/` and `clusters/` clean, warm `karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1` image present, and `.env` non-empty.
+- Ran `KARYON_REBUILD_APPROVED=yes task rebuild` once after pushing the final OpenSSL probe fix; it exited `0`.
+- Verified `/tmp/karyon-rebuild.log` has all strict chain markers in order and reports `rebuild elapsed seconds: 190`.
 - Verified the HIGH-1 marker `>>> pin context k3d-hub-flux` appears between `>>> step create-clusters` and `>>> step bootstrap-flux`.
-- Proved final state with `task health-check`, podinfo Available=True, GPU logs containing `NVIDIA-SMI`, and 7/7 live Bats state-checker tests passing.
+- Proved final state with the rebuild's embedded health check, podinfo Available=True, GPU logs containing `NVIDIA-SMI`, and 7/7 live Bats state-checker tests passing.
 
 ## Task Commits
 
 1. **Task 1: Confirm live destructive preconditions** - checkpoint completed before this continuation; no source commit.
 2. **Support: Preserve example refs during spoke repair** - `2f578fe` (fix)
-3. **Task 2: Run task rebuild once and verify timing/order from log** - execution-only proof; no source commit.
-4. **Task 3: Run live state-checker bats and final workload proofs** - execution-only proof; no source commit.
+3. **Support: Time-bound OpenSSL spoke probes** - `2ebef49` (fix)
+4. **Task 2: Run task rebuild once after final pushed fix and verify timing/order from log** - execution-only proof; no source commit.
+5. **Task 3: Run live state-checker bats and final workload proofs** - execution-only proof; no source commit.
 
 The final docs metadata commit records this summary plus STATE/ROADMAP/REQUIREMENTS updates.
 
@@ -80,14 +81,16 @@ The final docs metadata commit records this summary plus STATE/ROADMAP/REQUIREME
 
 - `.planning/phases/05-workloads-health-rebuild/05-06-SUMMARY.md` - Captures the live rebuild timing proof, final state checks, deviations, and self-check.
 - `scripts/register-spokes-for-flux.sh` - Preserves `../../examples/podinfo` and `../../examples/gpu-smoke-test` references when repairing spoke seed Kustomizations after a rebuild.
-- `tests/bats/register-spokes-01-static.bats` - Adds regression checks that repaired spoke Kustomizations retain the Phase 5 example references.
+- `scripts/register-spokes-for-flux.sh` - Bounds and retries OpenSSL spoke HTTPS probes so transient stalled TLS reads cannot hang rebuild verification.
+- `tests/bats/register-spokes-01-static.bats` - Adds regression checks for repaired spoke Kustomization example references and time-bounded OpenSSL probes.
 
 ## Live Verification
 
-- `KARYON_REBUILD_APPROVED=yes task rebuild` -> exit `0`, wall-clock 193s.
+- `KARYON_REBUILD_APPROVED=yes task rebuild` -> exit `0`, wall-clock 190s.
 - `/tmp/karyon-rebuild.log` -> contains ordered markers:
 
 ```text
+>>> step preflight
 >>> step destroy
 >>> step create-clusters
 >>> pin context k3d-hub-flux
@@ -95,11 +98,11 @@ The final docs metadata commit records this summary plus STATE/ROADMAP/REQUIREME
 >>> step register-spokes
 >>> step deploy-examples
 >>> step health-check
-rebuild elapsed seconds: 193
+rebuild elapsed seconds: 190
 ```
 
-- Log marker line proof: `create=22`, `pin=110`, `bootstrap=112`.
-- `task health-check` -> exit `0`.
+- Log marker line proof: `preflight=1`, `destroy=118`, `create=139`, `pin=227`, `bootstrap=229`, `register=284`, `deploy=354`, `health=407`, `elapsed=482`.
+- Embedded rebuild `health-check` -> exit `0`.
 - `kubectl --context k3d-spoke-apps -n podinfo get deploy podinfo -o jsonpath='{.status.conditions[?(@.type=="Available")].status}'` -> `True`.
 - `kubectl --context k3d-spoke-ml -n gpu-smoke logs job/nvidia-smi` -> contained `NVIDIA-SMI`.
 - `KARYON_LIVE_TESTS=1 KARYON_LIVE_TESTS_DESTRUCTIVE=1 bats tests/bats/phase5-02-live.bats` -> exit `0`.
@@ -117,9 +120,9 @@ ok 7 state checker source omits destructive invocations
 
 ## Decisions Made
 
-- Did not rerun `task rebuild` during verification. All Task 2 verification parsed the log from the single approved continuation run.
-- Kept detailed live command output in `/tmp/karyon-05-06-*.out` and summarized only non-sensitive exit codes, markers, and proof values.
-- Treated the second destructive approval as valid only after rechecking Git visibility, image cache, `.env` presence, and summary absence.
+- Did not rerun `task rebuild` during Bats verification. Task 2 verification parsed the log from the final approved run.
+- Summarized only non-sensitive exit codes, markers, and proof values.
+- Accepted a new destructive proof only after fixing, committing, pushing, and rechecking Git visibility, image cache, and `.env` presence.
 
 ## Deviations from Plan
 
@@ -130,17 +133,27 @@ ok 7 state checker source omits destructive invocations
 - **Issue:** The first approved `KARYON_REBUILD_APPROVED=yes task rebuild` ran once before this continuation and failed after 185s with exit code 201 because spoke seed repair rewrote Kustomizations without the Phase 5 example resource references, causing workload reconciliation/proof to fail.
 - **Fix:** Updated `ensure_spoke_seed` so repairs retain `../../examples/podinfo` for `spoke-apps` and `../../examples/gpu-smoke-test` for `spoke-ml` when those example directories exist; added static regression checks.
 - **Files modified:** `scripts/register-spokes-for-flux.sh`, `tests/bats/register-spokes-01-static.bats`
-- **Verification:** Root-cause fix was pushed as `2f578fe`; continuation precheck confirmed `HEAD == origin/main == 2f578fe0e3ca3a25abf0e073c3a30add441dd94b`; second approved rebuild and all Task 3 proofs passed.
+- **Verification:** Root-cause fix was pushed as `2f578fe`; the final approved rebuild at `346221d` preserved example references and all Task 3 proofs passed.
 - **Committed in:** `2f578fe`
 
 ---
 
-**Total deviations:** 1 auto-fixed (1 bug).
-**Impact on plan:** The fix was required for the planned live rebuild to converge after spoke repair. It did not add new architecture or change the one-Kustomization-per-spoke model.
+**2. [Rule 1 - Bug] Time-bound OpenSSL spoke probes**
+- **Found during:** Final live proof after code-review fixes.
+- **Issue:** The registration step could stall during the verified OpenSSL HTTPS auth probe after the TLS proof had already passed, leaving the rebuild hung until external termination.
+- **Fix:** Added remote `timeout`, `kubectl exec --request-timeout`, and three bounded retries around OpenSSL request probes while reusing the verifier pod for each request.
+- **Files modified:** `scripts/register-spokes-for-flux.sh`, `tests/bats/register-spokes-01-static.bats`
+- **Verification:** `timeout 300 bash scripts/register-spokes-for-flux.sh` passed against the partially rebuilt cluster state; the final approved `task rebuild` passed end-to-end at `346221d`.
+- **Committed in:** `2ebef49`
+
+---
+
+**Total deviations:** 2 auto-fixed (2 bugs).
+**Impact on plan:** Both fixes were required for the planned live rebuild to converge. They did not add new architecture or change the one-Kustomization-per-spoke model.
 
 ## Issues Encountered
 
-- The first approved rebuild attempt failed before this continuation. It was not retried until the root cause was fixed and pushed, and the user gave fresh approval for the second destructive rebuild.
+- Earlier approved rebuild attempts failed before the final proof. They were not retried until the root causes were fixed and pushed, and the user gave approval for the remaining Phase 5 verification.
 - Task 2 and Task 3 are execution-only live proof tasks, so they produced no source commits. Their evidence is recorded in this summary and in the final metadata commit.
 
 ## Known Stubs
@@ -161,7 +174,7 @@ None - no external service configuration required. The live destructive proof ha
 
 ## Next Phase Readiness
 
-Phase 5 is complete. Phase 6 can use the measured `193` second rebuild result in the rebuild runbook and continue repo hygiene/docs/ADR work.
+Phase 5 is complete. Phase 6 can use the measured `190` second rebuild result in the rebuild runbook and continue repo hygiene/docs/ADR work.
 
 ---
 *Phase: 05-workloads-health-rebuild*
@@ -170,7 +183,7 @@ Phase 5 is complete. Phase 6 can use the measured `193` second rebuild result in
 ## Self-Check: PASSED
 
 - Found created summary: `.planning/phases/05-workloads-health-rebuild/05-06-SUMMARY.md`
-- Found modified files from the root-cause fix: `scripts/register-spokes-for-flux.sh`, `tests/bats/register-spokes-01-static.bats`
-- Found root-cause fix commit: `2f578fe`
-- Confirmed `/tmp/karyon-rebuild.log` still reports `rebuild elapsed seconds: 193` and includes the hub context pin marker.
+- Found modified files from the root-cause fixes: `scripts/register-spokes-for-flux.sh`, `tests/bats/register-spokes-01-static.bats`
+- Found root-cause fix commits: `2f578fe`, `2ebef49`
+- Confirmed `/tmp/karyon-rebuild.log` reports `rebuild elapsed seconds: 190` and includes the hub context pin marker.
 - Confirmed captured Bats output includes `ok 7 state checker source omits destructive invocations`.
