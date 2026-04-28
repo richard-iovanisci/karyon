@@ -19,6 +19,11 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [x] NVIDIA device plugin DaemonSet deployed to spoke-ml exposing `nvidia.com/gpu` *(Validated in Phase 2: Cluster Layer — IMG-04; pinned to v0.17.4 per D-15 Blackwell override of REQUIREMENTS.md v0.19.0+)*
 - [x] `task register-spokes` provisions SA + cluster-admin CRB on each spoke and stores remote kubeconfig Secrets on hub-flux under `value.yaml` with `server: https://k3d-<spoke>-server-0:6443` *(Validated in Phase 4: Spoke Registration — SPOKE-01..04)*
 - [x] Hub-only Flux control plane reconciles Kustomizations into spokes via `spec.kubeConfig` without running Flux on the spokes *(Validated in Phase 4: Spoke Registration — SPOKE-05..06; live Flux Ready at post-push revision and cross-cluster falsifiers passed)*
+- [x] `task deploy-examples` deploys podinfo to spoke-apps and a GPU `nvidia-smi` smoke test to spoke-ml through hub Flux *(Validated in Phase 5: Workloads + Health + Rebuild — DEP-01..04)*
+- [x] `task fix-dns` stops/starts only the hub to clear stale CoreDNS NodeHosts after Docker/WSL restart *(Validated in Phase 5: Workloads + Health + Rebuild — HEALTH-07)*
+- [x] `task health-check` verifies clusters, nodes, Flux controllers, spoke Kustomizations, in-hub DNS, GPU capacity, TLS SANs, and workload proofs *(Validated in Phase 5: Workloads + Health + Rebuild — HEALTH-01..06)*
+- [x] `task destroy` confirms, removes all three clusters plus `k8s-net`, and preserves the CUDA image/cache by avoiding prune commands *(Validated in Phase 5: Workloads + Health + Rebuild — DESTROY-01..04)*
+- [x] `task rebuild` runs destroy → create → bootstrap → register → deploy → health-check and completed in 190 seconds with warm CUDA image cache *(Validated in Phase 5: Workloads + Health + Rebuild — DESTROY-05..06)*
 
 ### Active
 
@@ -30,11 +35,6 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [ ] Tool versions pinned via checked-in `.tool-versions` and installed via asdf
 - [ ] `task preflight` verifies env, resources, GPU chain, tools, ports, and residual k3d/network state
 - [ ] `task bootstrap-flux` runs `flux bootstrap github` on hub-flux idempotently (path = `clusters/hub-flux`)
-- [ ] `task deploy-examples` deploys a sample app to spoke-apps and a GPU smoke-test pod to spoke-ml
-- [ ] `task fix-dns` stops/starts the hub to clear stale CoreDNS NodeHosts after Docker/WSL restart
-- [ ] `task health-check` verifies clusters, nodes, Flux controllers, spoke Kustomizations, and cross-cluster DNS resolution
-- [ ] `task destroy` confirms, removes clusters + `k8s-net`, and preserves docker build cache (CUDA image survives)
-- [ ] `task rebuild` = destroy → create → bootstrap → register → deploy → health-check, completing in under 20 minutes with CUDA image cached
 - [ ] Five ADRs written under `docs/adr/` for the locked architectural decisions
 - [ ] README covers Windows prereqs, WSL config, Docker install, NVIDIA setup, cluster creation, Flux bootstrap, spoke registration, teardown
 - [ ] Repo is safe to publish publicly: no committed secrets, all sensitive inputs via gitignored `.env` with a committed `.env.example` template, placeholder comments where user substitution is required
@@ -101,7 +101,7 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 | Pin k3s to `rancher/k3s:v1.34.6-k3s1`; pin CUDA base to 12.8+ | Flux-compatible current line; CUDA 12.8 is floor for RTX 5090 sm_120 (→ ADR-005) | — Pending |
 | Tool versions via asdf + `.tool-versions` | Reproducible versions; shim precedence avoids collisions with system binaries | — Pending |
 | Public repo with gitignored `.env` + `.env.example` template | Shareable by design; zero real secrets in git; explicit contract for substitution | — Pending |
-| GPU smoke-test limited to `nvidia-smi` inside a pod | Avoids coupling lab health to PyTorch nightly availability for sm_120 | — Pending |
+| GPU smoke-test limited to `nvidia-smi` inside a pod | Avoids coupling lab health to PyTorch nightly availability for sm_120 | — Validated in Phase 5 |
 | Port existing `prereqs.sh` as `scripts/preflight.sh` | Existing script already covers the full checklist; starting from scratch would be wasted effort | — Pending |
 | Pin nvidia-device-plugin to v0.17.4 (overrides REQUIREMENTS.md v0.19.0+) | No stable v0.19.x release compatible with RTX 5090 / Blackwell / sm_120 at Phase 2 research time — phase-scoped D-15 override | — Validated in Phase 2 |
 | `scripts/delete-clusters.sh` must never invoke `docker (system\|builder\|image\|volume) prune` | BuildKit CUDA cache must survive teardown so Phase 5 `task rebuild` SLO (< 20 min) is achievable; literal `INTENTIONALLY NOT calling` comment is the Phase 6 DESTROY-04 lint's grep target | — Validated in Phase 2 (D-14) |
@@ -124,4 +124,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-28 after Phase 4 (spoke-registration) completion*
+*Last updated: 2026-04-28 after Phase 5 (workloads-health-rebuild) completion*
