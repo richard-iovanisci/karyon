@@ -5,3 +5,25 @@ CLAUDE.local.md
 .env
 .env.local
 .env.*.local
+
+# Phase 6 D-16 expansion ──────────────────────────────────
+
+# Kubeconfig artifacts (fix-coredns / register-spokes scratch)
+kubeconfig
+kubeconfig*
+*.kubeconfig
+
+# TLS material (anything generated locally)
+*.pem
+*.key
+*.crt
+
+# Flux scratch from bootstrap retries
+flux-system/identity*
+
+# OS / IDE noise
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

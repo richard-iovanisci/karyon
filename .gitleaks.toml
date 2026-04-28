@@ -1,0 +1,17 @@
+# .gitleaks.toml
+# Allow-rules for gitleaks pre-commit hook (REPO-04) and CI gitleaks-scan job
+# (REPO-07, see Plan 07). Reviewed during the one-shot historical scan in this
+# plan; expand only when a NEW false-positive is observed AND the value is
+# verified to be a placeholder (not a real secret rotated).
+
+[allowlist]
+description = "False positives: placeholder tokens and CONTEXT.md SHAs"
+regexes = [
+  '''ghp_REPLACE_WITH_PAT_WITH_repo_SCOPE''',  # .env.example placeholder (D-09 Phase 1)
+]
+paths = [
+  '''\.env\.example''',                         # whole-file allow (Phase 1 D-11 contract)
+]
+# Add per-finding entries during the one-shot scan if needed.
+# Format: regexes = [ '''<exact-literal>''' ]
+# Format: paths   = [ '''<file-path-regex>''' ]

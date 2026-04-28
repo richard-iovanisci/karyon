@@ -7,3 +7,4 @@ task 3.50.0
 jq 1.8.1
 yq 4.53.2
 asdf 0.18.1
+gitleaks 8.30.1
