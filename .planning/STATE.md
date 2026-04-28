@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
-status: verifying
+status: ready_to_plan
 stopped_at: Completed 05-workloads-health-rebuild-06-PLAN.md
-last_updated: "2026-04-28T16:26:46.343Z"
+last_updated: "2026-04-28T17:27:01Z"
 last_activity: 2026-04-28
 progress:
   total_phases: 6
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-28)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 05 — workloads-health-rebuild
+**Current focus:** Phase 06 — repo-hygiene-docs-adrs
 
 ## Current Position
 
-Phase: 05 (workloads-health-rebuild) — VERIFYING
-Plan: 6 of 6
-Status: Phase complete — ready for verification
+Phase: 6
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-04-28
 
 Progress: [██████████] 100%
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 21
+- Total plans completed: 27
 - Average duration: -
 - Total execution time: -
 
@@ -47,6 +47,7 @@ Progress: [██████████] 100%
 | 01 | 9 | - | - |
 | 02 | 7 | - | - |
 | 04 | 5 | - | - |
+| 05 | 6 | - | - |
 
 **Recent Trend:**
 
