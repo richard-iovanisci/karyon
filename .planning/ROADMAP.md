@@ -129,7 +129,7 @@ Plans:
 - [x] 05-01-PLAN.md — Wave 0 Bats contracts for deploy examples, kustomize builds, fix-coredns, health-check, destroy/rebuild, and live state checking
 - [x] 05-02-PLAN.md — Example manifests + spoke wiring + deploy-examples script
 - [x] 05-03-PLAN.md — CoreDNS fix script + fix-dns task
-- [ ] 05-04-PLAN.md — Read-only health-check script + health-check task
+- [x] 05-04-PLAN.md — Read-only health-check script + health-check task
 - [ ] 05-05-PLAN.md — Destroy/rebuild wrappers + Taskfile wiring
 - [ ] 05-06-PLAN.md — Live destructive rebuild execution and timing verification
 
@@ -158,7 +158,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 | 2. Cluster Layer | 7/7 | Complete | 2026-04-24 |
 | 3. Flux Hub Bootstrap | 6/6 | Complete | 2026-04-27 |
 | 4. Spoke Registration | 5/5 | Complete | 2026-04-28 |
-| 5. Workloads + Health + Rebuild | 3/6 | In Progress | - |
+| 5. Workloads + Health + Rebuild | 4/6 | In Progress | - |
 | 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
 
 ## Parallelization Notes

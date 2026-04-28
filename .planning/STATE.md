@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-workloads-health-rebuild-03-PLAN.md
-last_updated: "2026-04-28T15:35:28.591Z"
+stopped_at: Completed 05-workloads-health-rebuild-04-PLAN.md
+last_updated: "2026-04-28T15:43:05.039Z"
 last_activity: 2026-04-28
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 33
-  completed_plans: 30
-  percent: 91
+  completed_plans: 31
+  percent: 94
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-28)
 ## Current Position
 
 Phase: 05 (workloads-health-rebuild) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-04-28
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [█████████░] 91%
 | Phase 05-workloads-health-rebuild P01 | 5 min | 5 tasks | 6 files |
 | Phase 05-workloads-health-rebuild P02 | 5 min | 3 tasks | 11 files |
 | Phase 05-workloads-health-rebuild P03 | 5 min | 2 tasks | 2 files |
+| Phase 05-workloads-health-rebuild P04 | 5 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 05-workloads-health-rebuild]: Plan 05-03 fix-coredns applies the stale k3d CoreDNS NodeHosts workaround by mutating only hub-flux. — Preserves D-10 and MED-2 by never stop/starting or restarting spokes.
 - [Phase 05-workloads-health-rebuild]: Plan 05-03 Flux controller readiness waits are guarded by deployment count >= 4 before kubectl wait --all. — Prevents MED-3 empty-set wait pass-through.
 - [Phase 05-workloads-health-rebuild]: Plan 05-03 post-restart spoke DNS proof is read-only via kubectl exec into source-controller and warning-only. — Proves the workaround symptom without creating resources or mutating spokes.
+- [Phase 05-workloads-health-rebuild]: Plan 05-04 health-check remains read-only; stale hub DNS failures point to task fix-dns instead of mutating cluster state.
+- [Phase 05-workloads-health-rebuild]: Plan 05-04 in-hub DNS proof uses source-controller getent probes for both spokes, satisfying the HIGH-2 read-only contract.
+- [Phase 05-workloads-health-rebuild]: Plan 05-04 Flux controller readiness waits are guarded by deployment count >= 4 before kubectl wait --all.
 
 ### Pending Todos
 
@@ -126,8 +130,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-28T15:35:28.582Z
-Stopped at: Completed 05-workloads-health-rebuild-03-PLAN.md
+Last session: 2026-04-28T15:43:05.030Z
+Stopped at: Completed 05-workloads-health-rebuild-04-PLAN.md
 Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z
