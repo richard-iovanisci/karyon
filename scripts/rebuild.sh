@@ -13,10 +13,15 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 
-LOG_FILE="/tmp/karyon-rebuild.log"
+LOG_FILE="${KARYON_REBUILD_LOG_FILE:-/tmp/karyon-rebuild.log}"
 readonly LOG_FILE
 
 main() {
+  if [[ -L "${LOG_FILE}" || ( -e "${LOG_FILE}" && ! -f "${LOG_FILE}" ) ]]; then
+    fail "unsafe rebuild log path: ${LOG_FILE}"
+    exit 1
+  fi
+  umask 077
   : > "$LOG_FILE"
 
   if [[ "${KARYON_REBUILD_APPROVED:-}" != "yes" ]]; then
@@ -37,6 +42,12 @@ main() {
 
   local start_epoch elapsed
   start_epoch="$(date +%s)"
+
+  echo ">>> step preflight" | tee -a "$LOG_FILE"
+  if ! bash "${SCRIPT_DIR}/preflight.sh" 2>&1 | tee -a "$LOG_FILE"; then
+    fail "preflight failed; aborting before destructive rebuild"
+    exit 1
+  fi
 
   echo ">>> step destroy" | tee -a "$LOG_FILE"
   KARYON_DESTROY_APPROVED=yes bash "${SCRIPT_DIR}/destroy.sh" 2>&1 | tee -a "$LOG_FILE"

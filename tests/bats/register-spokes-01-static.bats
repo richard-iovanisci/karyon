@@ -279,3 +279,13 @@ teardown() {
   run grep -F -- '../../examples/podinfo' "${REPO_ROOT}/clusters/spoke-apps/kustomization.yaml"
   [ "$status" -eq 0 ]
 }
+
+@test "SPOKE-05 (seed repair): register script preserves existing spoke kustomization resources" {
+  [ -f "$SCRIPT" ]
+  run grep -F -- 'existing_resources=()' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'append_resource_once' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'in_resources && /^[[:space:]]*-[[:space:]]*/' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}

@@ -47,6 +47,7 @@ setup() {
   [ -f "$REBUILD_SCRIPT" ]
   previous=0
   for literal in \
+    'bash "${SCRIPT_DIR}/preflight.sh"' \
     'bash "${SCRIPT_DIR}/destroy.sh"' \
     'bash "${SCRIPT_DIR}/create-clusters.sh"' \
     'bash "${SCRIPT_DIR}/bootstrap-flux.sh"' \
@@ -59,6 +60,20 @@ setup() {
     [ "$line" -gt "$previous" ]
     previous="$line"
   done
+}
+
+@test "DESTROY-05: rebuild runs preflight before the destructive step" {
+  [ -f "$REBUILD_SCRIPT" ]
+  preflight_line="$(grep -nF -- '>>> step preflight' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
+  destroy_line="$(grep -nF -- '>>> step destroy' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
+  preflight_cmd_line="$(grep -nF -- 'bash "${SCRIPT_DIR}/preflight.sh"' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
+  destroy_cmd_line="$(grep -nF -- 'bash "${SCRIPT_DIR}/destroy.sh"' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
+  [ -n "$preflight_line" ]
+  [ -n "$destroy_line" ]
+  [ -n "$preflight_cmd_line" ]
+  [ -n "$destroy_cmd_line" ]
+  [ "$preflight_line" -lt "$destroy_line" ]
+  [ "$preflight_cmd_line" -lt "$destroy_cmd_line" ]
 }
 
 @test "HIGH-1: rebuild repins kubectl context after create-clusters and before bootstrap-flux" {
@@ -89,10 +104,26 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "DESTROY-06: rebuild refuses unsafe log paths before truncating" {
+  [ -f "$REBUILD_SCRIPT" ]
+  run grep -F -- 'KARYON_REBUILD_LOG_FILE:-/tmp/karyon-rebuild.log' "$REBUILD_SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- '-L "${LOG_FILE}"' "$REBUILD_SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'unsafe rebuild log path' "$REBUILD_SCRIPT"
+  [ "$status" -eq 0 ]
+  guard_line="$(grep -nF -- 'unsafe rebuild log path' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
+  truncate_line="$(grep -nF -- ': > "$LOG_FILE"' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
+  [ -n "$guard_line" ]
+  [ -n "$truncate_line" ]
+  [ "$guard_line" -lt "$truncate_line" ]
+}
+
 @test "DESTROY-05: rebuild step markers appear in strict order" {
   [ -f "$REBUILD_SCRIPT" ]
   previous=0
   for literal in \
+    '>>> step preflight' \
     '>>> step destroy' \
     '>>> step create-clusters' \
     '>>> step bootstrap-flux' \

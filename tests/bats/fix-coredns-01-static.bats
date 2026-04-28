@@ -102,6 +102,18 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "HEALTH-07: fix-coredns proves spoke DNS and fails if probes still fail" {
+  [ -f "$SCRIPT" ]
+  run grep -F -- 'getent hosts "k3d-${spoke}-server-0"' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'dns_ok=1' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'dns_ok=0' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run bash -c "grep -A 12 'Post-restart spoke DNS probe' '$SCRIPT' | grep -F -- 'fail \"spoke DNS still failing'"
+  [ "$status" -eq 0 ]
+}
+
 @test "REPO-05: Taskfile wires fix-dns to fix-coredns script" {
   [ -f "$TASKFILE" ]
   run grep -F -- 'fix-dns:' "$TASKFILE"

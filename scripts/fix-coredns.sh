@@ -97,17 +97,22 @@ section "Post-restart spoke DNS probe"
 # MED-2: prove the workaround actually fixed spoke DNS resolution.
 # Read-only probe via kubectl exec into existing source-controller pod
 # (no resource creation, no deletion).
+dns_ok=1
 for spoke in spoke-ml spoke-apps; do
   if kubectl --context k3d-hub-flux -n flux-system exec deploy/source-controller -- \
        getent hosts "k3d-${spoke}-server-0" >/dev/null 2>&1; then
     pass "spoke DNS ok: hub can resolve k3d-${spoke}-server-0"
   else
-    warn "spoke DNS still failing for k3d-${spoke}-server-0 after hub-flux stop/start.
+    fail "spoke DNS still failing for k3d-${spoke}-server-0 after hub-flux stop/start.
        The k3d CoreDNS NodeHosts workaround did not fully resolve. Inspect:
          kubectl --context k3d-hub-flux -n kube-system get cm coredns -o yaml
        Fix: rerun: bash scripts/fix-coredns.sh"
+    dns_ok=0
   fi
 done
+if [[ "${dns_ok}" -ne 1 ]]; then
+  exit 1
+fi
 
 # ---------- Summary ----------
 section "Summary"

@@ -425,7 +425,7 @@ EOF
 }
 
 ensure_spoke_seed() {
-  local spoke="$1" ns tmp dir example_resource=""
+  local spoke="$1" ns tmp dir example_resource="" existing_resources=()
   ns="karyon-${spoke}"
   dir="${REPO_ROOT}/clusters/${spoke}"
 
@@ -442,17 +442,43 @@ ensure_spoke_seed() {
       ;;
   esac
 
+  if [[ -f "${dir}/kustomization.yaml" ]]; then
+    mapfile -t existing_resources < <(
+      awk '
+        /^resources:[[:space:]]*$/ { in_resources=1; next }
+        in_resources && /^[[:space:]]*-[[:space:]]*/ {
+          sub(/^[[:space:]]*-[[:space:]]*/, "")
+          print
+          next
+        }
+        in_resources && /^[^[:space:]-]/ { in_resources=0 }
+      ' "${dir}/kustomization.yaml"
+    )
+  fi
+
+  append_resource_once() {
+    local candidate="$1" existing
+    for existing in "${existing_resources[@]}"; do
+      if [[ "${existing}" == "${candidate}" ]]; then
+        return
+      fi
+    done
+    existing_resources+=("${candidate}")
+  }
+
+  append_resource_once "namespace.yaml"
+  append_resource_once "configmap.yaml"
+  if [[ -n "${example_resource}" ]]; then
+    append_resource_once "${example_resource}"
+  fi
+
   tmp="$(mktemp)"
   cat > "${tmp}" <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- namespace.yaml
-- configmap.yaml
 EOF
-  if [[ -n "${example_resource}" ]]; then
-    printf -- '- %s\n' "${example_resource}" >> "${tmp}"
-  fi
+  printf -- '- %s\n' "${existing_resources[@]}" >> "${tmp}"
   repair_file_if_needed "${dir}/kustomization.yaml" "${tmp}" "clusters/${spoke}/kustomization.yaml"
 
   tmp="$(mktemp)"
