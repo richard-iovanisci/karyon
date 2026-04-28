@@ -111,7 +111,12 @@ pass "git visibility ok: examples/ and clusters/ are clean and HEAD == origin/ma
 # ---------- Section 4: GPU smoke rerun ----------
 section "GPU smoke rerun"
 if kubectl --context "${SPOKE_ML_CTX}" get namespace gpu-smoke >/dev/null 2>&1; then
-  kubectl --context k3d-spoke-ml -n gpu-smoke delete job nvidia-smi --ignore-not-found --wait=true >/dev/null 2>&1 || true
+  if ! kubectl --context k3d-spoke-ml -n gpu-smoke delete job nvidia-smi --ignore-not-found --wait=true >/dev/null; then
+    fail "failed to delete old gpu-smoke/nvidia-smi Job before rerun.
+       Inspect: kubectl --context ${SPOKE_ML_CTX} -n gpu-smoke get job,pod
+       Fix: resolve the Kubernetes delete error, then rerun: bash scripts/deploy-examples.sh"
+    exit 1
+  fi
   pass "old gpu-smoke/nvidia-smi Job deleted or already absent"
 else
   info "gpu-smoke namespace not present yet; Flux will create it"

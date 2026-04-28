@@ -288,6 +288,10 @@ teardown() {
   [ "$status" -eq 0 ]
   run grep -F -- "yq eval '.resources[]?'" "$SCRIPT"
   [ "$status" -eq 0 ]
+  run grep -F -- 'resources_tmp="$(mktemp)"' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'is not valid YAML; refusing to overwrite existing resources' "$SCRIPT"
+  [ "$status" -eq 0 ]
 }
 
 @test "D-11: register-spokes remediation does not tell users to dump kubeconfig secrets" {

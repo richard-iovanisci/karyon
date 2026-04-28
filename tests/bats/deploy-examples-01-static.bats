@@ -74,6 +74,16 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "D-08: deploy-examples fails if the old GPU smoke Job cannot be deleted" {
+  [ -f "$SCRIPT" ]
+  run grep -F -- 'failed to delete old gpu-smoke/nvidia-smi Job before rerun' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'resolve the Kubernetes delete error' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run bash -c "grep -v '^[[:space:]]*#' '$SCRIPT' | grep -F -- 'delete job nvidia-smi' | grep -F -- '|| true'"
+  [ "$status" -ne 0 ]
+}
+
 @test "D-02: deploy-examples does not directly apply workloads to spokes" {
   [ -f "$SCRIPT" ]
   run bash -c "grep -v '^[[:space:]]*#' '$SCRIPT' | grep -F -- 'kubectl --context k3d-spoke-apps apply'"

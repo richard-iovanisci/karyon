@@ -425,7 +425,7 @@ EOF
 }
 
 ensure_spoke_seed() {
-  local spoke="$1" ns tmp dir example_resource="" existing_resources=()
+  local spoke="$1" ns tmp dir resources_tmp example_resource="" existing_resources=()
   ns="karyon-${spoke}"
   dir="${REPO_ROOT}/clusters/${spoke}"
 
@@ -442,11 +442,17 @@ ensure_spoke_seed() {
       ;;
   esac
 
+  resources_tmp="$(mktemp)"
   if [[ -f "${dir}/kustomization.yaml" ]]; then
-    mapfile -t existing_resources < <(
-      yq eval '.resources[]?' "${dir}/kustomization.yaml"
-    )
+    if ! yq eval '.resources[]?' "${dir}/kustomization.yaml" > "${resources_tmp}"; then
+      rm -f "${resources_tmp}"
+      fail "${dir}/kustomization.yaml is not valid YAML; refusing to overwrite existing resources.
+         Fix: repair the file, then rerun: bash scripts/register-spokes-for-flux.sh"
+      exit 1
+    fi
+    mapfile -t existing_resources < "${resources_tmp}"
   fi
+  rm -f "${resources_tmp}"
 
   append_resource_once() {
     local candidate="$1" existing

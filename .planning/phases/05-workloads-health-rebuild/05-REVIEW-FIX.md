@@ -4,9 +4,9 @@ source: 05-REVIEW.md
 status: fixed
 fixed_at: 2026-04-28T16:40:00Z
 findings_fixed:
-  critical: 3
-  warning: 7
-  total: 10
+  critical: 4
+  warning: 8
+  total: 12
 ---
 
 # Phase 05 Code Review Fix Summary
@@ -24,6 +24,8 @@ findings_fixed:
 - Re-review WR-02: `scripts/rebuild.sh` now scopes `umask 077` to rebuild log creation and restores the previous umask before running the rebuild chain.
 - Re-review WR-03: `scripts/register-spokes-for-flux.sh` now uses `yq eval '.resources[]?'` to read existing Kustomization resources instead of scraping YAML with `awk`.
 - Re-review WR-04: `scripts/register-spokes-for-flux.sh` remediation text now uses a secret metadata/data-presence go-template instead of telling operators to dump kubeconfig Secret YAML.
+- Re-review CR-01: `scripts/deploy-examples.sh` now fails closed if deleting the prior `gpu-smoke/nvidia-smi` Job fails; `--ignore-not-found` remains the only absent-job allowance.
+- Re-review WR-01: `scripts/register-spokes-for-flux.sh` now captures `yq` output through a temporary file so invalid existing Kustomization YAML fails closed instead of being treated as an empty resource list.
 
 ## Verification
 
@@ -32,4 +34,5 @@ findings_fixed:
 - `bats tests/bats/destroy-rebuild-01-static.bats tests/bats/register-spokes-01-static.bats tests/bats/phase5-02-live.bats`
 - `kubectl kustomize clusters/spoke-apps`
 - `kubectl kustomize clusters/spoke-ml`
+- `bats tests/bats/deploy-examples-01-static.bats tests/bats/deploy-examples-02-kustomize-build.bats tests/bats/register-spokes-01-static.bats`
 - `git diff --check`
