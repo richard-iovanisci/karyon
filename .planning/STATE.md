@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 context gathered
-last_updated: "2026-04-28T15:05:40.957Z"
-last_activity: 2026-04-28 -- Phase 05 planning complete
+stopped_at: Completed 05-workloads-health-rebuild-01-PLAN.md
+last_updated: "2026-04-28T15:18:10.802Z"
+last_activity: 2026-04-28
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 33
-  completed_plans: 27
-  percent: 82
+  completed_plans: 28
+  percent: 85
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-28)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 05 — workloads + health + rebuild
+**Current focus:** Phase 05 — workloads-health-rebuild
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (workloads-health-rebuild) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-04-28 -- Phase 05 planning complete
+Last activity: 2026-04-28
 
-Progress: [██████████] 100%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [██████████] 100%
 | Phase 04-spoke-registration P03 | 6min | 1 tasks | 1 files |
 | Phase 04-spoke-registration P04 | 5min | 4 tasks | 4 files |
 | Phase 04-spoke-registration P05 | checkpointed | 4 tasks | 6 files |
+| Phase 05-workloads-health-rebuild P01 | 5 min | 5 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 04-spoke-registration]: Plan 04-05 uses post-push live destructive Bats plus inventory IDs and cross-cluster ConfigMap falsifiers as the canonical P18 reconciliation proof.
 - [Phase 04-spoke-registration]: Plan 04-05 uses a temporary CA-only OpenSSL verifier pod when the Flux controller image lacks openssl, then deletes it after the proof.
 - [Phase 04-spoke-registration]: clusters/hub-flux/kustomization.yaml is required at the Flux bootstrap path root so origin/main includes flux-system and the mounted spokes tree.
+- [Phase 05-workloads-health-rebuild]: Plan 05-01 verifies Bats syntax with bats --count; behavioral fail-closed checks are intentionally enforced when downstream implementation artifacts land. — Wave 0 only needs parse proof; downstream implementation plans own behavior going green.
+- [Phase 05-workloads-health-rebuild]: The live Phase 5 suite is a post-rebuild state checker only and does not invoke rebuild, destroy, delete-clusters, or k3d delete commands. — Plan 05-06 runs the rebuild chain exactly once; tests should not cause a second destructive run.
+- [Phase 05-workloads-health-rebuild]: Static tests pin the review fixes for HIGH-1, HIGH-2, HIGH-3, MED-1, MED-2, and MED-3 before implementation begins. — The Wave 0 contracts prevent later plans from shipping without the cross-review mitigations.
 
 ### Pending Todos
 
@@ -114,8 +118,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-28T01:40:15.605Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-workloads-health-rebuild/05-CONTEXT.md
+Last session: 2026-04-28T15:18:10.794Z
+Stopped at: Completed 05-workloads-health-rebuild-01-PLAN.md
+Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z

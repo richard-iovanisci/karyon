@@ -79,29 +79,29 @@ Requirements for initial release. Each maps to one roadmap phase (populated in t
 
 ### Example Workloads
 
-- [ ] **DEP-01**: `scripts/deploy-examples.sh` (or `task deploy-examples`) ensures a hub-flux `Kustomization` deploys `podinfo` to `spoke-apps`
-- [ ] **DEP-02**: A hub-flux `Kustomization` deploys a GPU smoke-test pod to `spoke-ml`
-- [ ] **DEP-03**: The GPU smoke-test uses `nvcr.io/nvidia/cuda:12.8.0-base-ubuntu22.04` and runs only `nvidia-smi` — no PyTorch / framework workload (avoids coupling the lab to sm_120 nightly availability)
-- [ ] **DEP-04**: Example manifests live under `examples/podinfo/` and `examples/gpu-smoke-test/` and are version-controlled
+- [x] **DEP-01**: `scripts/deploy-examples.sh` (or `task deploy-examples`) ensures a hub-flux `Kustomization` deploys `podinfo` to `spoke-apps`
+- [x] **DEP-02**: A hub-flux `Kustomization` deploys a GPU smoke-test pod to `spoke-ml`
+- [x] **DEP-03**: The GPU smoke-test uses `nvcr.io/nvidia/cuda:12.8.0-base-ubuntu22.04` and runs only `nvidia-smi` — no PyTorch / framework workload (avoids coupling the lab to sm_120 nightly availability)
+- [x] **DEP-04**: Example manifests live under `examples/podinfo/` and `examples/gpu-smoke-test/` and are version-controlled
 
 ### Health Check & DNS Fix
 
-- [ ] **HEALTH-01**: `scripts/health-check.sh` verifies all three k3d clusters exist and all nodes are `Ready`
-- [ ] **HEALTH-02**: Verifies Flux controllers are Ready on `hub-flux` and runs `flux check` as an explicit sanity step
-- [ ] **HEALTH-03**: Verifies every Flux `Kustomization` targeting a spoke is `Ready=True`
-- [ ] **HEALTH-04**: Executes an in-hub-pod DNS probe (`nslookup k3d-spoke-ml-server-0` / `k3d-spoke-apps-server-0`) to catch stale CoreDNS `NodeHosts` before they manifest as reconcile failures
-- [ ] **HEALTH-05**: Verifies `spoke-ml` reports `nvidia.com/gpu` capacity > 0 (catches 3-part k3d GPU contract breakage)
-- [ ] **HEALTH-06**: Verifies each spoke apiserver's TLS cert includes the expected `k3d-<spoke>-server-0` SAN (openssl s_client probe)
-- [ ] **HEALTH-07**: `scripts/fix-coredns.sh` stops and starts `hub-flux` to refresh stale CoreDNS `NodeHosts` after Docker/WSL restart (documented workaround; no upstream fix shipped)
+- [x] **HEALTH-01**: `scripts/health-check.sh` verifies all three k3d clusters exist and all nodes are `Ready`
+- [x] **HEALTH-02**: Verifies Flux controllers are Ready on `hub-flux` and runs `flux check` as an explicit sanity step
+- [x] **HEALTH-03**: Verifies every Flux `Kustomization` targeting a spoke is `Ready=True`
+- [x] **HEALTH-04**: Executes an in-hub-pod DNS probe (`nslookup k3d-spoke-ml-server-0` / `k3d-spoke-apps-server-0`) to catch stale CoreDNS `NodeHosts` before they manifest as reconcile failures
+- [x] **HEALTH-05**: Verifies `spoke-ml` reports `nvidia.com/gpu` capacity > 0 (catches 3-part k3d GPU contract breakage)
+- [x] **HEALTH-06**: Verifies each spoke apiserver's TLS cert includes the expected `k3d-<spoke>-server-0` SAN (openssl s_client probe)
+- [x] **HEALTH-07**: `scripts/fix-coredns.sh` stops and starts `hub-flux` to refresh stale CoreDNS `NodeHosts` after Docker/WSL restart (documented workaround; no upstream fix shipped)
 
 ### Teardown & Rebuild
 
-- [ ] **DESTROY-01**: `task destroy` requires explicit confirmation (typed `yes` or equivalent) before proceeding
-- [ ] **DESTROY-02**: Destroy deletes all three k3d clusters, then removes the `k8s-net` Docker network
-- [ ] **DESTROY-03**: Destroy does not run `docker system prune` or `docker builder prune` — CUDA build layers must survive for the `task rebuild` SLO
-- [ ] **DESTROY-04**: A lint step (runnable in CI) rejects any script in `scripts/` that references `docker system prune` or `docker builder prune`
-- [ ] **DESTROY-05**: `task rebuild` chains `destroy → create-clusters → bootstrap-flux → register-spokes → deploy-examples → health-check`
-- [ ] **DESTROY-06**: `task rebuild` completes in under 20 minutes on the target dev box with a warm CUDA image cache, ending in a green health-check
+- [x] **DESTROY-01**: `task destroy` requires explicit confirmation (typed `yes` or equivalent) before proceeding
+- [x] **DESTROY-02**: Destroy deletes all three k3d clusters, then removes the `k8s-net` Docker network
+- [x] **DESTROY-03**: Destroy does not run `docker system prune` or `docker builder prune` — CUDA build layers must survive for the `task rebuild` SLO
+- [x] **DESTROY-04**: A lint step (runnable in CI) rejects any script in `scripts/` that references `docker system prune` or `docker builder prune`
+- [x] **DESTROY-05**: `task rebuild` chains `destroy → create-clusters → bootstrap-flux → register-spokes → deploy-examples → health-check`
+- [x] **DESTROY-06**: `task rebuild` completes in under 20 minutes on the target dev box with a warm CUDA image cache, ending in a green health-check
 
 ### Repo Hygiene & Secrets
 
@@ -224,23 +224,23 @@ Which phases cover which requirements. Populated during roadmap creation — cur
 | SPOKE-04 | Phase 4 | Complete |
 | SPOKE-05 | Phase 4 | Complete |
 | SPOKE-06 | Phase 4 | Complete |
-| DEP-01 | Phase 5 | Pending |
-| DEP-02 | Phase 5 | Pending |
-| DEP-03 | Phase 5 | Pending |
-| DEP-04 | Phase 5 | Pending |
-| HEALTH-01 | Phase 5 | Pending |
-| HEALTH-02 | Phase 5 | Pending |
-| HEALTH-03 | Phase 5 | Pending |
-| HEALTH-04 | Phase 5 | Pending |
-| HEALTH-05 | Phase 5 | Pending |
-| HEALTH-06 | Phase 5 | Pending |
-| HEALTH-07 | Phase 5 | Pending |
-| DESTROY-01 | Phase 5 | Pending |
-| DESTROY-02 | Phase 5 | Pending |
-| DESTROY-03 | Phase 5 | Pending |
-| DESTROY-04 | Phase 5 | Pending |
-| DESTROY-05 | Phase 5 | Pending |
-| DESTROY-06 | Phase 5 | Pending |
+| DEP-01 | Phase 5 | Complete |
+| DEP-02 | Phase 5 | Complete |
+| DEP-03 | Phase 5 | Complete |
+| DEP-04 | Phase 5 | Complete |
+| HEALTH-01 | Phase 5 | Complete |
+| HEALTH-02 | Phase 5 | Complete |
+| HEALTH-03 | Phase 5 | Complete |
+| HEALTH-04 | Phase 5 | Complete |
+| HEALTH-05 | Phase 5 | Complete |
+| HEALTH-06 | Phase 5 | Complete |
+| HEALTH-07 | Phase 5 | Complete |
+| DESTROY-01 | Phase 5 | Complete |
+| DESTROY-02 | Phase 5 | Complete |
+| DESTROY-03 | Phase 5 | Complete |
+| DESTROY-04 | Phase 5 | Complete |
+| DESTROY-05 | Phase 5 | Complete |
+| DESTROY-06 | Phase 5 | Complete |
 | REPO-01 | Phase 6 | Pending |
 | REPO-02 | Phase 6 | Pending |
 | REPO-03 | Phase 6 | Pending |

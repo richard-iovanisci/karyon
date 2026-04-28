@@ -123,7 +123,15 @@ Plans:
   3. `task fix-dns` stops and starts `hub-flux` (NOT `K3D_FIX_DNS=1`), refreshes stale CoreDNS NodeHosts, and leaves the cluster green; documented as the 2026-era workaround for k3d#1009 / #1112.
   4. `task destroy` requires explicit typed `yes` confirmation before proceeding, deletes all three clusters + `k8s-net`, preserves `docker builder` cache (custom CUDA image still present in `docker images`), and neither invokes nor transitively calls `docker system prune` or `docker builder prune`.
   5. `task rebuild` — on a machine where the CUDA image cache is warm — completes destroy → create → bootstrap → register → deploy → health-check in under 20 minutes and ends in a green `task health-check` (timed end-to-end on the target dev box; core-value requirement).
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [x] 05-01-PLAN.md — Wave 0 Bats contracts for deploy examples, kustomize builds, fix-coredns, health-check, destroy/rebuild, and live state checking
+- [ ] 05-02-PLAN.md — Example manifests + spoke wiring + deploy-examples script
+- [ ] 05-03-PLAN.md — CoreDNS fix script + fix-dns task
+- [ ] 05-04-PLAN.md — Read-only health-check script + health-check task
+- [ ] 05-05-PLAN.md — Destroy/rebuild wrappers + Taskfile wiring
+- [ ] 05-06-PLAN.md — Live destructive rebuild execution and timing verification
 
 ### Phase 6: Repo Hygiene + Docs + ADRs
 **Goal**: The repository is safe to publish publicly — no real secrets committed, `.env.example` contract documented, five ADRs under `docs/adr/` capture the locked architectural decisions, README walks a fresh clone from Windows prereqs to running lab, rebuild runbook documents timings + failure modes, GitHub Actions CI runs shellcheck + kubeconform + markdownlint on every push/PR.
@@ -150,7 +158,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 | 2. Cluster Layer | 7/7 | Complete | 2026-04-24 |
 | 3. Flux Hub Bootstrap | 6/6 | Complete | 2026-04-27 |
 | 4. Spoke Registration | 5/5 | Complete | 2026-04-28 |
-| 5. Workloads + Health + Rebuild | 0/TBD | Not started | - |
+| 5. Workloads + Health + Rebuild | 1/6 | In Progress | - |
 | 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
 
 ## Parallelization Notes
