@@ -56,8 +56,10 @@ Commit: `2d5a4c1`
 - `bash scripts/register-spokes-for-flux.sh`
 - Standard re-review of 17 Phase 04 files: clean
 
-## Notes
+## Post-Push Confirmation
 
-The live destructive Bats suite must be rerun after the fix commit is pushed,
-because its setup intentionally skips when Phase 04 reconciliation files are
-committed locally but not yet present on `origin/main`.
+After the review-fix commits were pushed and Flux reconciled
+`main@sha1:8ce74cc3`, the final live destructive Bats suite passed:
+
+- `KARYON_LIVE_TESTS=1 KARYON_LIVE_TESTS_DESTRUCTIVE=1 bats tests/bats/register-spokes-02-live.bats --tap`
+- Result: `18` ok, `0` not ok, `0` skipped
