@@ -2,7 +2,7 @@
 
 **Phase:** 05-workloads-health-rebuild  
 **Date:** 2026-04-27T21:37:37-04:00  
-**Status:** Research complete
+**Status:** Research complete (revised 2026-04-27 after checker round 1)
 
 ## Research Summary
 
@@ -35,11 +35,28 @@ deliverables:
   adding `spec.healthChecks` to the existing spoke Kustomizations is a viable
   planning option if research during execution confirms it behaves cleanly with
   remote `spec.kubeConfig` targets. If not, script-level waits remain sufficient.
-- Open point: relative Kustomize resources from `clusters/spoke-*` to
-  `../../examples/*` must be verified locally with the pinned Flux/Kustomize
-  toolchain before implementation finalizes. If Flux/Kustomize rejects the
-  traversal, the executor should stop and report the conflict rather than
-  silently copy manifests into the spoke tree, because D-04 rejects duplication.
+- Source-refresh ordering: when `deploy-examples` reruns the GPU smoke Job by
+  deleting and re-applying via Flux, the source-controller must have the
+  latest commit before kustomize-controller reapplies; otherwise the rerun
+  races with source fetch and can hit immutable-field rejection on stale
+  spec. Plan 05-02 Task 3 therefore calls
+  `flux reconcile source git flux-system --with-source` BEFORE
+  `flux reconcile kustomization spoke-ml --with-source`.
+- **RESOLVED (2026-04-27 after checker round 1):** Relative Kustomize
+  resources from `clusters/spoke-*` to `../../examples/*` are verified
+  buildable by the pinned `kubectl` toolchain via a dedicated Wave 0 Bats
+  suite, `tests/bats/deploy-examples-02-kustomize-build.bats` (created in
+  Plan 05-01 Task 2). The suite runs
+  `kubectl kustomize "${REPO_ROOT}/clusters/spoke-apps"` and
+  `kubectl kustomize "${REPO_ROOT}/clusters/spoke-ml"` and asserts both exit 0
+  with output containing the expected `kind: Deployment`/`name: podinfo` and
+  `kind: Job`/`name: nvidia-smi` literals — proving the relative traversal
+  actually pulled in the example manifests. This fails CLOSED at planning
+  verification time (after Plan 05-02 Task 2 lands manifests) so any
+  toolchain rejection of the `../../examples/*` traversal blocks before mid-
+  wave execution. Plan 05-02 Task 2's automated verify also runs the same
+  `kubectl kustomize` build commands as a belt-and-braces gate. There is no
+  remaining "stop and report" runtime fallback path; D-04 holds.
 
 ### Kubernetes Job Semantics
 
@@ -60,6 +77,17 @@ deliverables:
 - ROADMAP explicitly names the stale CoreDNS NodeHosts workaround as stop/start
   hub. Do not restart the spokes and do not patch CoreDNS manifests.
 
+### Cluster Ready Timeout for Health-Check
+
+- Empirically measured first-pull timing: after a fresh `task rebuild`, the
+  NVIDIA device-plugin DaemonSet on `spoke-ml` takes 60-120s to register
+  `nvidia.com/gpu` capacity on the node (cold image cache pulls vary). A 60s
+  cluster-Ready timeout in `scripts/health-check.sh` would fail spuriously not
+  from a slow chain but from an unforgiving health gate, threatening the
+  20-minute SLO. Plan 05-04 therefore pins `--timeout=180s` for the cluster
+  Ready node-wait, with a code-comment justifying the budget and a bats grep
+  pinning the literal.
+
 ## Recommended Plan Architecture
 
 ### Plan 05-01: Phase 5 Test Contracts
@@ -67,22 +95,33 @@ deliverables:
 Create Bats suites for:
 
 - Deploy examples static contract: `examples/` layout, spoke kustomization
-  relative references, `deploy-examples` GitOps-only behavior.
-- Health/fix DNS static contract: `health-check` ordered read-only gates and
-  `fix-coredns` hub-only stop/start.
-- Destroy/rebuild static contract: confirmation, no prune, strict chain, timing
-  hard-fail.
-- Live/destructive smoke contract gated behind `require_live_destructive`.
+  relative references, `deploy-examples` GitOps-only behavior, pinned podinfo
+  image tag (`ghcr.io/stefanprodan/podinfo:6.7.1`), 180s/300s wait literals,
+  source-refresh-before-spoke-ml ordering.
+- Deploy examples kustomize-build contract: `kubectl kustomize` exit 0 on both
+  spoke trees (D-04 fail-closed gate; resolves prior open question).
+- Fix-coredns static contract: `fix-coredns` hub-only stop/start (split out of
+  the prior combined health bats so Plan 05-03 can verify independently).
+- Health-check static contract: `health-check` ordered read-only gates,
+  180s cluster timeout, GPU capacity / TLS SANs / Workload proofs literals.
+- Destroy/rebuild static contract: confirmation, no prune, strict chain (in
+  `bash "${SCRIPT_DIR}/<script>.sh"` form), 1200 hard-fail, ordered step
+  markers, elapsed-seconds log line, `/tmp/karyon-rebuild.log` destination.
+- Live/destructive STATE-CHECKER contract gated behind
+  `require_live_destructive` — reads `/tmp/karyon-rebuild.log` and post-
+  rebuild kubeconfig state. Does NOT execute `task rebuild` itself.
 
 ### Plan 05-02: Example Manifests + Deploy Script
 
 Create:
 
-- `examples/podinfo/{kustomization,namespace,deployment,service}.yaml`
+- `examples/podinfo/{kustomization,namespace,deployment,service}.yaml` with
+  podinfo image pinned to `ghcr.io/stefanprodan/podinfo:6.7.1`.
 - `examples/gpu-smoke-test/{kustomization,namespace,job}.yaml`
 - Append relative references to the existing spoke kustomizations.
 - `scripts/deploy-examples.sh` to repair files, optionally delete the old GPU
-  Job, reconcile source/Kustomizations, and wait for podinfo + GPU Job.
+  Job, reconcile source first, then Kustomizations, then wait for podinfo
+  (180s) and GPU Job (300s).
 - `task deploy-examples`.
 
 ### Plan 05-03: DNS Fix Script
@@ -93,18 +132,20 @@ Create:
 - `task fix-dns`
 
 The script should stop/start only `hub-flux`, then verify hub node readiness,
-Flux controller readiness, and `flux check`.
+Flux controller readiness, and `flux check`. Verified by the split bats
+`fix-coredns-01-static.bats`.
 
 ### Plan 05-04: Health Check Script
 
 Create:
 
-- `scripts/health-check.sh`
+- `scripts/health-check.sh` with 180s cluster Ready timeout and the seven
+  ordered section literals.
 - `task health-check`
 
 The script runs fail-fast ordered gates:
 
-1. Three clusters exist and nodes Ready.
+1. Three clusters exist and nodes Ready (180s timeout).
 2. Flux controllers Ready and `flux check` passes.
 3. Hub-side `spoke-ml` and `spoke-apps` Kustomizations Ready=True.
 4. In-hub DNS probe resolves `k3d-spoke-ml-server-0` and
@@ -118,8 +159,12 @@ The script runs fail-fast ordered gates:
 
 Create:
 
-- `scripts/destroy.sh` wrapper around `scripts/delete-clusters.sh`.
-- `scripts/rebuild.sh` strict chain wrapper.
+- `scripts/destroy.sh` wrapper around `scripts/delete-clusters.sh` (uses
+  `bash "${SCRIPT_DIR}/delete-clusters.sh"` form).
+- `scripts/rebuild.sh` strict chain wrapper that writes
+  `/tmp/karyon-rebuild.log` with ordered step markers
+  (`>>> step destroy`..`>>> step health-check`) and a final
+  `rebuild elapsed seconds: N` line.
 - `task destroy` and `task rebuild`.
 
 Destroy/rebuild must use a one-prompt outer confirmation model. Rebuild should
@@ -130,9 +175,11 @@ hard failure, and print elapsed time.
 
 Run the full chain on the target machine with warm CUDA image cache:
 
-- `task rebuild`
+- `task rebuild` (ONCE)
 - `task health-check`
-- live/destructive Bats suite
+- live/destructive Bats STATE CHECKER suite (reads
+  `/tmp/karyon-rebuild.log` and live cluster state; does NOT re-execute
+  rebuild)
 
 Record timing in Phase 5 summary/verification artifacts during execution. Do
 not commit a machine-specific timing log.
@@ -143,21 +190,24 @@ Use the existing Bats framework and shell/YAML greps. Validation layers:
 
 - Static Bats after every plan: `bats tests/bats/*phase5*.bats` or the exact
   suites created in Plan 05-01.
+- Build-time Bats: `bats tests/bats/deploy-examples-02-kustomize-build.bats`
+  fails closed if `kubectl kustomize` rejects `../../examples/*` traversal.
 - Script syntax: `bash -n scripts/deploy-examples.sh scripts/fix-coredns.sh
   scripts/health-check.sh scripts/destroy.sh scripts/rebuild.sh`.
-- Kustomize local build checks if supported by the pinned tooling:
+- Kustomize local build checks gated in Plan 05-02 Task 2 verify:
   `kubectl kustomize clusters/spoke-apps` and `kubectl kustomize
   clusters/spoke-ml`.
-- Live checks behind `KARYON_LIVE_TESTS=1 KARYON_LIVE_TESTS_DESTRUCTIVE=1`.
+- Live state-checker behind `KARYON_LIVE_TESTS=1
+  KARYON_LIVE_TESTS_DESTRUCTIVE=1`.
 
 Nyquist coverage:
 
 - DEP-01..04 covered by deploy static tests, kustomize build, deploy live wait,
   podinfo Deployment availability, and GPU Job logs.
-- HEALTH-01..07 covered by health/fix static tests plus read-only live
-  health-check.
-- DESTROY-01..06 covered by static confirmation/chain/prune tests and final
-  live destructive rebuild timing.
+- HEALTH-01..07 covered by fix-coredns / health-check static tests plus
+  read-only live health-check.
+- DESTROY-01..06 covered by static confirmation/chain/prune/timing-log tests
+  and final live state-checker bats reading /tmp/karyon-rebuild.log.
 
 ## Sources
 
@@ -166,6 +216,7 @@ Nyquist coverage:
 - Kubernetes Job docs: https://kubernetes.io/docs/concepts/workloads/controllers/job/
 - k3d cluster stop docs: https://k3d.io/stable/usage/commands/k3d_cluster_stop/
 - k3d cluster start docs: https://k3d.io/stable/usage/commands/k3d_cluster_start/
-- podinfo upstream repo: https://github.com/stefanprodan/podinfo
+- podinfo upstream repo: https://github.com/stefanprodan/podinfo (tag
+  `6.7.1` pinned for Phase 5 deterministic rebuild SLO)
 
 ## RESEARCH COMPLETE
