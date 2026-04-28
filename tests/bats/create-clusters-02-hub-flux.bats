@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/create-clusters-02-hub-flux.bats
-# L3 live-gated: kubectl --context k3d-hub-flux get nodes --no-headers | grep -c Ready == 1 (CLU-02).
+# L3 live-gated: kubectl --context k3d-hub-flux get nodes --no-headers has exactly one Ready node (CLU-02).
 # Wave 0 stub — body filled by Plan 02-05.
 
 load 'test_helper'
@@ -14,7 +14,7 @@ teardown() {
 }
 
 @test "CLU-02: hub-flux cluster reports 1 Ready node" {
-  run bash -c "kubectl --context k3d-hub-flux get nodes --no-headers 2>/dev/null | grep -c Ready"
+  run bash -c "kubectl --context k3d-hub-flux get nodes --no-headers 2>/dev/null | awk '\$2 == \"Ready\" { count++ } END { print count + 0 }'"
   [ "$status" -eq 0 ]
-  [ "$output" -ge 1 ]
+  [ "$output" -eq 1 ]
 }
