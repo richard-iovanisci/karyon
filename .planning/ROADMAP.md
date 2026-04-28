@@ -145,7 +145,17 @@ Plans:
   3. `README.md` walks a fresh clone through: Windows prereqs → WSL config → Docker install → NVIDIA setup → tools install → cluster creation → Flux bootstrap → spoke registration → example deploy → teardown — in that order; `docs/architecture.md` includes a GitHub-renderable Mermaid hub-spoke diagram; `docs/gpu-notes.md` explains the 3-part k3d GPU contract + RTX 5090 / sm_120 / CUDA 12.8+ floor; `docs/rebuild-runbook.md` is step-by-step with expected timings and common failure modes.
   4. `Taskfile.yml` is the single orchestration surface (all logic in `scripts/`, Taskfile invokes scripts not the reverse); destructive tasks `destroy` and `rebuild` are named explicitly and require confirmation.
   5. `.github/workflows/ci.yml` runs `shellcheck scripts/*.sh`, `kubeconform` on YAML under `clusters/` + `examples/`, and `markdownlint` on `**/*.md` — green on every push and PR; a lint step rejects any `scripts/**` file referencing `docker system prune` or `docker builder prune` (enforces DESTROY-04).
-**Plans**: TBD
+**Plans**: 8 plans (4 waves)
+
+Plans:
+- [ ] 06-00-PLAN.md — Wave 0 bats validation scaffold (8 NEW bats files for REPO-02..05/07 + DOCS-01/02/04/05/06..10)
+- [ ] 06-01-PLAN.md — REPO-01..04 + DOCS-06: secrets-defense atomic landing (.gitignore D-16, .gitleaks.toml, .tool-versions gitleaks pin, hooks/pre-commit, install-tools.sh Sections 7-8, one-shot history scan, ADR-001)
+- [ ] 06-02-PLAN.md — DOCS-07/08/09/10: ADRs 0002..0005 (k3d-over-Kind, Flux-over-ArgoCD, hub-only Flux, version pin)
+- [ ] 06-03-PLAN.md — DOCS-02 + DOCS-04: docs/architecture.md Mermaid topology + docs/gpu-notes.md
+- [ ] 06-04-PLAN.md — REPO-05 + REPO-06: Taskfile.yml audit + add preflight: task entry
+- [ ] 06-05-PLAN.md — DOCS-01 + DOCS-03 verify: README.md hybrid quickstart + cleanup deletes (D-13 prereqs.sh, D-14 starter.md)
+- [ ] 06-06-PLAN.md — DOCS-05: docs/rebuild-runbook.md linear steps + per-step timings + Common failures appendix
+- [ ] 06-07-PLAN.md — REPO-07: .github/workflows/ci.yml (5 parallel jobs, pinned SHAs, fetch-depth: 0 on gitleaks) + .markdownlint.json
 
 ## Progress
 
@@ -159,7 +169,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5. Phase 6 parallelizes
 | 3. Flux Hub Bootstrap | 6/6 | Complete | 2026-04-27 |
 | 4. Spoke Registration | 5/5 | Complete | 2026-04-28 |
 | 5. Workloads + Health + Rebuild | 6/6 | Complete | 2026-04-28 |
-| 6. Repo Hygiene + Docs + ADRs | 0/TBD | Not started | - |
+| 6. Repo Hygiene + Docs + ADRs | 0/8 | Not started | - |
 
 ## Parallelization Notes
 
