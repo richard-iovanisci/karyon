@@ -444,15 +444,7 @@ ensure_spoke_seed() {
 
   if [[ -f "${dir}/kustomization.yaml" ]]; then
     mapfile -t existing_resources < <(
-      awk '
-        /^resources:[[:space:]]*$/ { in_resources=1; next }
-        in_resources && /^[[:space:]]*-[[:space:]]*/ {
-          sub(/^[[:space:]]*-[[:space:]]*/, "")
-          print
-          next
-        }
-        in_resources && /^[^[:space:]-]/ { in_resources=0 }
-      ' "${dir}/kustomization.yaml"
+      yq eval '.resources[]?' "${dir}/kustomization.yaml"
     )
   fi
 
@@ -583,7 +575,7 @@ verify_spoke_credential_layer() {
   cert_part="$(yq eval '.clusters[0].cluster.certificate-authority-data // ""' - <<< "${value_yaml}" 2>/dev/null || true)"
   if [[ "${actual}" != "${expected}" || -z "${bearer}" || -z "${cert_part}" ]]; then
     fail "${spoke} credential decode failed or server drifted (expected ${expected}).
-       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o yaml
+       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o go-template='{{.metadata.name}}{{\" data.value.yaml present=\"}}{{if index .data \"value.yaml\"}}yes{{else}}no{{end}}{{\"\\n\"}}'
        Fix: bash scripts/register-spokes-for-flux.sh"
     exit 1
   fi
@@ -622,7 +614,7 @@ verify_spoke_credential_layer() {
   nodes="$(openssl_https_request "${spoke}" "${bearer}" "/api/v1/nodes" "${cert_part}" || true)"
   if [[ "${nodes}" != *"${expected_node}"* || "${nodes}" == *"${EXPECTED_FORBIDDEN_NODE}"* ]]; then
     fail "P18 SILENT MISROUTE warning for ${spoke}: expected ${expected_node} and not ${EXPECTED_FORBIDDEN_NODE}.
-       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o yaml
+       Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o go-template='{{.metadata.name}}{{\" data.value.yaml present=\"}}{{if index .data \"value.yaml\"}}yes{{else}}no{{end}}{{\"\\n\"}}'
        Fix: do NOT push current state; rerun bash scripts/register-spokes-for-flux.sh"
     exit 1
   fi

@@ -286,6 +286,14 @@ teardown() {
   [ "$status" -eq 0 ]
   run grep -F -- 'append_resource_once' "$SCRIPT"
   [ "$status" -eq 0 ]
-  run grep -F -- 'in_resources && /^[[:space:]]*-[[:space:]]*/' "$SCRIPT"
+  run grep -F -- "yq eval '.resources[]?'" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "D-11: register-spokes remediation does not tell users to dump kubeconfig secrets" {
+  [ -f "$SCRIPT" ]
+  run grep -F -- 'get secret ${spoke}-kubeconfig -o yaml' "$SCRIPT"
+  [ "$status" -ne 0 ]
+  run grep -F -- 'data.value.yaml present=' "$SCRIPT"
   [ "$status" -eq 0 ]
 }

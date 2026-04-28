@@ -21,8 +21,11 @@ main() {
     fail "unsafe rebuild log path: ${LOG_FILE}"
     exit 1
   fi
+  local old_umask
+  old_umask="$(umask)"
   umask 077
   : > "$LOG_FILE"
+  umask "${old_umask}"
 
   if [[ "${KARYON_REBUILD_APPROVED:-}" != "yes" ]]; then
     section "Destructive rebuild confirmation"

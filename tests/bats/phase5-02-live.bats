@@ -26,6 +26,7 @@ setup() {
   [ -f "$LOG_FILE" ]
   previous=0
   for literal in \
+    '>>> step preflight' \
     '>>> step destroy' \
     '>>> step create-clusters' \
     '>>> step bootstrap-flux' \

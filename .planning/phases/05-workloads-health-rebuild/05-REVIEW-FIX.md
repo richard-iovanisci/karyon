@@ -5,8 +5,8 @@ status: fixed
 fixed_at: 2026-04-28T16:40:00Z
 findings_fixed:
   critical: 3
-  warning: 3
-  total: 6
+  warning: 7
+  total: 10
 ---
 
 # Phase 05 Code Review Fix Summary
@@ -18,8 +18,18 @@ findings_fixed:
 - CR-03: `scripts/rebuild.sh` now rejects symlink or non-regular rebuild log paths before truncation, supports `KARYON_REBUILD_LOG_FILE`, and creates the log with `umask 077`.
 - WR-01: `scripts/register-spokes-for-flux.sh` now preserves existing spoke Kustomization resources while appending required seed and example references. `tests/bats/register-spokes-01-static.bats` pins the merge-style repair path.
 
+## Follow-up Warnings Fixed
+
+- Re-review WR-01: `tests/bats/phase5-02-live.bats` now includes the `>>> step preflight` marker in the strict chain order check.
+- Re-review WR-02: `scripts/rebuild.sh` now scopes `umask 077` to rebuild log creation and restores the previous umask before running the rebuild chain.
+- Re-review WR-03: `scripts/register-spokes-for-flux.sh` now uses `yq eval '.resources[]?'` to read existing Kustomization resources instead of scraping YAML with `awk`.
+- Re-review WR-04: `scripts/register-spokes-for-flux.sh` remediation text now uses a secret metadata/data-presence go-template instead of telling operators to dump kubeconfig Secret YAML.
+
 ## Verification
 
 - `bash -n scripts/fix-coredns.sh scripts/rebuild.sh scripts/register-spokes-for-flux.sh`
 - `bats tests/bats/fix-coredns-01-static.bats tests/bats/destroy-rebuild-01-static.bats tests/bats/register-spokes-01-static.bats`
+- `bats tests/bats/destroy-rebuild-01-static.bats tests/bats/register-spokes-01-static.bats tests/bats/phase5-02-live.bats`
+- `kubectl kustomize clusters/spoke-apps`
+- `kubectl kustomize clusters/spoke-ml`
 - `git diff --check`

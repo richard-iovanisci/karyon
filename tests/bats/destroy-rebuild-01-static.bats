@@ -112,11 +112,18 @@ setup() {
   [ "$status" -eq 0 ]
   run grep -F -- 'unsafe rebuild log path' "$REBUILD_SCRIPT"
   [ "$status" -eq 0 ]
+  run grep -F -- 'old_umask="$(umask)"' "$REBUILD_SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'umask "${old_umask}"' "$REBUILD_SCRIPT"
+  [ "$status" -eq 0 ]
   guard_line="$(grep -nF -- 'unsafe rebuild log path' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
   truncate_line="$(grep -nF -- ': > "$LOG_FILE"' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
+  restore_line="$(grep -nF -- 'umask "${old_umask}"' "$REBUILD_SCRIPT" | head -1 | cut -d: -f1)"
   [ -n "$guard_line" ]
   [ -n "$truncate_line" ]
+  [ -n "$restore_line" ]
   [ "$guard_line" -lt "$truncate_line" ]
+  [ "$truncate_line" -lt "$restore_line" ]
 }
 
 @test "DESTROY-05: rebuild step markers appear in strict order" {
