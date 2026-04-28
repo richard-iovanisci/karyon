@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-workloads-health-rebuild-01-PLAN.md
-last_updated: "2026-04-28T15:18:10.802Z"
+stopped_at: Completed 05-workloads-health-rebuild-02-PLAN.md
+last_updated: "2026-04-28T15:27:44.967Z"
 last_activity: 2026-04-28
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 33
-  completed_plans: 28
-  percent: 85
+  completed_plans: 29
+  percent: 88
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-28)
 ## Current Position
 
 Phase: 05 (workloads-health-rebuild) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-04-28
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 85%
 | Phase 04-spoke-registration P04 | 5min | 4 tasks | 4 files |
 | Phase 04-spoke-registration P05 | checkpointed | 4 tasks | 6 files |
 | Phase 05-workloads-health-rebuild P01 | 5 min | 5 tasks | 6 files |
+| Phase 05-workloads-health-rebuild P02 | 5 min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 05-workloads-health-rebuild]: Plan 05-01 verifies Bats syntax with bats --count; behavioral fail-closed checks are intentionally enforced when downstream implementation artifacts land. — Wave 0 only needs parse proof; downstream implementation plans own behavior going green.
 - [Phase 05-workloads-health-rebuild]: The live Phase 5 suite is a post-rebuild state checker only and does not invoke rebuild, destroy, delete-clusters, or k3d delete commands. — Plan 05-06 runs the rebuild chain exactly once; tests should not cause a second destructive run.
 - [Phase 05-workloads-health-rebuild]: Static tests pin the review fixes for HIGH-1, HIGH-2, HIGH-3, MED-1, MED-2, and MED-3 before implementation begins. — The Wave 0 contracts prevent later plans from shipping without the cross-review mitigations.
+- [Phase 05-workloads-health-rebuild]: Plan 05-02 keeps examples/ as the canonical workload source and uses relative Kustomize resources from the existing spoke trees. — Preserves the one-Kustomization-per-spoke GitOps model while avoiding duplicated workload YAML.
+- [Phase 05-workloads-health-rebuild]: deploy-examples fails before Flux reconcile when examples/ or clusters/ are dirty or local HEAD differs from origin/main. — Flux reconciles origin/main, so local-only changes would otherwise cause unclear waits and stale deploys.
+- [Phase 05-workloads-health-rebuild]: Flux source refresh precedes spoke Kustomization reconciliation, with a source-git flag compatibility guard for Flux v2.8.6. — The installed Flux CLI does not support --with-source on source git reconcile, but the source refresh ordering remains required.
 
 ### Pending Todos
 
@@ -118,8 +122,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-28T15:18:10.794Z
-Stopped at: Completed 05-workloads-health-rebuild-01-PLAN.md
+Last session: 2026-04-28T15:27:44.959Z
+Stopped at: Completed 05-workloads-health-rebuild-02-PLAN.md
 Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z
