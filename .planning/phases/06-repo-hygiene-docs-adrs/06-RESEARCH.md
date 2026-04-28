@@ -1106,7 +1106,7 @@ with **at least one official source** (README, releases page, or upstream
 example). Assumptions A1-A5 are MEDIUM-confidence items that the planner
 should flag for verification during plan execution.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `asdf install gitleaks 8.30.1` succeed end-to-end on the Phase 6
    target dev box?**
@@ -1117,11 +1117,12 @@ should flag for verification during plan execution.
    - What's unclear: whether the plugin's bin/install script handles
      post-rename URLs cleanly or whether the redirect causes the tarball
      extract to fail.
-   - Recommendation: First plan that touches install-tools.sh runs `asdf
+   - **RESOLVED:** First plan that touches install-tools.sh runs `asdf
      install gitleaks 8.30.1` AS A PLAN ACTION and asserts `command -v
      gitleaks && gitleaks --version | grep -F 8.30.1` post-install. If
      the asdf path fails, fall back to direct curl + tar in the same
-     plan (same end-state, alternative install path).
+     plan (same end-state, alternative install path). Implemented by
+     Plan 06-01 Task 2 with documented fallback.
 
 2. **Which datreeio/CRDs-catalog SHA does the planner pin?**
    - What we know: The catalog is on `main`; HEAD changes daily-ish.
@@ -1129,10 +1130,10 @@ should flag for verification during plan execution.
    - What's unclear: whether to use the SHA at plan-write time or to
      pin to a "known-good" SHA from a recent FluxCD official validate.sh
      run.
-   - Recommendation: planner pins to whatever SHA is HEAD on the catalog
+   - **RESOLVED:** Planner pins to whatever SHA is HEAD on the catalog
      at the moment the CI plan is authored; document the choice in the
      plan. Future SHA bumps are routine maintenance (not requiring a
-     new ADR).
+     new ADR). Implemented by Plan 06-07 Task 1 SHA-resolution step.
 
 3. **Does the README publish ADR slugs as a flat directory listing or a
    table-of-contents block?**
@@ -1141,8 +1142,8 @@ should flag for verification during plan execution.
    - What's unclear: whether the README's "Why these choices" section
      gets one paragraph per ADR with a relative link, or just a markdown
      list.
-   - Recommendation: Researcher prefers a markdown bullet list with
-     1-line summary per ADR + relative link. Planner has discretion.
+   - **RESOLVED:** Markdown bullet list with 1-line summary per ADR +
+     relative link. Implemented by Plan 06-05 README task.
 
 4. **Should the `docs/gpu-notes.md` reference the Phase 2 D-15 override
    (nvidia-device-plugin v0.17.4 instead of REQUIREMENTS.md's v0.19.0+)?**
@@ -1151,10 +1152,11 @@ should flag for verification during plan execution.
      not an architectural pin.
    - What's unclear: whether to surface the override in gpu-notes (a
      v1-public-facing doc) or to keep it internal to PROJECT.md.
-   - Recommendation: gpu-notes mentions "device-plugin v0.17.4 because
+   - **RESOLVED:** gpu-notes mentions "device-plugin v0.17.4 because
      no compatible v0.19.x at Phase 2 RESEARCH time, see Phase 2
      CONTEXT.md D-15 for current state" — surfacing it at the doc layer
-     keeps the contributor informed without bloating the ADR.
+     keeps the contributor informed without bloating the ADR. Implemented
+     by Plan 06-03 Task 2.
 
 5. **Does the rebuild runbook embed the Phase 5 timing log verbatim or
    summarize?**
@@ -1165,10 +1167,12 @@ should flag for verification during plan execution.
      records only the chain markers + the total. Phase 6 needs to
      either (a) re-time per-step by running rebuild.sh with `time` on
      each step, or (b) approximate from observation.
-   - Recommendation: planner allocates a "measure-during-runbook" task
-     that runs `task rebuild` once with shell-instrumented per-step
-     timing, captures the result, and embeds it in the runbook. Avoids
-     making numbers up.
+   - **RESOLVED:** Planner chose path (b) — approximate per-step timings
+     from the Phase 5 measured 190-second total + observed step-shape,
+     citing the 190-second total verbatim from PROJECT.md as the SLO
+     baseline. Avoids burning a full rebuild for instrumentation that
+     can be added later if the approximations prove misleading.
+     Implemented by Plan 06-06 Task 1.
 
 ## Environment Availability
 
