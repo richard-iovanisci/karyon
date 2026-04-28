@@ -92,7 +92,7 @@ fi
 export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:/usr/local/bin:$PATH"
 
 section "asdf plugins"
-for plugin in kubectl helm flux2 k3d k9s task jq yq; do
+for plugin in kubectl helm flux2 k3d k9s task jq yq gitleaks; do
   if asdf plugin list 2>/dev/null | grep -qx "$plugin"; then
     info "already done, skipping: asdf plugin ${plugin}"
   else
@@ -145,6 +145,36 @@ else
     asdf install "$_tool" "$_ver"
   done < .tool-versions
   pass "installing: tool versions from .tool-versions"
+fi
+
+# ---------------------------------------------------------------------------
+# Section 7: gitleaks asdf plugin (D-07 / REQ-REPO-04)
+# Adds the gitleaks plugin if not present. Tool version pinned in .tool-versions.
+# Section 6 above iterates .tool-versions and `asdf install`s gitleaks 8.30.1.
+# Plugin source: jmcvetta/asdf-gitleaks (resolves zricethezav/gitleaks redirect
+# to gitleaks/gitleaks releases; verified 200 OK against v8.30.1 on 2026-04-28).
+# ---------------------------------------------------------------------------
+section "asdf plugin gitleaks"
+if asdf plugin list 2>/dev/null | grep -qx gitleaks; then
+  info "already done, skipping: asdf plugin gitleaks"
+else
+  asdf plugin add gitleaks
+  pass "installing: asdf plugin gitleaks"
+fi
+
+# ---------------------------------------------------------------------------
+# Section 8: Git core.hooksPath wiring (D-06 / REQ-REPO-04)
+# Idempotent: only writes if value differs from "hooks".
+# Once set, `git commit` runs hooks/pre-commit instead of .git/hooks/pre-commit.
+# This is per-clone configuration; survives `git pull`.
+# ---------------------------------------------------------------------------
+section "Git core.hooksPath = hooks"
+current_hooksPath="$(git -C "$REPO_ROOT" config --local core.hooksPath 2>/dev/null || echo '')"
+if [[ "$current_hooksPath" == "hooks" ]]; then
+  info "already done, skipping: core.hooksPath = hooks"
+else
+  git -C "$REPO_ROOT" config --local core.hooksPath hooks
+  pass "set: git config --local core.hooksPath hooks"
 fi
 
 # ---------------------------------------------------------------------------

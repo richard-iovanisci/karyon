@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# hooks/pre-commit
+# Wired via `git config core.hooksPath hooks` (run once by scripts/install-tools.sh).
+# REQ-REPO-04 (D-06): blocks commits that would leak secrets into a public repo.
+# Uses gitleaks v8.30.1 git subcommand (the post-v8.19.0 canonical invocation).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=../scripts/lib/preflight-lib.sh
+# shellcheck disable=SC1091
+source "${REPO_ROOT}/scripts/lib/preflight-lib.sh"
+
+if ! have gitleaks; then
+  fail "gitleaks not on PATH — run 'bash scripts/install-tools.sh' to install."
+  exit 1
+fi
+
+section "gitleaks pre-commit scan"
+
+# Canonical command per gitleaks/.pre-commit-hooks.yaml.
+# `detect` and `protect` are deprecated as of v8.19.0 — use `git --pre-commit`.
+if gitleaks git --pre-commit --redact --staged --verbose; then
+  pass "no secrets detected in staged changes"
+  exit 0
+else
+  fail "gitleaks detected potential secrets in staged changes.
+        Review the output above; the secret VALUE is redacted but the FILE and LINE are shown.
+        If a finding is a false positive (e.g., placeholder in .env.example), add an allow-rule
+        to .gitleaks.toml. To bypass for an emergency commit (NOT recommended on a public repo):
+          git commit --no-verify          # native git bypass (audit-loud)"
+  exit 1
+fi
