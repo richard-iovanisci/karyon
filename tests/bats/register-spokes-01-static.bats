@@ -199,6 +199,16 @@ teardown() {
   [ "$status" -eq 0 ]
   run grep -F -- 'openssl s_client -quiet -verify_return_error' "$SCRIPT"
   [ "$status" -eq 0 ]
+  run grep -F -- 'OPENSSL_PROBE_TIMEOUT_SECONDS=20' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'OPENSSL_PROBE_RETRIES=3' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'seq 1 "${OPENSSL_PROBE_RETRIES}"' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- "timeout '\${OPENSSL_PROBE_TIMEOUT_SECONDS}s' openssl s_client" "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- '--request-timeout=30s' "$SCRIPT"
+  [ "$status" -eq 0 ]
   run grep -F -- '-verify_return_error' "$SCRIPT"
   [ "$status" -eq 0 ]
 }

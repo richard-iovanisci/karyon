@@ -34,6 +34,8 @@ readonly RECONCILER_SA="flux-reconciler"
 readonly RECONCILER_BINDING="flux-reconciler-cluster-admin"
 readonly RECONCILER_SECRET="flux-reconciler-token"
 readonly OPENSSL_PROBE_IMAGE="karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1"
+readonly OPENSSL_PROBE_TIMEOUT_SECONDS=20
+readonly OPENSSL_PROBE_RETRIES=3
 
 expected_server() {
   local spoke="$1"
@@ -155,7 +157,7 @@ openssl_https_request() {
   local cert_tmp="/tmp/karyon-${spoke}-apiserver-ca.pem"
   local host="k3d-${spoke}-server-0"
   local target="deploy/kustomize-controller"
-  local pod="" output rc
+  local pod="" output="" rc=1 attempt
 
   if [[ "${path}" != /* ]]; then
     return 1
@@ -175,16 +177,20 @@ openssl_https_request() {
     return 1
   fi
 
-  if output="$(
-    printf 'GET %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nConnection: close\r\n\r\n' \
-      "${path}" "${host}" "${bearer}" |
-      kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i "${target}" -- \
-        /bin/sh -c "openssl s_client -quiet -verify_return_error -verify_hostname '${host}' -CAfile '${cert_tmp}' -connect '${host}:6443' 2>/dev/null"
-  )"; then
-    rc=0
-  else
-    rc=$?
-  fi
+  for attempt in $(seq 1 "${OPENSSL_PROBE_RETRIES}"); do
+    if output="$(
+      printf 'GET %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nConnection: close\r\n\r\n' \
+        "${path}" "${host}" "${bearer}" |
+        kubectl --context "${HUB_CTX}" --request-timeout=30s -n "${FLUX_NS}" exec -i "${target}" -- \
+          /bin/sh -c "timeout '${OPENSSL_PROBE_TIMEOUT_SECONDS}s' openssl s_client -quiet -verify_return_error -verify_hostname '${host}' -CAfile '${cert_tmp}' -connect '${host}:6443' 2>/dev/null"
+    )"; then
+      rc=0
+      break
+    else
+      rc=$?
+    fi
+    [[ "${attempt}" -lt "${OPENSSL_PROBE_RETRIES}" ]] && sleep 1
+  done
 
   kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${target}" -- \
     /bin/sh -c "rm -f '${cert_tmp}'" >/dev/null 2>&1 || true
@@ -205,8 +211,8 @@ verify_tls_with_openssl() {
       kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec -i deploy/kustomize-controller -- \
         /bin/sh -c "cat > '${cert_tmp}'"
     for _ in 1 2; do
-      if kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
-          /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+      if kubectl --context "${HUB_CTX}" --request-timeout=30s -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
+          /bin/sh -c "timeout '${OPENSSL_PROBE_TIMEOUT_SECONDS}s' openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
         kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec deploy/kustomize-controller -- \
           /bin/sh -c "rm -f '${cert_tmp}' /tmp/karyon-${spoke}-tls.out" >/dev/null 2>&1 || true
         return 0
@@ -227,8 +233,8 @@ verify_tls_with_openssl() {
     return 1
   fi
   for _ in 1 2; do
-    if kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" exec "${pod}" -- \
-        /bin/sh -c "openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
+    if kubectl --context "${HUB_CTX}" --request-timeout=30s -n "${FLUX_NS}" exec "${pod}" -- \
+        /bin/sh -c "timeout '${OPENSSL_PROBE_TIMEOUT_SECONDS}s' openssl s_client -brief -verify_return_error -verify_hostname k3d-${spoke}-server-0 -CAfile '${cert_tmp}' -connect k3d-${spoke}-server-0:6443 </dev/null >/tmp/karyon-${spoke}-tls.out 2>&1"; then
       tls_ok=1
       break
     fi

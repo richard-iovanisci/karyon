@@ -2,11 +2,12 @@
 phase: 05-workloads-health-rebuild
 source: 05-REVIEW.md
 status: fixed
-fixed_at: 2026-04-28T16:40:00Z
+fixed_at: 2026-04-28T17:18:49Z
 findings_fixed:
   critical: 4
   warning: 10
   total: 14
+live_proof_followups: 1
 ---
 
 # Phase 05 Code Review Fix Summary
@@ -29,6 +30,10 @@ findings_fixed:
 - Final re-review WR-01: `scripts/deploy-examples.sh` now fails closed if checking the `gpu-smoke` namespace itself fails, rather than treating all lookup failures as namespace absence.
 - Final re-review WR-02: `scripts/register-spokes-for-flux.sh` now verifies `.resources` is absent or a YAML sequence before preserving/appending resources.
 
+## Live Proof Follow-up Fixed
+
+- Final rebuild follow-up: `scripts/register-spokes-for-flux.sh` now bounds OpenSSL HTTPS probe reads with remote `timeout`, bounds `kubectl exec` with `--request-timeout`, and retries nonzero OpenSSL request exits three times while reusing the verifier pod for that request.
+
 ## Verification
 
 - `bash -n scripts/fix-coredns.sh scripts/rebuild.sh scripts/register-spokes-for-flux.sh`
@@ -38,3 +43,4 @@ findings_fixed:
 - `kubectl kustomize clusters/spoke-ml`
 - `bats tests/bats/deploy-examples-01-static.bats tests/bats/deploy-examples-02-kustomize-build.bats tests/bats/register-spokes-01-static.bats`
 - `git diff --check`
+- `timeout 300 bash scripts/register-spokes-for-flux.sh`
