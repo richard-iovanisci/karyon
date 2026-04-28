@@ -444,6 +444,14 @@ ensure_spoke_seed() {
 
   resources_tmp="$(mktemp)"
   if [[ -f "${dir}/kustomization.yaml" ]]; then
+    if ! yq eval -e '(.resources == null) or (.resources | tag == "!!seq")' \
+        "${dir}/kustomization.yaml" >/dev/null; then
+      rm -f "${resources_tmp}"
+      fail "${dir}/kustomization.yaml has a non-list resources field; refusing to overwrite existing resources.
+         Fix: repair resources to a YAML list, then rerun: bash scripts/register-spokes-for-flux.sh"
+      exit 1
+    fi
+
     if ! yq eval '.resources[]?' "${dir}/kustomization.yaml" > "${resources_tmp}"; then
       rm -f "${resources_tmp}"
       fail "${dir}/kustomization.yaml is not valid YAML; refusing to overwrite existing resources.

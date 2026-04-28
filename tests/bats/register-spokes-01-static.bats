@@ -290,6 +290,10 @@ teardown() {
   [ "$status" -eq 0 ]
   run grep -F -- 'resources_tmp="$(mktemp)"' "$SCRIPT"
   [ "$status" -eq 0 ]
+  run grep -F -- '(.resources == null) or (.resources | tag == "!!seq")' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'has a non-list resources field; refusing to overwrite existing resources' "$SCRIPT"
+  [ "$status" -eq 0 ]
   run grep -F -- 'is not valid YAML; refusing to overwrite existing resources' "$SCRIPT"
   [ "$status" -eq 0 ]
 }

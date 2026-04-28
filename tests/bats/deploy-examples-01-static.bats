@@ -76,6 +76,12 @@ setup() {
 
 @test "D-08: deploy-examples fails if the old GPU smoke Job cannot be deleted" {
   [ -f "$SCRIPT" ]
+  run grep -F -- 'get namespace gpu-smoke' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- '--ignore-not-found -o name' "$SCRIPT"
+  [ "$status" -eq 0 ]
+  run grep -F -- 'failed to check gpu-smoke namespace before rerun' "$SCRIPT"
+  [ "$status" -eq 0 ]
   run grep -F -- 'failed to delete old gpu-smoke/nvidia-smi Job before rerun' "$SCRIPT"
   [ "$status" -eq 0 ]
   run grep -F -- 'resolve the Kubernetes delete error' "$SCRIPT"

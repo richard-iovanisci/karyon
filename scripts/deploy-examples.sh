@@ -110,7 +110,17 @@ pass "git visibility ok: examples/ and clusters/ are clean and HEAD == origin/ma
 
 # ---------- Section 4: GPU smoke rerun ----------
 section "GPU smoke rerun"
-if kubectl --context "${SPOKE_ML_CTX}" get namespace gpu-smoke >/dev/null 2>&1; then
+namespace_name="$(
+  kubectl --context "${SPOKE_ML_CTX}" get namespace gpu-smoke \
+    --ignore-not-found -o name
+)" || {
+  fail "failed to check gpu-smoke namespace before rerun.
+     Inspect: kubectl --context ${SPOKE_ML_CTX} get namespace gpu-smoke
+     Fix: resolve the Kubernetes lookup error, then rerun: bash scripts/deploy-examples.sh"
+  exit 1
+}
+
+if [[ -n "${namespace_name}" ]]; then
   if ! kubectl --context k3d-spoke-ml -n gpu-smoke delete job nvidia-smi --ignore-not-found --wait=true >/dev/null; then
     fail "failed to delete old gpu-smoke/nvidia-smi Job before rerun.
        Inspect: kubectl --context ${SPOKE_ML_CTX} -n gpu-smoke get job,pod
