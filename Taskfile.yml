@@ -30,3 +30,8 @@ tasks:
     desc: Deploy podinfo to spoke-apps and GPU smoke Job to spoke-ml via Flux
     cmds:
       - bash scripts/deploy-examples.sh
+
+  fix-dns:
+    desc: Stop/start hub-flux to refresh stale k3d CoreDNS NodeHosts
+    cmds:
+      - bash scripts/fix-coredns.sh
