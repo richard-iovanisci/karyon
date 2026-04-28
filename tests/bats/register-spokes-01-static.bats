@@ -258,6 +258,8 @@ teardown() {
   [ "$status" -eq 0 ]
   run grep -F -- '- configmap.yaml' "${REPO_ROOT}/clusters/spoke-ml/kustomization.yaml"
   [ "$status" -eq 0 ]
+  run grep -F -- '../../examples/gpu-smoke-test' "${REPO_ROOT}/clusters/spoke-ml/kustomization.yaml"
+  [ "$status" -eq 0 ]
 }
 
 @test "SPOKE-05 (seed): clusters/spoke-apps has Namespace karyon-spoke-apps and ConfigMap karyon-spoke-id with data.spoke=spoke-apps" {
@@ -273,5 +275,7 @@ teardown() {
   run grep -F -- '- namespace.yaml' "${REPO_ROOT}/clusters/spoke-apps/kustomization.yaml"
   [ "$status" -eq 0 ]
   run grep -F -- '- configmap.yaml' "${REPO_ROOT}/clusters/spoke-apps/kustomization.yaml"
+  [ "$status" -eq 0 ]
+  run grep -F -- '../../examples/podinfo' "${REPO_ROOT}/clusters/spoke-apps/kustomization.yaml"
   [ "$status" -eq 0 ]
 }

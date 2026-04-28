@@ -425,9 +425,22 @@ EOF
 }
 
 ensure_spoke_seed() {
-  local spoke="$1" ns tmp dir
+  local spoke="$1" ns tmp dir example_resource=""
   ns="karyon-${spoke}"
   dir="${REPO_ROOT}/clusters/${spoke}"
+
+  case "${spoke}" in
+    spoke-apps)
+      if [[ -d "${REPO_ROOT}/examples/podinfo" ]]; then
+        example_resource="../../examples/podinfo"
+      fi
+      ;;
+    spoke-ml)
+      if [[ -d "${REPO_ROOT}/examples/gpu-smoke-test" ]]; then
+        example_resource="../../examples/gpu-smoke-test"
+      fi
+      ;;
+  esac
 
   tmp="$(mktemp)"
   cat > "${tmp}" <<'EOF'
@@ -437,6 +450,9 @@ resources:
 - namespace.yaml
 - configmap.yaml
 EOF
+  if [[ -n "${example_resource}" ]]; then
+    printf -- '- %s\n' "${example_resource}" >> "${tmp}"
+  fi
   repair_file_if_needed "${dir}/kustomization.yaml" "${tmp}" "clusters/${spoke}/kustomization.yaml"
 
   tmp="$(mktemp)"
