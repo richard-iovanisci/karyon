@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nvidia-smi
+  namespace: gpu-smoke
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: nvidia-smi
+          image: nvcr.io/nvidia/cuda:12.8.0-base-ubuntu22.04
+          command:
+            - nvidia-smi
+          resources:
+            limits:
+              nvidia.com/gpu: 1
