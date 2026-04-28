@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-workloads-health-rebuild-02-PLAN.md
-last_updated: "2026-04-28T15:27:44.967Z"
+stopped_at: Completed 05-workloads-health-rebuild-03-PLAN.md
+last_updated: "2026-04-28T15:35:28.591Z"
 last_activity: 2026-04-28
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 33
-  completed_plans: 29
-  percent: 88
+  completed_plans: 30
+  percent: 91
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-28)
 ## Current Position
 
 Phase: 05 (workloads-health-rebuild) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-04-28
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [█████████░] 88%
 | Phase 04-spoke-registration P05 | checkpointed | 4 tasks | 6 files |
 | Phase 05-workloads-health-rebuild P01 | 5 min | 5 tasks | 6 files |
 | Phase 05-workloads-health-rebuild P02 | 5 min | 3 tasks | 11 files |
+| Phase 05-workloads-health-rebuild P03 | 5 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 05-workloads-health-rebuild]: Plan 05-02 keeps examples/ as the canonical workload source and uses relative Kustomize resources from the existing spoke trees. — Preserves the one-Kustomization-per-spoke GitOps model while avoiding duplicated workload YAML.
 - [Phase 05-workloads-health-rebuild]: deploy-examples fails before Flux reconcile when examples/ or clusters/ are dirty or local HEAD differs from origin/main. — Flux reconciles origin/main, so local-only changes would otherwise cause unclear waits and stale deploys.
 - [Phase 05-workloads-health-rebuild]: Flux source refresh precedes spoke Kustomization reconciliation, with a source-git flag compatibility guard for Flux v2.8.6. — The installed Flux CLI does not support --with-source on source git reconcile, but the source refresh ordering remains required.
+- [Phase 05-workloads-health-rebuild]: Plan 05-03 fix-coredns applies the stale k3d CoreDNS NodeHosts workaround by mutating only hub-flux. — Preserves D-10 and MED-2 by never stop/starting or restarting spokes.
+- [Phase 05-workloads-health-rebuild]: Plan 05-03 Flux controller readiness waits are guarded by deployment count >= 4 before kubectl wait --all. — Prevents MED-3 empty-set wait pass-through.
+- [Phase 05-workloads-health-rebuild]: Plan 05-03 post-restart spoke DNS proof is read-only via kubectl exec into source-controller and warning-only. — Proves the workaround symptom without creating resources or mutating spokes.
 
 ### Pending Todos
 
@@ -122,8 +126,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-28T15:27:44.959Z
-Stopped at: Completed 05-workloads-health-rebuild-02-PLAN.md
+Last session: 2026-04-28T15:35:28.582Z
+Stopped at: Completed 05-workloads-health-rebuild-03-PLAN.md
 Resume file: None
 
 **Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z
