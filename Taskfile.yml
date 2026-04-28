@@ -35,3 +35,8 @@ tasks:
     desc: Stop/start hub-flux to refresh stale k3d CoreDNS NodeHosts
     cmds:
       - bash scripts/fix-coredns.sh
+
+  health-check:
+    desc: Verify clusters, Flux, spokes, DNS, GPU capacity, TLS SANs, and examples
+    cmds:
+      - bash scripts/health-check.sh
