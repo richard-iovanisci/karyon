@@ -6,7 +6,7 @@
 [[ "${BASH_SOURCE[0]}" == "$0" ]] && { echo "source this file, don't run it directly" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
-# Section A: ANSI output helpers (verbatim from prereqs.sh)
+# Section A: ANSI output helpers
 # ---------------------------------------------------------------------------
 if [[ -t 1 ]]; then
   C_RESET=$'\033[0m'; C_DIM=$'\033[2m'; C_BOLD=$'\033[1m'
