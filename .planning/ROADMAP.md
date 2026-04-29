@@ -2,13 +2,13 @@
 
 ## Milestones
 
-- ✅ **v0.18 — karyon Lab v1** — Phases 1-6 (shipped 2026-04-29)
-- 📋 **v0.19+** — TBD (run `/gsd-new-milestone` to scope the next cycle)
+- [x] **v0.18 — karyon Lab v1** — Phases 1-6 (shipped 2026-04-29)
+- [ ] **v0.19 — Capsule Multi-Tenancy POC** — Phases 7-12 (in progress)
 
 ## Phases
 
 <details>
-<summary>✅ v0.18 — karyon Lab v1 (Phases 1-6) — SHIPPED 2026-04-29</summary>
+<summary>v0.18 — karyon Lab v1 (Phases 1-6) — SHIPPED 2026-04-29</summary>
 
 - [x] Phase 1: Host Foundation (9/9 plans) — completed 2026-04-23
 - [x] Phase 2: Cluster Layer (7/7 plans) — completed 2026-04-24
@@ -21,14 +21,101 @@
 
 </details>
 
-### 📋 v0.19+ — TBD
+### v0.19 — Capsule Multi-Tenancy POC (Phases 7-12)
 
-Run `/gsd-new-milestone` to scope the next cycle. Candidates surfaced during v0.18:
+**Goal:** Prove [Capsule](https://capsule.clastix.io/) as a Karyon-managed multi-tenancy pattern on a dedicated, isolated POC spoke (`spoke-capsule`) — without polluting the default v1 topology or `task rebuild` path. Close with an explicit graduation ADR-008 (adopt / defer / reject / another POC).
 
-- Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155 in destroy/rebuild/deploy-examples/fix-coredns/delete-clusters scripts) — would let the CI shellcheck severity gate drop from `error` back to `warning`
-- Stale frontmatter reconciliation (3 phases' VALIDATION.md `nyquist_compliant`/`wave_0_complete` flags + missing SUMMARY `requirements-completed` in 3 Phase 6 plans + REQUIREMENTS.md traceability table)
-- 06-07 first-push CI verification + GitHub branch-protection setup (deferred at user request from v0.18)
-- Real secret management (Vault/SOPS/age) — explicitly out of scope for v0.18
+**Phase numbering:** Continues from v0.18 (Phase 6 → Phase 7). Phase 12 is optional and gated on Phase 11 outcome.
+
+**Load-bearing invariants every phase respects:**
+
+- **P27** — every tenant Flux Kustomization MUST set `spec.serviceAccountName` (Flux's `--default-service-account` lockdown does NOT apply when `spec.kubeConfig` is set; without explicit `serviceAccountName` tenants run as cluster-admin and bypass Capsule)
+- **P29** — tenant kubeconfigs MUST NOT land in git
+- **P31** — `spoke-capsule` MUST NOT enter `task rebuild` until graduation ADR adopts Capsule
+- **KARYON POC MOUNT location** — sentinel inserted in `clusters/hub-flux/flux-system/kustomization.yaml` (NOT `clusters/hub-flux/kustomization.yaml`)
+
+#### Phase Summary
+
+- [ ] **Phase 7: Foundation — POC Seam + spoke-capsule Cluster + EKS Capsule Doc** — Generic POC mount surface, persistent isolated POC k3d cluster, and EKS-targeted Capsule rough-cut doc for team-presentation
+- [ ] **Phase 8: Capsule + capsule-proxy Bare-Minimum Install** — Two upstream HelmReleases reconciled hub-only into spoke-capsule; operator alive + proxy reachable + CRDs visible
+- [ ] **Phase 9: Tenants + Flux Multi-Tenancy Lockdown** — Two Tenants with disjoint owners, hub Flux controllers patched with lockdown flags, P27 defense in tenant inner Kustomizations
+- [ ] **Phase 10: Tenant Owner Kubeconfigs + Capsule-Proxy Round-trip** — Imperative kubeconfig minting routed via proxy, never in git, tenant-scoped LIST visibility
+- [ ] **Phase 11: Validation + Graduation ADR-008** — Negative RBAC suite (N1-N12), webhook failure recovery, clean teardown, rebuild SLO regression gate, graduation ADR
+- [ ] **Phase 12 (OPTIONAL): capsule-addon-fluxcd Trial** — Trial upstream addon for tenant SA + kubeconfig automation; gated on Phase 11 outcome ∈ {adopt, defer}
+
+## Phase Details
+
+### Phase 7: Foundation — POC Seam + spoke-capsule Cluster + EKS Capsule Doc
+**Goal**: User has a generic, sentinel-guarded POC onboarding seam, a persistent isolated `spoke-capsule` k3d cluster reconciled hub-only by Flux, and a self-contained EKS-targeted Capsule rough-cut doc usable for an immediate team presentation
+**Depends on**: v0.18 baseline (ADR-001..005, hub-only Flux, P18 silent-misroute defense)
+**Requirements**: POC-01, POC-02, POC-03, POC-04, CAPCLU-01, CAPCLU-02, CAPCLU-03, CAPCLU-04, EKSDOC-01
+**Success Criteria** (what must be TRUE, in order of delivery within the phase):
+  1. **EKS doc lands first** — User can read `docs/capsule-on-eks.md` (Status: Draft) covering all five required sections (what Capsule is, the 7 CRDs, RBAC needs, EKS install path with IRSA + ALB + ECR translation, "what the POC does NOT prove") and walk a team through it
+  2. `# KARYON POC MOUNT` sentinel exists in `clusters/hub-flux/flux-system/kustomization.yaml` (the FLUX PATCH SURFACE) parallel to existing `# KARYON SPOKES MOUNT`, surviving `flux bootstrap` re-runs
+  3. User can run `scripts/poc/capsule/create-cluster.sh` to create persistent `spoke-capsule` k3d cluster (apiserver port 6446, NodePort 30443, `--tls-san k3d-spoke-capsule-server-0`) on the shared `k8s-net` network — `k3d cluster list` shows spoke-capsule
+  4. `task preflight` reserves the capsule-proxy NodePort (30443) and fails fast if the port is already in use
+  5. Hub-flux reconciles into spoke-capsule via outer Kustomization `clusters/hub-flux/pocs/capsule.yaml` with `spec.kubeConfig.secretRef.key: value.yaml` (P18 inheritance) — silent-misroute falsifier passes
+  6. Tenant kubeconfig leak defense in place: extended `.gitignore` globs + new `.gitleaks.toml` rule for `kind: Config` + bearer-token shape, verified by synthetic-fixture bats
+  7. `task fix-dns-poc-capsule` recovers stale CoreDNS NodeHosts on spoke-capsule alone, without affecting v0.18 default `task fix-dns`; host-restart procedure documented in `docs/poc-capsule.md`
+**Plans**: TBD (`/gsd-plan-phase 7` will derive plans; expected to lead with EKSDOC-01 plan, then sentinel + isolation, then cluster + outer reconcile, then host-restart docs)
+
+### Phase 8: Capsule + capsule-proxy Bare-Minimum Install
+**Goal**: Capsule operator and capsule-proxy run on spoke-capsule via two separate Flux HelmReleases reconciled hub-only; CRDs are visible and the proxy is reachable from the WSL host
+**Depends on**: Phase 7 (POC mount surface + spoke-capsule cluster reconciling)
+**Requirements**: CAP-01, CAP-02, CAP-03
+**Success Criteria** (what must be TRUE):
+  1. Capsule operator (`capsule:0.12.4`, OCI `ghcr.io/projectcapsule/charts/capsule`) installed via Flux HelmRelease — `capsule-controller-manager` pod is `Running` on spoke-capsule and HelmRelease reports `Ready=True`
+  2. `capsule-proxy:0.12.0` (separate HelmRelease, NOT umbrella) is reachable from the WSL host — `curl -k https://127.0.0.1:30443/healthz` returns 200
+  3. All 7 Capsule CRDs (`Tenant`, `CapsuleConfiguration`, `GlobalTenantResource`, `TenantResource`, `ResourcePool`, `ResourcePoolClaim`, `TenantOwner`) are installed and visible — `kubectl get crds | grep capsule.clastix.io` returns ≥7 entries
+  4. ADR-004 invariant preserved — `kubectl --context=k3d-spoke-capsule get pods -n flux-system` returns no Flux controllers (hub-only Flux unchanged)
+**Plans**: TBD
+
+### Phase 9: Tenants + Flux Multi-Tenancy Lockdown
+**Goal**: Two tenants with disjoint owners exist on spoke-capsule with auto-materialized resource isolation; hub Flux controllers run with multi-tenancy lockdown flags; tenant inner Kustomizations carry the load-bearing P27 defense (`spec.serviceAccountName`)
+**Depends on**: Phase 8 (Capsule operator running, CRDs registered)
+**Requirements**: TEN-01, TEN-02, TEN-03, TEN-04, TEN-05, TEN-06
+**Success Criteria** (what must be TRUE):
+  1. Two `Tenant` CRs (`alpha`, `bravo`) exist with disjoint `owners` arrays (each kind ServiceAccount registered as `<tenant-ns>:gitops-reconciler`); namespace prefix enforcement enabled (`forceTenantPrefix: true`)
+  2. Tenant owner can self-serve a namespace inside their tenant prefix — `kubectl --as=alpha create namespace alpha-app1` succeeds and the namespace gets `capsule.clastix.io/tenant=alpha` label automatically
+  3. ResourceQuota and LimitRange objects auto-materialize inside each tenant namespace (`kubectl get resourcequota -n alpha-app1` shows `capsule-alpha-*` objects without manual creation)
+  4. **P27 defense in place** — every tenant inner Flux Kustomization under `pocs/capsule/tenants/<name>/` declares `spec.serviceAccountName: gitops-reconciler` explicitly; static bats grep-asserts every tenant Kustomization has a non-null `serviceAccountName`
+  5. Hub Flux controllers run with multi-tenancy lockdown (`--no-cross-namespace-refs=true`, `--no-remote-bases=true`, `--default-service-account=default`) AND `flux-system` Kustomization sets explicit `spec.serviceAccountName: kustomize-controller` (platform-admin escape hatch); v0.18 `task health-check` regression gate still passes
+  6. Tenants Kustomization declares `dependsOn` chain on operator Kustomization with `wait: true` (P32 — Tenant CR apply blocks until CRDs exist)
+**Plans**: TBD
+
+### Phase 10: Tenant Owner Kubeconfigs + Capsule-Proxy Round-trip
+**Goal**: Tenant owner kubeconfigs are minted imperatively, route through capsule-proxy (never the apiserver direct), give each owner LIST visibility ONLY into their own tenant's namespaces, and never land in git
+**Depends on**: Phase 9 (Tenants exist with owner ServiceAccounts)
+**Requirements**: PROXY-01, PROXY-02, PROXY-03
+**Success Criteria** (what must be TRUE):
+  1. `scripts/poc/capsule/issue-tenant-kubeconfig.sh <tenant> <owner>` mints a tenant kubeconfig with `server: https://127.0.0.1:30443` (capsule-proxy NodePort), prints to stdout by default, supports optional `--write-to <path>` rooted at `${TMPDIR:-/tmp}/karyon-tenants/`
+  2. Using the issued kubeconfig, `kubectl get namespaces` returns ONLY namespaces owned by the tenant (proxy LIST filtering working) — direct apiserver access on `:6446` with the same token returns the unfiltered list (proves proxy is doing the filtering, not RBAC alone)
+  3. Kubeconfig delivery contract documented in `docs/poc-capsule.md`: stdout default, optional `--write-to`, mandatory tmpdir-not-repo location, gitleaks rule catches accidental commits (synthetic-fixture bats verifies)
+  4. **P29 defense holds** — first push after this phase passes the gitleaks pre-commit + post-push scan with zero findings
+**Plans**: TBD
+
+### Phase 11: Validation + Graduation ADR-008
+**Goal**: Empirical bats evidence proves Capsule's tenant boundary holds (negative RBAC + webhook failure + clean teardown), the v0.18 `task rebuild` SLO is unchanged, and the closing graduation ADR-008 records the adopt/defer/reject/replaced decision backed by the bats evidence
+**Depends on**: Phase 10 (proxy round-trip working, tenant kubeconfigs minted)
+**Requirements**: VAL-01, VAL-02, VAL-03, VAL-04, VAL-05, VAL-06
+**Success Criteria** (what must be TRUE):
+  1. All 12 negative RBAC bats falsifiers (N1-N12) PASS: cross-tenant pod read denied (N1), cluster-wide LIST filtered to own tenant (N2), cross-tenant secret read denied (N3), ClusterRoleBinding escalation denied (N4), namespace prefix violation denied (N5), tenant quota violation denied (N6), denied registry pull denied (N7), direct-apiserver bypass on :6446 denied or limited (N8), cross-tenant `sourceRef` in tenant Kustomization denied (N9), missing `spec.serviceAccountName` denied/falls through (N10), workload create rejected when capsule-controller is down (N11), workload create succeeds again after operator recovers (N12)
+  2. Capsule webhook failure mode observed and recoverable — `task fail-capsule-webhook` (test-only) scales operator to 0 then 1; both halves bats-asserted
+  3. Clean teardown — `task destroy-poc capsule` performs ordered teardown (suspend → delete Tenants → wait for namespace cascade → optional `k3d cluster delete spoke-capsule`) leaving `# KARYON POC MOUNT` sentinel + `clusters/hub-flux/pocs/` mount in place; post-teardown no `capsule.clastix.io/tenant=<name>` labeled objects remain
+  4. **`task rebuild` SLO regression test PASSES** — total time < 230s; spoke-capsule's container ID is unchanged across rebuild; zero `spoke-capsule` mentions in `scripts/{create-clusters,register-spokes-for-flux,health-check,destroy,delete-clusters,rebuild}.sh` (P31 enforcement)
+  5. One-shot history gitleaks scan post-Phase-10 first push returns 0 findings — proves no tenant kubeconfig leaked
+  6. **ADR-008 graduation written** with `Status: Accepted` and one of {adopt, defer, reject, replaced by ADR-N}, sectioned per Nygard 4-section template, with explicit "What we proved / What we did not prove / Trade-offs" sub-sections backed by bats references; ADR-008 also rolls forward `docs/capsule-on-eks.md` (EKSDOC-01) from `Status: Draft` to `Status: Reviewed` with corrections informed by the bats evidence
+**Plans**: TBD
+
+### Phase 12: capsule-addon-fluxcd Trial (OPTIONAL — gated)
+**Goal**: Trial the upstream `capsule-addon-fluxcd v0.2.3` for tenant SA + kubeconfig automation as a comparison against the hand-managed Phase 9/10 approach, and record the comparison decision for v0.20+ adoption
+**Depends on**: Phase 11 (ADR-008 outcome ∈ {adopt, defer}; if ADR-008 is reject or replaced, this phase is SKIPPED)
+**Gate condition**: ADR-008 Status is Accepted with outcome ∈ {adopt, defer}
+**Requirements**: ADDON-01, ADDON-02
+**Success Criteria** (what must be TRUE):
+  1. `capsule-addon-fluxcd:0.2.3` HelmRelease deployed to spoke-capsule via hub-flux; compatibility with Capsule v0.12.4 confirmed by smoke test (tenant SA created automatically; tenant kubeconfig Secret materialized in tenant namespace)
+  2. Comparison documented in ADR-008 supplement (or follow-up `docs/poc-capsule-addon.md`): hand-managed vs addon-managed across token rotation, kubeconfig refresh, complexity, and blast radius; decision recorded for v0.20+ adoption
+**Plans**: TBD
 
 ## Progress
 
@@ -40,6 +127,12 @@ Run `/gsd-new-milestone` to scope the next cycle. Candidates surfaced during v0.
 | 4. Spoke Registration | v0.18 | 5/5 | Complete | 2026-04-28 |
 | 5. Workloads + Health + Rebuild | v0.18 | 6/6 | Complete | 2026-04-28 |
 | 6. Repo Hygiene + Docs + ADRs | v0.18 | 8/8 | Complete | 2026-04-29 |
+| 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 0/0 | Not Started | — |
+| 8. Capsule + capsule-proxy Install | v0.19 | 0/0 | Not Started | — |
+| 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/0 | Not Started | — |
+| 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 0/0 | Not Started | — |
+| 11. Validation + Graduation ADR-008 | v0.19 | 0/0 | Not Started | — |
+| 12. capsule-addon-fluxcd Trial (optional) | v0.19 | 0/0 | Not Started (gated) | — |
 
 ---
 

@@ -141,7 +141,7 @@ Explicit boundaries with reasoning to prevent re-adding:
 
 ## Traceability
 
-Filled in by `/gsd-new-milestone` roadmapper; each REQ-ID is mapped to the phase that delivers it.
+Validated by `/gsd-new-milestone` roadmapper (2026-04-29); each REQ-ID is mapped to exactly one phase (no orphans, no duplicates). `Plan(s)` column will be filled by `/gsd-plan-phase` as each phase is decomposed. Phase 12 is gated on Phase 11 ADR-008 outcome ∈ {adopt, defer}.
 
 | REQ-ID | Phase | Plan(s) |
 |--------|-------|---------|
@@ -179,4 +179,4 @@ Filled in by `/gsd-new-milestone` roadmapper; each REQ-ID is mapped to the phase
 
 ---
 
-*Last updated: 2026-04-29 — v0.19 milestone requirements drafted from research synthesis (.planning/research/SUMMARY.md), restructured per user feedback to squash POC seam + cluster into Phase 7 and add EKSDOC-01 for team-presentation.*
+*Last updated: 2026-04-29 — v0.19 milestone requirements drafted from research synthesis (.planning/research/SUMMARY.md), restructured per user feedback to squash POC seam + cluster into Phase 7 and add EKSDOC-01 for team-presentation. Roadmap pass 2026-04-29: 29/29 REQ-IDs mapped, success criteria derived per phase, ROADMAP.md and STATE.md written.*

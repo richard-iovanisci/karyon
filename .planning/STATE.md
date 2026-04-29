@@ -3,10 +3,11 @@ gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: Capsule Multi-Tenancy POC
 status: planning
-last_updated: "2026-04-29T11:41:02.305Z"
+last_updated: "2026-04-29T12:00:00.000Z"
 last_activity: 2026-04-29
 progress:
-  total_phases: 0
+  total_phases: 5
+  total_phases_with_optional: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,35 +18,50 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-28)
+See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 06 — repo-hygiene-docs-adrs
+**Current focus:** v0.19 — Capsule Multi-Tenancy POC (Phases 7-12 — 5 mandatory + 1 optional gated)
+
+**Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap drafted; awaiting `/gsd-plan-phase 7`)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-29 — Milestone v0.19 started
+Status: Roadmap created — 6 phases (5 mandatory, Phase 12 gated)
+Last activity: 2026-04-29 — Milestone v0.19 roadmap created with 29 requirements mapped across Phases 7-12
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 35
+- Total plans completed (v0.18): 35
+- Total plans completed (v0.19): 0
 - Average duration: -
 - Total execution time: -
 
-**By Phase:**
+**By Phase (v0.18 — shipped):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 9 | - | - |
 | 02 | 7 | - | - |
+| 03 | 6 | - | - |
 | 04 | 5 | - | - |
 | 05 | 6 | - | - |
 | 06 | 8 | - | - |
+
+**By Phase (v0.19 — pending):**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 07 | TBD | - | - |
+| 08 | TBD | - | - |
+| 09 | TBD | - | - |
+| 10 | TBD | - | - |
+| 11 | TBD | - | - |
+| 12 (optional) | TBD | - | - |
 
 **Recent Trend:**
 
@@ -53,21 +69,6 @@ Last activity: 2026-04-29 — Milestone v0.19 started
 - Trend: -
 
 *Updated after each plan completion*
-| Phase 02-cluster-layer P06 | 45min | 3 tasks | 3 files |
-| Phase 02-cluster-layer P07 | 5min | 1 tasks | 1 files |
-| Phase 03-flux-hub-bootstrap P05 | 3min | 2 tasks | 2 files |
-| Phase 03-flux-hub-bootstrap P06 | human-checkpoint | 2 tasks | 4 files |
-| Phase 04-spoke-registration P01 | 5min | 2 tasks | 2 files |
-| Phase 04-spoke-registration P02 | 4min | 3 tasks | 10 files |
-| Phase 04-spoke-registration P03 | 6min | 1 tasks | 1 files |
-| Phase 04-spoke-registration P04 | 5min | 4 tasks | 4 files |
-| Phase 04-spoke-registration P05 | checkpointed | 4 tasks | 6 files |
-| Phase 05-workloads-health-rebuild P01 | 5 min | 5 tasks | 6 files |
-| Phase 05-workloads-health-rebuild P02 | 5 min | 3 tasks | 11 files |
-| Phase 05-workloads-health-rebuild P03 | 5 min | 2 tasks | 2 files |
-| Phase 05-workloads-health-rebuild P04 | 5 min | 2 tasks | 2 files |
-| Phase 05-workloads-health-rebuild P05 | 5 min | 3 tasks | 3 files |
-| Phase 05-workloads-health-rebuild P06 | checkpointed; continuation 5 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -75,48 +76,28 @@ Last activity: 2026-04-29 — Milestone v0.19 started
 
 Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecting current work:
 
-- Phase 1: Port existing `prereqs.sh` as `scripts/preflight.sh` (not a rewrite).
-- Phase 2: Custom k3s+CUDA image FROM `nvidia/cuda:12.8.1-base-ubuntu22.04` (Ubuntu base, k3s layered in) — Alpine stock image cannot host the NVIDIA runtime.
-- Phase 3: `flux bootstrap --path` is effectively immutable — hard-code `clusters/hub-flux` in the bootstrap script, reject env overrides.
-- Phase 4: Legacy Secret-backed SA tokens (not `kubectl create token`) — indefinite lifetime is correct for a lab and avoids token-expiry as a failure mode.
-- Phase 6: gitleaks pre-commit MUST be installed before the first `git push` — public-repo + leaked PAT is unrecoverable.
-- D-14 blocking comment is exact-text greppable ('INTENTIONALLY NOT calling') — Phase 6 DESTROY-04 lint will grep for this literal; not a free-form comment
-- require_live_destructive() double-gate prevents accidental cluster destruction during KARYON_LIVE_TESTS=1 full-suite runs
-- Taskfile.yml Phase 2 stub: three tasks only (build-image, create-clusters, delete-clusters); Phase 6 REPO-05 owns full audit
-- Plan 03-05: Treat .env as data for only GITHUB_OWNER, GITHUB_REPO, and GITHUB_TOKEN; never source it as shell.
-- Plan 03-05: Use local git pull --ff-only sync rather than reimplementing Flux bootstrap remote Git workflow.
-- [Phase 04]: Phase 4 P18 contract treats omitted spec.kubeConfig as the real silent-misroute risk; value.yaml remains pinned as defense in depth.
-- [Phase 04]: Live in-pod probes use openssl for CA/TLS proof and busybox wget for auth/node identity because the kustomize-controller image lacks kubectl.
-- [Phase 04]: The Phase 4 live suite centralizes its destructive env gate in setup() and skips local-only or unpushed reconciliation-tree state.
-- [Phase 04-spoke-registration]: Plan 04-02: Both spokes use ConfigMap name karyon-spoke-id, while namespace and data.spoke differ to preserve the cross-cluster falsifier. — The same object name with different namespace and data values proves routing to the intended spoke.
-- [Phase 04-spoke-registration]: Plan 04-02: Hub-side spoke Kustomizations keep the full spec.kubeConfig block as the primary P18 defense; key: value.yaml remains pinned as defense in depth. — Required to prevent silent in-cluster fallback if spec.kubeConfig is omitted.
-- [Phase 04-spoke-registration]: Plan 04-03 keeps the registration script local-file-only — The script prints git instructions but never runs git add, git commit, or git push.
-- [Phase 04-spoke-registration]: Plan 04-03 runtime health check proves RBAC, decoded Secret content, auth, and node routing before skipping mutation — Local manifest repair and D-13 verification still run on idempotent reruns.
-- [Phase 04-spoke-registration]: Plan 04-03 in-pod verification uses openssl plus busybox wget — kustomize-controller lacks kubectl; openssl proves CA/TLS and wget proves auth/node identity.
-- [Phase 04-spoke-registration]: Plan 04-04 mounts clusters/hub-flux/spokes through the existing Phase 3 patch surface — Uses # KARYON SPOKES MOUNT plus - ../spokes under resources.
-- [Phase 04-spoke-registration]: Plan 04-04 docs frame P18 as omitted spec.kubeConfig — key: value.yaml remains explicit defense in depth.
-- [Phase 04-spoke-registration]: Phase 3 docs tests now assert the filled Phase 4 section — The planned HTML stub was consumed by this plan.
-- [Phase 04-spoke-registration]: Plan 04-05 uses post-push live destructive Bats plus inventory IDs and cross-cluster ConfigMap falsifiers as the canonical P18 reconciliation proof.
-- [Phase 04-spoke-registration]: Plan 04-05 uses a temporary CA-only OpenSSL verifier pod when the Flux controller image lacks openssl, then deletes it after the proof.
-- [Phase 04-spoke-registration]: clusters/hub-flux/kustomization.yaml is required at the Flux bootstrap path root so origin/main includes flux-system and the mounted spokes tree.
-- [Phase 05-workloads-health-rebuild]: Plan 05-01 verifies Bats syntax with bats --count; behavioral fail-closed checks are intentionally enforced when downstream implementation artifacts land. — Wave 0 only needs parse proof; downstream implementation plans own behavior going green.
-- [Phase 05-workloads-health-rebuild]: The live Phase 5 suite is a post-rebuild state checker only and does not invoke rebuild, destroy, delete-clusters, or k3d delete commands. — Plan 05-06 runs the rebuild chain exactly once; tests should not cause a second destructive run.
-- [Phase 05-workloads-health-rebuild]: Static tests pin the review fixes for HIGH-1, HIGH-2, HIGH-3, MED-1, MED-2, and MED-3 before implementation begins. — The Wave 0 contracts prevent later plans from shipping without the cross-review mitigations.
-- [Phase 05-workloads-health-rebuild]: Plan 05-02 keeps examples/ as the canonical workload source and uses relative Kustomize resources from the existing spoke trees. — Preserves the one-Kustomization-per-spoke GitOps model while avoiding duplicated workload YAML.
-- [Phase 05-workloads-health-rebuild]: deploy-examples fails before Flux reconcile when examples/ or clusters/ are dirty or local HEAD differs from origin/main. — Flux reconciles origin/main, so local-only changes would otherwise cause unclear waits and stale deploys.
-- [Phase 05-workloads-health-rebuild]: Flux source refresh precedes spoke Kustomization reconciliation, with a source-git flag compatibility guard for Flux v2.8.6. — The installed Flux CLI does not support --with-source on source git reconcile, but the source refresh ordering remains required.
-- [Phase 05-workloads-health-rebuild]: Plan 05-03 fix-coredns applies the stale k3d CoreDNS NodeHosts workaround by mutating only hub-flux. — Preserves D-10 and MED-2 by never stop/starting or restarting spokes.
-- [Phase 05-workloads-health-rebuild]: Plan 05-03 Flux controller readiness waits are guarded by deployment count >= 4 before kubectl wait --all. — Prevents MED-3 empty-set wait pass-through.
-- [Phase 05-workloads-health-rebuild]: Plan 05-03 post-restart spoke DNS proof is read-only via kubectl exec into source-controller and warning-only. — Proves the workaround symptom without creating resources or mutating spokes.
-- [Phase 05-workloads-health-rebuild]: Plan 05-04 health-check remains read-only; stale hub DNS failures point to task fix-dns instead of mutating cluster state.
-- [Phase 05-workloads-health-rebuild]: Plan 05-04 in-hub DNS proof uses source-controller getent probes for both spokes, satisfying the HIGH-2 read-only contract.
-- [Phase 05-workloads-health-rebuild]: Plan 05-04 Flux controller readiness waits are guarded by deployment count >= 4 before kubectl wait --all.
-- [Phase 05-workloads-health-rebuild]: Plan 05-05 keeps scripts/delete-clusters.sh as the only teardown implementation; destroy is a confirmation wrapper. — Preserves CUDA cache and avoids duplicating destructive logic.
-- [Phase 05-workloads-health-rebuild]: Plan 05-05 records rebuild step markers and elapsed seconds in /tmp/karyon-rebuild.log for the Plan 05-06 state checker. — Allows live verification to inspect one rebuild run without triggering another destructive rebuild.
-- [Phase 05-workloads-health-rebuild]: Plan 05-05 re-pins kubectl context to k3d-hub-flux between create-clusters and bootstrap-flux to satisfy HIGH-1. — create-clusters leaves the current context on the last-created spoke while bootstrap and registration intentionally assert hub context.
-- [Phase 05-workloads-health-rebuild]: Plan 05-06 treats /tmp/karyon-rebuild.log as the canonical non-committed proof artifact; verification parses it without rerunning task rebuild.
-- [Phase 05-workloads-health-rebuild]: The final live proof requires HEAD == origin/main and clean examples/clusters paths before any destructive command runs.
-- [Phase 05-workloads-health-rebuild]: The failed first rebuild was resolved by preserving Phase 5 example references during spoke seed repair before accepting the second destructive approval.
+**v0.18 close (carried forward as inheritance for v0.19):**
+
+- Phase 4 P18 invariant: `spec.kubeConfig.secretRef` blocks always use `key: value.yaml` — defense in depth against silent in-cluster fallback
+- Phase 4 D-02: Sentinel-guarded patch surface in `clusters/hub-flux/flux-system/kustomization.yaml` (not the bootstrap-managed `kustomization.yaml` peer files); `# KARYON SPOKES MOUNT` sentinel + `../spokes` resource line; idempotent yq+awk insertion in `register-spokes-for-flux.sh`
+- ADR-004: Hub-only Flux — no Flux controllers run on spokes; hub uses `spec.kubeConfig` + remote kubeconfig Secrets to reconcile
+- D-14 blocking comment is exact-text greppable ('INTENTIONALLY NOT calling') — Phase 6 DESTROY-04 lint grep target; preserved through v0.19 P31 isolation contract
+- Public-repo gitleaks defense (Phase 6 REPO-01..04): native pre-commit + `.gitleaks.toml` allowlist + post-push CI fetch-depth: 0 + one-shot history scan; v0.19 P29 extends with kubeconfig-shaped rule
+
+**v0.19 milestone-open (logged in PROJECT.md):**
+
+- Selected 6-phase split (PITFALLS.md / ARCHITECTURE.md aligned over FEATURES.md 4-phase) — bundles risk: KARYON POC MOUNT static surface separated from cluster live work; webhook failure + teardown + ADR isolated from negative-RBAC validation
+- Selected reconciliation pattern (c) — hub-managed, tenant-impersonated via per-tenant SA + capsule-proxy — over (a) reused cluster-admin SA (rejected: leaks cluster-admin to every tenant) and (b) Flux-on-spoke-capsule (rejected: ADR-004 violation)
+- Install Capsule + capsule-proxy as TWO separate HelmReleases (NOT umbrella `proxy.enabled=true`) — umbrella pins capsule-proxy at 0.10.0 (two minors stale); standalone tracks both lines independently
+- Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome — only run if Status is Accepted with outcome ∈ {adopt, defer}; if reject or replaced, Phase 12 is SKIPPED
+- EKSDOC-01 lands EARLY in Phase 7 (first or second plan) — milestone owner needs the rough-cut EKS doc for an immediate team presentation while later phases land
+
+### Load-Bearing v0.19 Invariants (every plan must respect)
+
+- **P27** — every tenant Flux Kustomization MUST set `spec.serviceAccountName` explicitly. Flux's `--default-service-account` lockdown does NOT apply when `spec.kubeConfig` is set. Without explicit `serviceAccountName`, tenants run as cluster-admin and bypass Capsule. Static bats grep-asserts every tenant Kustomization has a non-null `serviceAccountName` (Phase 9 contract; Phase 11 falsifier).
+- **P29** — tenant kubeconfigs MUST NOT land in git. Phase 7 expands `.gitignore` + adds `.gitleaks.toml` rule for `kind: Config` + bearer-token shape. Phase 10 generator defaults to `${TMPDIR:-/tmp}/karyon-tenants/` (outside repo) and prints to stdout. Phase 11 synthetic-fixture bats + one-shot history scan close the loop.
+- **P31** — `spoke-capsule` MUST NOT enter `task rebuild` until graduation ADR-008 says "adopt." All POC concerns under `scripts/poc/capsule/`. Static bats greps `scripts/` (excluding `scripts/poc/`) for `spoke-capsule` and asserts ZERO mentions. Phase 11 live regression test: `task rebuild` with spoke-capsule alive must complete in <230s with spoke-capsule container ID unchanged.
+- **KARYON POC MOUNT location** — sentinel goes in `clusters/hub-flux/flux-system/kustomization.yaml` (the FLUX PATCH SURFACE), parallel to existing `# KARYON SPOKES MOUNT`. NOT `clusters/hub-flux/kustomization.yaml`. Putting it in the wrong file means the sentinel does not survive `flux bootstrap` re-runs.
 
 ### Pending Todos
 
@@ -124,8 +105,10 @@ None yet. [From .planning/todos/pending/ — ideas captured during sessions.]
 
 ### Blockers/Concerns
 
-- `task rebuild` (Phase 5, DESTROY-05/06) success is gated on every prior phase being green and on CUDA build-cache surviving `task destroy` (Phase 2, IMG-06 + DESTROY-03). Re-verify after any Phase 2 or Phase 5 change.
-- Phase 4 is the single highest-risk phase — DNS + TLS + CA + RBAC + Secret-key all converge. Schedule a dedicated research pass during planning if initial planning surfaces ambiguity.
+- Phase 9 lockdown flag patches (`--no-cross-namespace-refs=true`, `--no-remote-bases=true`, `--default-service-account=default`) touch the v0.18 Flux bootstrap surface — high regression risk. Mitigation: rerun full v0.18 `task health-check` as Phase 9 acceptance gate.
+- Phase 11 SLO regression gate (<230s) is the single hardest invariant of the milestone. P31 enforces zero `spoke-capsule` mentions in any v0.18 script — must be locked early in Phase 7 with static bats.
+- capsule-addon-fluxcd v0.2.3 ↔ Capsule v0.12.4 specific compatibility is MEDIUM-confidence (date proximity strong; README declaration absent). Phase 12 should re-verify via smoke test if the addon is brought into scope.
+- k8s ≥ 1.34.0 floor: `rancher/k3s:v1.34.6-k3s1` (ADR-005) clears with 6 patches of margin. If k3s is bumped to 1.35+, Capsule must be re-verified.
 
 ## Deferred Items
 
@@ -133,12 +116,15 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| v0.18 follow-up | Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155) | Active | v0.18 close 2026-04-29 |
+| v0.18 follow-up | First-push CI verification + GitHub branch-protection setup | Active | v0.18 close 2026-04-29 |
+| v0.18 follow-up | Real secret management (Vault / SOPS / age) | Active | v0.18 explicit out-of-scope |
+| v0.18 follow-up | Stale frontmatter reconciliation pass | Active | v0.18 close 2026-04-29 |
 
 ## Session Continuity
 
-Last session: 2026-04-28T17:54:42.957Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-repo-hygiene-docs-adrs/06-CONTEXT.md
+Last session: 2026-04-29 — Milestone v0.19 opened
+Stopped at: Roadmap drafted, 29 requirements mapped to Phases 7-12, awaiting `/gsd-plan-phase 7`
+Resume file: .planning/ROADMAP.md (Phase 7 details)
 
-**Planned Phase:** 04 (spoke-registration) — 5 plans — 2026-04-27T14:44:55.867Z
+**Planned Phase:** 07 (foundation-poc-seam-spoke-capsule-eks-doc) — TBD plans — 2026-04-29
