@@ -1,317 +1,574 @@
-# Feature Research
+# Feature Research — v0.19 Capsule Multi-Tenancy POC
 
-**Domain:** Local multi-cluster Kubernetes lab (k3d + Flux hub-spoke + WSL2 + optional GPU spoke)
-**Researched:** 2026-04-22
-**Confidence:** HIGH
+**Domain:** Capsule (CNCF Sandbox) multi-tenancy on a Karyon-managed POC k3d spoke (`spoke-capsule`), reconciled hub-only via Flux from `hub-flux`
+**Milestone:** v0.19 — Capsule Multi-Tenancy POC (subsequent milestone, additive to validated v1 lab)
+**Researched:** 2026-04-29
+**Confidence:** HIGH (Context7 `/projectcapsule/capsule` 267 snippets benchmark 89.6, official Capsule + Flux docs cross-verified, multiple production case studies)
 
 ---
 
 ## Executive Summary
 
-The public-repo feature surface for a Flux hub-spoke k3d lab is surprisingly consistent. The **canonical reference** is `fluxcd/flux2-hub-spoke-example` (41 stars, official, Apache-2.0). It ships four things the starter's Taskfile already covers conceptually (`fleet-up`/`fleet-down` ≈ `create-clusters`/`destroy`, `validate`, a GHA `test` + `e2e` workflow, and hub/spoke Kustomize overlays with podinfo + cert-manager + ingress-nginx as sample workloads). The starter's feature list is **~90% complete** against the canonical reference; the gaps are narrow but real.
+Capsule's job is to layer a `Tenant` CRD over a flat namespace plane. The Tenant says "this `User` / `Group` / `ServiceAccount` owns these (label-stamped) namespaces, must stay inside these `ResourceQuota` / `LimitRange` / `ingressOptions` / `storageClasses` / `nodeSelector` / `registry` boundaries, and gets these `additionalRoleBindings` automatically materialized in every owned namespace." Two cooperating components enforce that:
 
-**The two meaningful gaps to flag for the downstream requirements document:**
+1. **`capsule-controller-manager`** — the operator. Reconciles Tenants. Installs **9 admission webhooks** (`/cordoning`, `/ingresses`, `/namespaces`, `/networkpolicies`, `/nodes`, `/pods`, `/persistentvolumeclaims`, `/services`, `/tenants`) — most default `failurePolicy: Fail` per the Helm chart values. The webhook is the **policy decision point**: a tenant-side `kubectl create namespace foo` that doesn't satisfy `forceTenantPrefix` or that exceeds `namespaceOptions.quota` is rejected at admission, not after a reconcile loop.
+2. **`capsule-proxy`** — a separate add-on (`projectcapsule/capsule-proxy`, default port `9001`). It exists because **Kubernetes RBAC cannot filter cluster-scoped LIST**: there is no native way to give Alice "list namespaces, but only tenant-A's." `capsule-proxy` is a reverse proxy that intercepts kube-api calls and rewrites LIST responses for `Namespaces`, `Nodes`, `IngressClasses`, `StorageClasses`, `PriorityClasses`, `RuntimeClasses`, and `PersistentVolumes` so the tenant only sees what their Tenant CRD says they own. It supports **BearerToken, X509 client cert, and OIDC** (`authPreferredTypes: BearerToken,TLSCertificate`). Tenant kubeconfigs point at `https://<proxy>:9001`, not the apiserver directly.
 
-1. **No CI loop.** `PROJECT.md > Out of Scope` explicitly defers "CI/CD pipeline — local dev loop only; GitHub Actions integration deferred." This is a **defensible defer** (the lab is single-author), but it is the #1 feature every public Flux example ships, and it is the cheapest insurance against bit-rot in scripts and manifests. Recommend revisiting before the repo goes public — a 30-line `shellcheck` + `kubeconform` workflow is the minimum credible public-repo contract. Flagged as differentiator.
-2. **`.env.example` is mentioned but no validation/linting of the secrets contract is described.** The starter says "gitignored `.env` + `.env.example`" and defers real secret management. That is honest and fine for v1. But "is the user's `.env` populated before bootstrap?" should be a `task preflight` check, and the canonical public-repo pattern adds `.gitleaks` or equivalent. Flagged below.
+For a **learning-lab POC whose only deliverable is a graduation ADR (adopt / defer / reject / another POC)**, the discriminating question is **"does the security boundary actually hold against a hostile tenant owner kubeconfig, and does Flux reconcile cleanly through Capsule?"** Everything else (ResourcePool, Gateway API restrictions, GlobalTenantResource, OIDC, PriorityClass mutation, ingress collision scope) is interesting but **not necessary** to answer that question and would inflate POC scope past its purpose.
 
-The **anti-features** (Flagger, ArgoCD, GPU Operator, kube-prometheus-stack, cloud clusters, image automation, HA, real secret management) are all already correctly excluded by `PROJECT.md > Out of Scope` with reasons. No scope creep to push back on.
+**The shape of this milestone is therefore:**
 
-**Observability answer:** Public labs ship either (a) nothing beyond `kubectl get` / `flux get` / `flux events` / `k9s` (user installs locally), or (b) a full kube-prometheus-stack. There is no meaningful middle ground. Since the starter pins tools via `asdf`, adding `k9s` to `.tool-versions` is a ~2-line change that buys real UX leverage. Full observability stack correctly stays out of v1.
+- **Table stakes (12 features)** — must validate or the POC cannot graduate. Includes Tenant CRD apply, ≥2 tenants with disjoint owners, capsule-proxy reachable, **positive RBAC** (alice creates `oil-prod` namespace), **negative RBAC** (alice cannot touch `gas-prod`, cannot escalate to cluster-admin, cannot list bob's nodes through the proxy), Flux tenant Kustomization with `serviceAccountName` reconciling, webhook-down failure observation, `kubectl delete tenant` clean teardown.
+- **Differentiators (8 features)** — nice-to-validate; informs the adopt-vs-defer decision but absence does not block graduation. Includes ResourceQuota aggregation across namespaces, ingressOptions hostname collision, capsule-proxy OIDC path, multi-spoke Flux fan-out via `kubeConfig` Secret, GlobalTenantResource pattern, `forceTenantPrefix`, `cordoned` field, `preventDeletion`.
+- **Anti-features (10 features)** — explicitly avoid. OIDC issuer + dex/keycloak, real ingress + cert-manager + TLS, capsule on hub-flux itself, multi-spoke tenant federation, ResourcePool, Gateway API tenancy, runtime classes, full PSA + admission policy stack, real network policy baseline, "Capsule replaces all RBAC."
 
-**Secrets answer:** For a public repo shipping v1 as "placeholder only," the minimum credible pattern is `.env` + `.env.example` + `.gitignore` entry + a preflight check that `.env` exists and contains the required keys. That matches what the starter says. SOPS + age is the right *next* milestone for real secret material — flagged as v2 differentiator, not v1 gap.
+**The single most important POC outcome** is whether `kubectl --kubeconfig=alice.kubeconfig auth can-i '*' '*' --all-namespaces` returns `no` for everything outside Alice's tenant *and* whether `kubectl --kubeconfig=alice.kubeconfig get pods -n gas-prod` is rejected. That single observable falsifies most "I configured Capsule" misconfigurations.
 
----
-
-## Feature Landscape
-
-### Table Stakes (Without These The Lab Is Broken)
-
-Every public Flux k3d/Kind lab ships these; their absence makes the repo feel broken or unusable on fresh clone.
-
-| Feature | Why Expected | Complexity | In Starter? | Notes |
-|---|---|---|---|---|
-| Idempotent `create-clusters` / `destroy` | Re-runs must not require manual cleanup or the lab traps the user | SMALL | YES (`task create-clusters`, `task destroy`) | Starter explicit about re-run safety. |
-| Confirmation prompt on destructive ops | `task destroy` / `task rebuild` wipe local state — accidental invocation from shell history is the #1 local-lab footgun | TRIVIAL | YES | Starter: "Destructive tasks explicitly named and require confirmation." |
-| Preflight / environment gate | "Works on my machine but not yours" is the dominant failure mode for WSL2 + GPU labs; read-only preflight catches it at the door | MEDIUM | YES (`task preflight` → `scripts/preflight.sh`) | `prereqs.sh` already exists — port, don't rewrite. |
-| Pinned tool versions | Flux/kubectl/k3d version drift silently breaks bootstraps; unpinned = lab rots | SMALL | YES (`.tool-versions` via asdf) | Starter locks this in ADR-008. |
-| Pinned k3s/cluster image | Kubernetes minor-version skew vs. Flux controllers = broken CRDs | TRIVIAL | YES (`rancher/k3s:v1.34.6-k3s1`) | Justified in ADR-005. |
-| `flux bootstrap` path documented as "do-not-hand-edit" | Users who edit `flux-system/` see changes reverted and think Flux is broken | TRIVIAL | YES | Starter explicitly calls this out. |
-| Sample workload proving the pipe works end-to-end | Without a demo app, "is Flux actually reconciling?" has no visible answer | SMALL | YES (podinfo on spoke-apps) | Podinfo is the de facto standard — `fluxcd/flux2-hub-spoke-example` uses it too. |
-| Health-check task | Green/red signal after rebuild or DNS fix — without it users don't know whether lab is healthy | SMALL | YES (`task health-check`) | Starter checks clusters, nodes, Flux controllers, spoke Kustomizations, DNS resolution. |
-| README covering fresh-clone walkthrough | Anyone (including the author in 6 months) needs a single path from clone → working lab | SMALL | YES | Acceptance criteria enumerate the eight required sections. |
-| `.gitignore` for `.env` and kubeconfigs | Public repo + accidental secret commit = credential rotation Saturday | TRIVIAL | YES (implied by "repo safe to publish publicly") | Worth making explicit that kubeconfigs and rendered secrets are gitignored too. |
-| `.env.example` contract | Documents what the user must substitute; makes the repo reproducible | TRIVIAL | YES | Starter locks `GITHUB_OWNER` / `GITHUB_REPO` / `GITHUB_TOKEN`. |
-| Teardown that actually cleans up | Orphan Docker networks + dangling containers accumulate on rebuild loops | SMALL | YES (destroys clusters + `k8s-net`) | Intentionally preserves build cache — correct tradeoff for rebuild-time SLO. |
-
-**Starter coverage of table stakes: 12/12.** No table-stakes gaps.
+**The single most important Flux outcome** is whether the platform-admin hub Kustomization can apply tenant Flux objects (Kustomization / HelmRelease in tenant namespace) using `--default-service-account` impersonation — without needing to grant Flux's controller SAs cluster-admin on the tenant — and whether `--no-cross-namespace-refs=true` actually breaks a malicious tenant that tries to point its `sourceRef` at another tenant's GitRepository.
 
 ---
 
-### Differentiators (What Separates A Good Lab From A Mediocre One)
+## Tenant Mental Model
 
-Features that set the lab apart from the long tail of "I set up k3d once" blog posts. The starter already makes the right differentiator bets.
+### Tenant CRD — One-Paragraph Mental Model
 
-| Feature | Value Proposition | Complexity | In Starter? | Notes |
-|---|---|---|---|---|
-| **Sub-20-minute scorched-earth rebuild SLO** | Most public labs document "setup once"; a measured rebuild target forces engineering discipline (idempotency, cache preservation, parallelism) | MEDIUM | YES | Core Value. Build cache preservation on `destroy` is specifically motivated by this. |
-| **GPU pass-through + device-plugin smoke test** | Almost no public lab ships a working consumer-GPU path end-to-end on WSL2; this is the main thing people can't replicate from blog posts | LARGE | YES (spoke-ml + device-plugin + `nvidia-smi` pod) | Scoping to `nvidia-smi` (not framework workloads) is correct — avoids PyTorch-nightly-for-sm_120 coupling. |
-| **Hub-only Flux control plane with remote kubeconfigs** | Matches `fluxcd/flux2-hub-spoke-example`; less overhead than per-spoke Flux install | MEDIUM | YES (ADR-004) | Matches canonical reference. |
-| **`fix-dns` / CoreDNS NodeHosts workaround** | Concrete, documented fix for the #1 "my lab died after restart" surprise on k3d | SMALL | YES (`task fix-dns`) | Specific to k3d's CoreDNS NodeHosts caching — real differentiator. |
-| **Documented NAT-mode fallback for `networkingMode=mirrored`** | WSL2 mirrored mode edge cases with Docker custom networks are a known pit — having the fallback procedure written saves someone 2 hours | SMALL | YES (in Known Risks + constraints) | Matches real WSL2 guidance. |
-| **ADRs for every locked decision** | Five committed ADRs turn "tribal knowledge" into auditable decisions; rare in homelab repos | SMALL | YES (5 ADRs enumerated) | Above bar for homelab repos; at bar for professional labs. |
-| **All tasks idempotent + fail-fast + self-preflight** | Script hygiene that makes the lab forgiving — most homelabs don't bother | MEDIUM | YES | Starter: "Scripts preflight their own prerequisites." |
-| **CUDA build cache preserved across `destroy`** | The 15-minute rebuild SLO is impossible without this; most labs naively `docker system prune` | TRIVIAL | YES | Explicitly called out — `task destroy` does NOT prune build cache. |
-| **CI loop: shellcheck + kubeconform + markdownlint** | Standard for every public Flux example repo; catches script regressions and malformed manifests before user hits them | SMALL (~1 workflow file, ~50 lines) | **NO (out of scope)** | **Starter may have missed this.** See "Gaps" section. |
-| **`flux check --pre` / `flux check` integrated into preflight or health-check** | Canonical way to verify Flux CLI can talk to cluster and controllers are healthy; one line | TRIVIAL | Partially (health-check covers controller readiness; not clear if `flux check` is invoked) | Worth flagging — `flux check` is the idiomatic Flux verification command. |
-| **k9s pinned in `.tool-versions`** | Asdf already in use; adding k9s costs 1 line and buys a usable TUI the author will reach for reflexively | TRIVIAL | Unclear (starter says "kubectl, helm, flux, k3d, task, jq, yq"; k9s not listed) | **Likely worth adding.** See "Gaps" section. |
-| **Architecture diagram (Mermaid, inline in README)** | The hub-spoke topology is hard to explain in prose; one Mermaid diagram beats three paragraphs | TRIVIAL | Unclear (starter specifies `docs/architecture.md` but not whether it has a diagram) | Cheap to add, high clarity payoff. Mermaid renders natively in GitHub. |
-| **TROUBLESHOOTING.md separate from README** | Searchable, Google-indexable, keeps README short; `ahgraber/homelab-gitops-k3s` does this and it's the right call | SMALL | Unclear (starter lists `docs/rebuild-runbook.md` but not a TROUBLESHOOTING.md) | Could fold into rebuild-runbook.md; worth being deliberate about. |
+A `Tenant` is a cluster-scoped CRD (`capsule.clastix.io/v1beta2`) that declares **(a) who owns it** — one or more `owners` of `kind: User | Group | ServiceAccount`; **(b) what they can create** — a label-stamped set of `namespaces` capped by `namespaceOptions.quota`, automatically labeled `capsule.clastix.io/tenant: <name>`, optionally prefix-enforced via `forceTenantPrefix: true`; and **(c) the policy box around them** — `resourceQuotas` aggregated across all tenant namespaces, `limitRanges` auto-materialized into each tenant namespace, allow-lists for `storageClasses`, `ingressOptions.allowedClasses`/`allowedHostnames`, `serviceOptions.allowedTypes`, container `registries`, `nodeSelector` placement, and `additionalRoleBindings` (e.g., a `view` ClusterRole bound to an `auditor` Group in every owned namespace). The Capsule controller reconciles these into real `ResourceQuota`, `LimitRange`, `RoleBinding`, and `NetworkPolicy` objects inside each tenant namespace, and the 9 admission webhooks block tenant-driven attempts to step outside the box at admission time.
+
+### ASCII Diagram — `oil` Tenant Owned by Alice + `gas` Tenant Owned by Bob
+
+```
+                         hub-flux (clusters/hub-flux/)
+                         ├── Flux: --default-service-account=gitops-reconciler
+                         ├──        --no-cross-namespace-refs=true
+                         └──        --no-remote-bases=true
+                                         │ kubeConfig Secret: spoke-capsule-kubeconfig
+                                         │ (spec.kubeConfig in every Kustomization)
+                                         ▼
+   ┌─────────────────────────────────── spoke-capsule ──────────────────────────────────┐
+   │                                                                                    │
+   │   ┌────────────────────────────┐         ┌───────────────────────────────────┐     │
+   │   │ capsule-controller-manager │         │ capsule-proxy  (Service:9001)     │     │
+   │   │ (capsule-system ns)        │         │ (capsule-system ns)               │     │
+   │   │                            │         │                                   │     │
+   │   │ Watches Tenants            │         │ - Filters LIST of cluster-scoped: │     │
+   │   │ Reconciles into NS:        │         │     namespaces, nodes,            │     │
+   │   │   - ResourceQuota          │         │     ingressclasses,               │     │
+   │   │   - LimitRange             │         │     storageclasses, pv,           │     │
+   │   │   - RoleBindings           │         │     priorityclasses,              │     │
+   │   │ 9 admission webhooks:      │         │     runtimeclasses                │     │
+   │   │   /tenants /namespaces     │         │ - TokenReview against kube-api    │     │
+   │   │   /pods /services /pvc     │         │ - Authn: BearerToken | TLS | OIDC │     │
+   │   │   /ingresses /networkpols  │         │ - Tenant kubeconfig --server →    │     │
+   │   │   /nodes /cordoning        │         │   https://<proxy>:9001            │     │
+   │   │ (default failurePolicy:    │         └───────────────────────────────────┘     │
+   │   │  Fail)                     │                                                   │
+   │   └─────────────┬──────────────┘                                                   │
+   │                 │ reconciles                                                       │
+   │                 ▼                                                                  │
+   │   ┌──────────── Tenant: oil ─────────────┐    ┌────────── Tenant: gas ──────────┐  │
+   │   │ owners: [alice (User)]               │    │ owners: [bob (User)]            │  │
+   │   │ namespaceOptions.quota: 5            │    │ namespaceOptions.quota: 3       │  │
+   │   │ resourceQuotas: cpu=4, mem=8Gi       │    │ resourceQuotas: cpu=2, mem=4Gi  │  │
+   │   │ ingressOptions.allowedClasses: nginx │    │ storageClasses: standard        │  │
+   │   │ forceTenantPrefix: true              │    │ additionalRoleBindings: view→…  │  │
+   │   └──────┬───────────────────────────────┘    └──────┬──────────────────────────┘  │
+   │          │ owns labelled NS                          │                             │
+   │          ▼                                           ▼                             │
+   │   ┌─────────────────┐  ┌─────────────────┐   ┌────────────────┐                    │
+   │   │ oil-prod        │  │ oil-staging     │   │ gas-prod       │                    │
+   │   │ labels:         │  │ labels:         │   │ labels:        │                    │
+   │   │  capsule.clas-  │  │  capsule.clas-  │   │  capsule.clas- │                    │
+   │   │  tix.io/tenant: │  │  tix.io/tenant: │   │  tix.io/tenant:│                    │
+   │   │  oil            │  │  oil            │   │  gas           │                    │
+   │   │ ResourceQuota+  │  │ ResourceQuota+  │   │ ResourceQuota+ │                    │
+   │   │ LimitRange      │  │ LimitRange      │   │ LimitRange     │                    │
+   │   │ RoleBindings    │  │ RoleBindings    │   │ RoleBindings   │                    │
+   │   └─────────────────┘  └─────────────────┘   └────────────────┘                    │
+   │                                                                                    │
+   │   ┌─── alice.kubeconfig ──────┐         ┌─── bob.kubeconfig ───────────┐           │
+   │   │ server: https://<proxy>:  │         │ server: https://<proxy>:9001 │           │
+   │   │   9001                    │         │ token: <bob bearer token>    │           │
+   │   │ token: <alice bearer tkn> │         └──────────────────────────────┘           │
+   │   └───────────────────────────┘                                                    │
+   └────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key invariants the diagram encodes (each becomes a falsifier in the POC):**
+
+- A tenant kubeconfig **always** points at `capsule-proxy` `:9001`, never the apiserver `:6443`. Going direct leaks cluster-scoped LIST.
+- Namespaces are bound to a tenant by **label** (`capsule.clastix.io/tenant: <name>`), not by being "in" the tenant CRD's spec. The controller stamps the label.
+- Cross-tenant reads (alice → `gas-prod`) MUST be RBAC-denied by stock Kubernetes RBAC because Capsule's `additionalRoleBindings` only target owned namespaces. Capsule does not "create" the security boundary — it **automates the RBAC that creates it**.
+- The 9 webhooks plus capsule-proxy are the **two layers of the boundary**: webhooks block writes to disallowed cluster-state; proxy filters reads of cluster-scoped resources.
+
+### Tenant Ownership: How Owners Self-Serve
+
+Owners can be `User`, `Group`, or `ServiceAccount` (the v1beta2 `spec.owners[].kind`). On every owned namespace, Capsule materializes a `RoleBinding` granting the owner `cluster-admin` **scoped to that namespace** — so within their namespaces they can do anything Kubernetes RBAC allows, but they cannot reach across to another tenant's namespaces, and they cannot create cluster-scoped resources they aren't allowed (e.g., `ClusterRole`, `Node`, `PersistentVolume`).
+
+To create a new namespace, the owner runs (in test/dev — production uses real auth):
+
+```bash
+# As the user, impersonating "alice" in the projectcapsule.dev group
+kubectl create namespace oil-staging --as=alice --as-group=projectcapsule.dev
+```
+
+Capsule's `/namespaces` validating webhook checks:
+- Is the requesting subject a `spec.owners[]` of any Tenant?
+- If `forceTenantPrefix: true`, does the namespace name start with `<tenant>-`?
+- Has `namespaceOptions.quota` been hit?
+
+If all checks pass, the controller stamps `capsule.clastix.io/tenant: <name>` on the namespace and reconciles `ResourceQuota` / `LimitRange` / `RoleBindings` into it. If any fails, the request is rejected at admission with a clear error.
+
+The `manager.options.users` field of `CapsuleConfiguration` (default `projectcapsule.dev`) lists the **groups** Capsule treats as candidate tenant users — i.e., the group an owner must be in for the proxy to serve them and for the webhook to evaluate ownership.
 
 ---
 
-### Anti-Features (Deliberately Not Built — Justified)
+## Capsule-Proxy: Why It Exists
 
-Features commonly added to Flux labs that would violate the v1 scope. All justified in `PROJECT.md > Out of Scope`, repeated here with external ecosystem context.
+Kubernetes RBAC has a hard limitation: **`list` on cluster-scoped resources is all-or-nothing**. There is no native way to express "list namespaces, but only those labeled `tenant: oil`." Either Alice has `list namespaces` cluster-wide, in which case `kubectl get namespaces` returns everyone's namespaces (including `gas-prod`, `kube-system`, `flux-system`), or she does not, in which case `kubectl get namespaces` returns `Forbidden` and her tooling breaks.
 
-| Feature | Why It Gets Requested | Why Excluded From v1 | Alternative / When To Revisit |
+`capsule-proxy` is a reverse proxy that sits in front of the apiserver and rewrites that single dimension:
+
+| Request through proxy | What proxy does |
+|---|---|
+| `GET /api/v1/namespaces` | Calls upstream apiserver as the proxy's SA, then **filters response** to only namespaces where the request subject is an owner. |
+| `GET /api/v1/nodes` | Filters to nodes matching the requesting tenant's `nodeSelector` (relevant when `nodes` webhook is enabled). |
+| `GET /api/storage.k8s.io/v1/storageclasses` | Filters to those listed in `Tenant.spec.storageClasses.allowed`. |
+| `GET /api/networking.k8s.io/v1/ingressclasses` | Filters to `Tenant.spec.ingressOptions.allowedClasses`. |
+| `GET /api/v1/persistentvolumes` | Filters to PVs owned by the tenant. |
+| Any namespaced read (`GET /api/v1/namespaces/oil-prod/pods`) | Passed through transparently — RBAC at the namespaced layer is sufficient. |
+
+**Authentication modes** (`capsule-proxy` Helm `authPreferredTypes`):
+- **`BearerToken`** — proxy does a `TokenReview` against kube-api to identify the user. Default and simplest.
+- **`TLSCertificate`** — client presents an X509 cert; proxy reads the CN/O.
+- **OIDC** — through `oidcUsernameClaim` (default `preferred_username`); requires an OIDC issuer be configured at kube-api.
+
+**Tenant kubeconfig (token-based, default)** — the canonical shape:
+
+```yaml
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://capsule-proxy.capsule-system:9001
+    certificate-authority-data: <proxy CA, base64>
+  name: spoke-capsule-via-proxy
+contexts:
+- context:
+    cluster: spoke-capsule-via-proxy
+    user: alice
+  name: alice@oil
+current-context: alice@oil
+users:
+- name: alice
+  user:
+    token: <alice bearer token, 24h+ JWT>
+```
+
+The proxy validates the bearer token via `TokenReview` (so the token must be one kube-api accepts — typically a `ServiceAccount` token). The Capsule community provides a `proxy-kubeconfig-generator` utility and a `hack/create-user.sh` script for cert-based onboarding; for the POC, **bearer-token via SA tokens is the path of least resistance** and avoids OIDC scope.
+
+---
+
+## Resource Isolation: Automatic vs Opt-in
+
+| Mechanism | Auto-injected per tenant namespace? | Source of truth |
+|---|---|---|
+| `ResourceQuota` (aggregated across tenant NS) | **Yes** | `Tenant.spec.resourceQuotas.items[]`. Controller materializes one `ResourceQuota` object per item, per namespace, with names like `capsule-<tenant>-<index>`. |
+| `LimitRange` per tenant namespace | **Yes** | `Tenant.spec.limitRanges.items[]`. One `LimitRange` per item, per namespace. |
+| `RoleBinding` for tenant owner (cluster-admin in NS) | **Yes** | Implicit in `spec.owners[]`. |
+| `RoleBinding` from `additionalRoleBindings` (e.g., `view` for auditors) | **Yes** | `Tenant.spec.additionalRoleBindings[]`. |
+| `NetworkPolicy` | **No, opt-in** | Two paths: (a) the operator's `/networkpolicies` validating webhook can prevent tenants from deleting policies, but does not create them; (b) `GlobalTenantResource` with a `tenantSelector` + raw `NetworkPolicy` resources is the recommended way to fan out network policy to all matching tenants. |
+| Default `PriorityClass` / `RuntimeClass` / `IngressClass` / `StorageClass` mutation | **Yes (mutating webhook)** | `Tenant.spec.{priorityClasses,runtimeClasses,ingressOptions.allowedClasses,storageClasses}.default`. |
+| Ingress hostname collision detection | **Yes (validating webhook)** | `Tenant.spec.ingressOptions.hostnameCollisionScope: Tenant\|Cluster\|Namespace\|Disabled`. |
+| `forceTenantPrefix` | **No, opt-in** | When set, namespace name must start with `<tenant>-`. |
+
+---
+
+## Multi-Tenant Flux Reconciliation
+
+### What Changes for a Tenant-Scoped Kustomization
+
+A standard cluster-admin Flux `Kustomization` looks like:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: my-app
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: my-app
+  path: ./deploy
+  prune: true
+  # No serviceAccountName → runs as kustomize-controller's SA = cluster-admin
+```
+
+A **tenant-scoped** one differs in three ways:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: oil-app
+  namespace: oil-prod                              # (1) lives IN the tenant namespace
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: oil-git
+    namespace: oil-prod                            # (2) sourceRef stays IN the tenant ns
+                                                   # (--no-cross-namespace-refs=true denies otherwise)
+  path: ./deploy
+  prune: true
+  serviceAccountName: gitops-reconciler            # (3) impersonates the tenant SA
+                                                   # gitops-reconciler is registered as
+                                                   # spec.owners[].kind=ServiceAccount on Tenant
+```
+
+The flags on the Flux **controllers** that make the difference (set at bootstrap, in `flux-system/kustomization.yaml`):
+
+| Flag | Applied to | What it enforces |
+|---|---|---|
+| `--default-service-account=gitops-reconciler` | kustomize-controller, helm-controller | Any tenant Kustomization without explicit `serviceAccountName` impersonates `gitops-reconciler` in its own namespace — never the controller's cluster-admin SA. |
+| `--no-cross-namespace-refs=true` | kustomize-controller, helm-controller, notification-controller, image-reflector-controller, image-automation-controller | A `sourceRef` / `secretRef` / `decryption.secretRef` cannot cross namespaces. Kills "Alice points at Bob's GitRepository." |
+| `--no-remote-bases=true` | kustomize-controller | Kustomize cannot pull `bases:` from remote URLs. Forces all source to come from a `GitRepository` Flux already vouched for. |
+
+Source: [Flux multi-tenancy lockdown](https://fluxcd.io/flux/installation/configuration/multitenancy/).
+
+### Three Patterns for Multi-Tenant Flux
+
+| Pattern | Repo layout | Who owns the tenant Kustomization | Best for |
 |---|---|---|---|
-| **Progressive delivery (Flagger)** | `stefanprodan/gitops-istio` makes it look easy; "canary deploys locally!" is seductive | Requires service mesh (Istio/Linkerd) + metrics (Prometheus) + real traffic generator; none of that is in scope and all of it blows the 20-min rebuild target. Lab has no "production" to canary toward. | Separate milestone *after* observability stack + service mesh are added. Or defer permanently — Flagger in a single-user homelab is cargo-cult. |
-| **Flux image automation (`ImagePolicy`/`ImageUpdateAutomation`)** | Common in "real" GitOps examples; auto-bumps image tags via commits | Requires a registry Flux can watch + a git commit loop back to the repo; pointless for podinfo + a `nvidia-smi` CUDA image that never changes. Adds a controller set (`image-reflector-controller`, `image-automation-controller`) that isn't part of the default bootstrap. | Revisit when a real workload with its own release cadence exists. Renovate (see below) is a cheaper substitute. |
-| **Renovate / Dependabot for Flux/Helm version bumps** | Public Flux repos often ship Renovate config to auto-bump Flux versions and Helm charts | Lab has ~3 Helm charts max (cert-manager optional, podinfo, device-plugin). Maintenance cost > value at this scale. | Add if/when v2 grows infrastructure surface (multiple charts, ingress controller, monitoring stack). |
-| **kube-prometheus-stack / Grafana / Loki** | Public labs love showing graphs | 20-min rebuild SLO allergic to ~60s of extra Helm installs + ~500MB extra RAM; no alerts needed in single-user lab. `k9s` + `kubectl top` + `flux events` cover the actual observability need. | `fluxcd/flux2-monitoring-example` is the right reference when this is eventually added. Separate milestone. |
-| **NVIDIA GPU Operator** | "It's the official NVIDIA way"; handles driver install + device plugin + MIG in one chart | Starter correctly picks the device-plugin-DaemonSet path first: simpler, fewer moving parts, driver is installed on the WSL2 host (Windows) not the cluster. GPU Operator expects in-cluster driver installation. | ADR-worthy decision if/when v2 needs MIG partitioning or GPU monitoring. |
-| **ArgoCD** | ApplicationSet cluster generators are genuinely nicer for label-based multi-cluster targeting | Hard locked to Flux in ADR-003 for lab scope; 2-3 explicit Kustomizations is not a scaling problem. | Never in v1. Noted in ADR-003 with migration note. |
-| **Cloud clusters (EKS/GKE/AKS)** | Portability is tempting | Blows cost + network assumptions; not the core value | Out of scope permanently for this lab. |
-| **HA / multi-node spokes** | "Production realism" | k3d `--agents` adds minutes to rebuild; single-node is sufficient to demonstrate everything | Out of scope for v1. |
-| **Real secret management (Vault / SOPS+age / ExternalSecrets / SealedSecrets)** | Public repo + Flux = "how do you handle secrets?" is the first reviewer question | `PROJECT.md > Out of Scope` defers to placeholder only. Defensible because v1 has no real secret material beyond a GitHub PAT (which lives only in `.env` + in-cluster via `flux bootstrap`). | **SOPS + age is the right choice when revisited** — native Flux support via `decryption.provider: sops`, no external infrastructure, age keys fit on one line in `.env`, keeps the repo public-safe. SealedSecrets is wrong choice for this lab (cluster-scoped keys, doesn't scale across spokes cleanly — see comparison [fredrkl](https://fredrkl.com/blog/mozilla-sops-vs-sealed-secret/)). ExternalSecrets needs a backing store (Vault/AWS SM/etc.) — over-engineered for a local lab. |
-| **Full PyTorch / TensorFlow / CUDA workload** | "GPU but not framework workload?" is the obvious next question | RTX 5090 is Blackwell (sm_120); most PyTorch stable releases still need nightlies. Coupling the lab to PyTorch nightly availability would break reproducibility. | `nvidia-smi`-in-a-pod is the correct v1 scope. Separate milestone for framework workload once sm_120 stabilizes in stable PyTorch. |
-| **Network policies / Pod Security Admission / RBAC hardening** | "Production hardening" checklist items | Single-user local lab; starter runs spokes with cluster-admin kubeconfigs (ADR-004). No multi-tenant concern. | Out of scope permanently for v1 lab mandate. |
-| **Service mesh (Linkerd / Istio / Cilium)** | Perceived modernity | Zero workloads that need it; meshes add 200-500MB RAM and complicate rebuild | Out of scope for v1. |
-| **Ingress + cert-manager + DNS** | `fluxcd/flux2-hub-spoke-example` ships these | Lab is WSL2-local; no external traffic, no real DNS, no real certs. Port-forward / `kubectl proxy` suffice. | Could be a v2 differentiator if the lab ever grows a real demo UI. |
+| **Hub-managed tenant** (single repo, platform-admin authors everything) | One repo: `clusters/`, `tenants/`, `infrastructure/`. Platform admin commits all tenant Kustomizations. | Platform admin. | Small orgs, POCs, where tenants don't have their own git workflows. **POC choice.** |
+| **Tenant self-served** (tenant owns their own GitRepository) | Two repos. Platform admin commits a `Kustomization` that points at `tenants/oil/` which contains a `GitRepository` for the oil team. The tenant team commits to *their* repo; Flux sees changes through the platform-admin-owned `GitRepository` resource. | Platform admin owns RBAC/quota; tenant owns workload manifests. | Real production multi-team setups. |
+| **Hybrid (clastix/flux2-capsule-multi-tenancy)** | Like self-served, but the tenant's `Kustomization` runs through capsule-proxy via a `kubeConfig` Secret containing a kubeconfig that points to `https://capsule-proxy:9001` with the tenant SA's token. Flux thus reconciles the tenant's content as the tenant, end-to-end. | Tenant SA. | The most isolated, hardest to set up. **Not recommended for POC.** |
+
+Sources: [`fluxcd/flux2-multi-tenancy`](https://github.com/fluxcd/flux2-multi-tenancy), [`projectcapsule/capsule` Flux guide](https://projectcapsule.dev/docs/guides/use-fluxcd/), [`clastix/flux2-capsule-multi-tenancy`](https://github.com/clastix/flux2-capsule-multi-tenancy).
+
+### POC Recommendation: Hub-Managed Tenant
+
+The POC should adopt **hub-managed tenant**. Reasons:
+
+1. The Karyon hub-only Flux invariant (ADR-004) already places Flux on `hub-flux` reconciling to `spoke-capsule` via `spec.kubeConfig`. The tenant Kustomization fits naturally into that flow.
+2. The flag patches (`--default-service-account` / `--no-cross-namespace-refs` / `--no-remote-bases`) are a single bootstrap kustomize patch — already a familiar pattern from v0.18 phase 3.
+3. The hybrid pattern's `proxy-kubeconfig-generator` adds a third moving part (proxy-kubeconfig Secret rotation) without answering the graduation question better.
+4. It still demonstrates real isolation: a tenant Kustomization in `oil-prod` with `serviceAccountName: gitops-reconciler` cannot reach `gas-prod` and cannot escalate.
+
+---
+
+## Webhook Surface — What Capsule Installs
+
+Per the patch reference in `DEVELOPMENT.md`, Capsule installs **9 webhook endpoints**, each as a separate webhook in the `ValidatingWebhookConfiguration` and/or `MutatingWebhookConfiguration`:
+
+| Webhook | Kind | Default failurePolicy | What it enforces |
+|---|---|---|---|
+| `/tenants` | Validating | `Fail` | Validity of `Tenant` CR itself (no orphaned namespaces, ownership rules). |
+| `/namespaces` | Validating | `Fail` | Tenant ownership of namespace creates; `forceTenantPrefix`; `namespaceOptions.quota`; required/forbidden labels & annotations. |
+| `/pods` | Validating + Mutating | `Fail` | Pod conforms to allowed `priorityClasses`, `runtimeClasses`, `nodeSelector`, `imagePullPolicy`, registry rules. Mutating injects defaults + `podOptions` labels. |
+| `/services` | Validating | `Fail` | `serviceOptions.allowedTypes` (block NodePort/LoadBalancer/ExternalName by default), `externalIPs` allow-list. |
+| `/persistentvolumeclaims` | Validating + Mutating | `Fail` | PVC `storageClassName` is in `Tenant.spec.storageClasses.allowed`. Mutating injects default storage class. |
+| `/ingresses` | Validating + Mutating | `Fail` | `ingressClassName` allowed; hostnames in `allowedHostnames`; `hostnameCollisionScope`; wildcard rule. Mutating injects default ingressClass. |
+| `/networkpolicies` | Validating | `Fail` | Prevents tenants from **deleting** the operator-managed NetworkPolicies. |
+| `/nodes` | Validating | `Fail` (off by default) | When enabled, restricts node-label tampering (relevant only if tenants get node access). |
+| `/cordoning` | Validating | `Fail` | When `Tenant.spec.cordoned: true`, blocks all CREATE/UPDATE/DELETE of namespaced resources in tenant namespaces — used to "freeze" a tenant for incident response. |
+
+**`failurePolicy: Fail` semantics — what happens when capsule-controller is down:**
+
+- New namespace creates from a tenant owner: **rejected** (the `/namespaces` webhook is unreachable, request fails at admission).
+- New pod creates in a tenant namespace: **rejected** (the `/pods` webhook is unreachable). This is exactly the behavior reported in [`projectcapsule/capsule#143`](https://github.com/projectcapsule/capsule/issues/143).
+- New `Tenant` CR: **rejected**.
+- **Cluster-admin operations on system namespaces** (e.g., `kube-system`, `flux-system`): **also rejected** if the webhook's `namespaceSelector` matches. This is mitigated by `manager.options.ignoreUserWithGroups: [system:masters]` and by webhook `namespaceSelector` carving out the `capsule.clastix.io/tenant: Exists` filter — but it is a real foot-gun. The Karyon POC must verify cluster admin can still recover the cluster when capsule-controller is down.
+
+The POC must **observe** this on purpose: scale capsule-controller to 0, attempt a tenant pod create, observe the rejection, scale back up, observe recovery. Anything else risks shipping a graduation ADR that says "adopt" without understanding the failure mode.
+
+---
+
+## Tenant Teardown Semantics
+
+`kubectl delete tenant oil` does — per the docs — cascade-delete all owned namespaces and the resources inside them. This is **destructive and irreversible** unless `Tenant.spec.preventDeletion: true` is set.
+
+What gets cleaned up automatically:
+- All namespaces labeled `capsule.clastix.io/tenant: oil` (cascade via owner refs).
+- `ResourceQuota`, `LimitRange`, `RoleBinding` objects inside those namespaces (deleted with the namespace).
+- The Tenant CR itself.
+
+**What can get stranded** — the POC should specifically check:
+- **`PersistentVolumes`** previously bound to PVCs in tenant namespaces. PVs are cluster-scoped and outlive their PVCs depending on `reclaimPolicy: Retain` vs `Delete`. Capsule does not garbage-collect cluster-scoped PVs.
+- **`ClusterRole`/`ClusterRoleBinding`** that platform admin manually created scoped to the tenant. Capsule only manages what it materialized; admin-created cluster-scoped resources persist.
+- **`GlobalTenantResource`** outputs (e.g., NetworkPolicies pruned by `pruningOnDelete: true` if set; otherwise orphan).
+- **Flux `GitRepository` / `Kustomization` resources** in tenant namespaces — deleted with the namespace, but their Flux inventory of *applied resources outside the tenant namespace* (if any leaked through `--no-cross-namespace-refs=false` misconfig) would persist as orphans.
+- **External cloud resources** (volumes, load balancers from `Service type: LoadBalancer`) — Kubernetes garbage-collects per the cloud controller; a local k3d POC won't have any.
+
+The POC delete observable: after `kubectl delete tenant oil`, run `kubectl get all -A -l capsule.clastix.io/tenant=oil` and verify the result is empty.
+
+---
+
+## Negative RBAC Tests (Required Falsifiers)
+
+These are the tests that must pass for the POC to graduate to "adopt." Each is observable via a one-liner `kubectl auth can-i` or a real CRUD attempt; bats tests can wrap each.
+
+| # | Attack / Falsifier | Concrete test | Expected result |
+|---|---|---|---|
+| N1 | Tenant owner reads cross-tenant pods | `kubectl --kubeconfig=alice.kubeconfig get pods -n gas-prod` | `Forbidden` (RBAC denial in upstream apiserver, since `additionalRoleBindings` only target oil-* namespaces). |
+| N2 | Tenant owner LIST cluster-wide | `kubectl --kubeconfig=alice.kubeconfig get pods --all-namespaces` | Returns only oil-* namespace pods. Tests both proxy filtering (for namespace LIST) and downstream RBAC. |
+| N3 | Tenant owner reads other tenant's secrets | `kubectl --kubeconfig=alice.kubeconfig get secret -n gas-prod` | `Forbidden`. |
+| N4 | Tenant owner gets cluster-admin escalation via ClusterRoleBinding | `kubectl --kubeconfig=alice.kubeconfig create clusterrolebinding evil --clusterrole=cluster-admin --user=alice` | `Forbidden` (alice has no rights at cluster scope to create CRBs). |
+| N5 | Tenant owner creates namespace outside tenant prefix (with `forceTenantPrefix: true`) | `kubectl --kubeconfig=alice.kubeconfig create namespace evil` | Rejected by `/namespaces` validating webhook with prefix violation. |
+| N6 | Tenant owner exceeds namespace quota | Create `oil-1`..`oil-N+1` where N is `namespaceOptions.quota` | The N+1th rejected by webhook with quota violation. |
+| N7 | Tenant pod uses disallowed registry | `kubectl --kubeconfig=alice.kubeconfig run x --image=docker.io/library/nginx -n oil-prod` (when `rules[].enforce.registries` allow-lists `harbor.example.io/.*` only) | Rejected by `/pods` validating webhook. |
+| N8 | Tenant owner LIST nodes via direct apiserver (bypass proxy) | `kubectl --kubeconfig=alice-direct.kubeconfig get nodes` (kubeconfig points at `:6443` directly) | `Forbidden` if the user's only ClusterRoleBindings are `additionalRoleBindings` (namespace-scoped). Verifies that going around the proxy doesn't grant *more* than the proxy filtered — proxy is for filtering not authorizing. |
+| N9 | Tenant owner gets nodes through proxy | `kubectl --kubeconfig=alice.kubeconfig get nodes` | Returns only nodes matching `Tenant.spec.nodeSelector` (or empty if none — depends on `nodes` webhook + proxy filter config). |
+| N10 | Tenant Kustomization sourceRef points at another tenant's GitRepository | Author `Kustomization` in `oil-prod` with `sourceRef: { name: gas-git, namespace: gas-prod }`, push, observe Flux | Reconciliation fails with cross-namespace-refs denied (`--no-cross-namespace-refs=true`). |
+| N11 | Tenant Kustomization without `serviceAccountName` | Author `Kustomization` in `oil-prod` without `spec.serviceAccountName`, with manifests that need permissions outside tenant | Reconciliation impersonates `gitops-reconciler` (the `--default-service-account`), and the apply fails with RBAC denial — never silently uses kustomize-controller's privileges. |
+| N12 | Webhook-down recovery | `kubectl scale deploy capsule-controller-manager -n capsule-system --replicas=0`; attempt tenant pod create; observe rejection; scale back to 1; verify recovery | First create returns admission-webhook-error; second succeeds after pod ready. |
+
+---
+
+## Table Stakes (with Observable Success Signals)
+
+Twelve features. Each MUST validate during the POC. Failure on any single one means the POC cannot graduate to "adopt" without follow-up work.
+
+| # | Feature | Complexity | Depends on | Observable success signal |
+|---|---|---|---|---|
+| TS-01 | **`spoke-capsule` k3d cluster created and persistent (NOT in `task rebuild`)** | S | `KARYON POC MOUNT` sentinel-guarded patch surface from milestone; preflight + create-clusters extensions | `k3d cluster list` shows `spoke-capsule`; `task rebuild` output does not include `spoke-capsule` create/destroy; cluster persists across `task rebuild`. |
+| TS-02 | **Capsule operator installed via Flux HelmRelease on `hub-flux`, reconciling to `spoke-capsule`** | M | TS-01; existing hub-only Flux (ADR-004) | `kubectl --context=k3d-hub-flux get helmrelease -n flux-system capsule -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'` returns `True`; `kubectl --context=k3d-spoke-capsule get pods -n capsule-system -l app.kubernetes.io/name=capsule` shows `Running`. |
+| TS-03 | **`capsule-proxy` installed and reachable** | M | TS-02 | `kubectl --context=k3d-spoke-capsule get svc -n capsule-system capsule-proxy` shows `:9001` ClusterIP; `kubectl port-forward svc/capsule-proxy 9001:9001 -n capsule-system` then `curl -k https://localhost:9001/healthz` returns 200. |
+| TS-04 | **Two Tenant CRs (`oil`, `gas`) with distinct owners** | S | TS-02 | `kubectl get tenants` shows `oil` and `gas`; `kubectl get tenant oil -o jsonpath='{.spec.owners[0].name}'` returns `alice`; `gas`'s returns `bob`. |
+| TS-05 | **Tenant owner can self-serve namespaces inside tenant** | S | TS-04 | `kubectl create namespace oil-prod --as=alice --as-group=projectcapsule.dev` succeeds; `kubectl get namespace oil-prod -o jsonpath='{.metadata.labels.capsule\.clastix\.io/tenant}'` returns `oil`. |
+| TS-06 | **ResourceQuota and LimitRange auto-materialized in tenant namespace** | S | TS-05 | `kubectl get resourcequota -n oil-prod` shows a `capsule-oil-*` quota object reflecting the `Tenant.spec.resourceQuotas.items[0]`; same for `kubectl get limitrange -n oil-prod`. |
+| TS-07 | **Positive RBAC: tenant owner can do legitimate ops in own namespace** | S | TS-05 | `kubectl auth can-i create pods -n oil-prod --as=alice --as-group=projectcapsule.dev` returns `yes`; `kubectl run smoke --image=nginx -n oil-prod --as=alice` succeeds. |
+| TS-08 | **Negative RBAC: cross-tenant access denied** | S | TS-04, TS-05 | All of N1, N2, N3, N4 from the negative-RBAC table return the expected `Forbidden`. Bats wraps `kubectl auth can-i ... --as=alice` against gas-* namespaces. |
+| TS-09 | **Tenant kubeconfig routes through capsule-proxy (NOT direct apiserver)** | M | TS-03, TS-04 | `cat alice.kubeconfig \| yq '.clusters[0].cluster.server'` returns `https://...:9001` (proxy port), not `:6443`; `kubectl --kubeconfig=alice.kubeconfig get namespaces` returns ONLY `oil-*` namespaces (proves proxy filtered LIST). |
+| TS-10 | **Flux tenant-scoped Kustomization reconciles as tenant SA** | L | TS-02, TS-04, ADR-004 (hub-only Flux); requires `--default-service-account`/`--no-cross-namespace-refs` patches | A test `Kustomization` in `oil-prod` with `serviceAccountName: gitops-reconciler` reaches `Ready=True`; same Kustomization with cross-tenant `sourceRef` reaches `Ready=False` with cross-namespace-refs error (proves N10). |
+| TS-11 | **Capsule webhook failure observed and recoverable** | M | TS-02 | Test N12 from the negative-RBAC table: scale capsule-controller to 0 → tenant pod create rejected with admission-webhook error → scale to 1 → tenant pod create succeeds. Bats captures both states. |
+| TS-12 | **`kubectl delete tenant <name>` clean teardown verified** | S | TS-04, TS-05 | After `kubectl delete tenant oil`, `kubectl get namespace -l capsule.clastix.io/tenant=oil` returns empty; `kubectl get all -A -l capsule.clastix.io/tenant=oil` returns empty. PV stranding (if any in POC) explicitly noted in graduation ADR. |
+
+---
+
+## Differentiators (Inform Adopt-vs-Defer; Not Required)
+
+Eight features. Each is valuable for the graduation ADR signal but absence does not block "adopt." Validate as time permits.
+
+| # | Feature | Value Proposition | Complexity | Notes / Success signal |
+|---|---|---|---|---|
+| DF-01 | **Aggregated `ResourceQuota` across multiple tenant namespaces** | Proves Capsule's promise that quota is per-tenant, not per-namespace. Big distinguisher vs vanilla namespace + RoleBinding. | M | Create `oil-prod` and `oil-staging`; the tenant's CPU quota is 4 cores. Run a 3-core pod in `oil-prod`, then a 2-core pod in `oil-staging` — second is rejected by quota. |
+| DF-02 | **`ingressOptions.allowedHostnames` + `hostnameCollisionScope: Tenant`** | Validates Capsule's "fair share" of an external hostname like `*.lab.example.com`. Demonstrates real-world ingress isolation. | M | Tenant `oil` allows `oil.example.com`; Bob attempts an Ingress with `host: oil.example.com` in `gas-prod` → rejected by `/ingresses` webhook. |
+| DF-03 | **`forceTenantPrefix: true` and `preventDeletion: true`** | Operational hygiene knobs that protect tenant integrity in production-flavored ops. Cheap to test. | S | Alice `kubectl create namespace evil` rejected when prefix forced; admin `kubectl delete tenant oil` rejected when `preventDeletion: true`. |
+| DF-04 | **`Tenant.spec.cordoned: true` (admin freeze of a tenant)** | Useful incident-response knob. Proves Capsule is not just about onboarding but full lifecycle. | S | After `kubectl patch tenant oil --type=merge -p '{"spec":{"cordoned":true}}'`, alice's `kubectl run` in oil-prod is rejected by `/cordoning` webhook. |
+| DF-05 | **`GlobalTenantResource` for fan-out (e.g., default deny NetworkPolicy)** | Demonstrates platform-admin pattern for cluster-wide policy without per-tenant duplication. | M | A `GlobalTenantResource` with `tenantSelector: {requires-network-policy: "true"}` creates a `default-deny-egress` NetworkPolicy in all matching tenants' namespaces; `pruningOnDelete: true` removes it on tenant unlabel. |
+| DF-06 | **`additionalRoleBindings` with non-owner role (e.g., `view` for auditor group)** | Shows multi-role tenancy. Useful for "PM has view, devs have edit" pattern. | S | Tenant CR adds `additionalRoleBindings: [{clusterRoleName: view, subjects: [{kind: Group, name: auditors}]}]`; `kubectl auth can-i list pods -n oil-prod --as=audit-bot --as-group=auditors` returns `yes`; create returns `no`. |
+| DF-07 | **Multi-spoke Flux fan-out via `kubeConfig` Secret (existing Karyon pattern)** | Validates that the v0.18 hub→spoke `spec.kubeConfig` invariant survives Capsule. Reuse, not new tech. | S | `Kustomization` on hub-flux with `spec.kubeConfig.secretRef.name: spoke-capsule-kubeconfig` reconciling Capsule HelmRelease into spoke-capsule already proves this. |
+| DF-08 | **Capsule-proxy bearer-token auth via ServiceAccount tokens** | Avoids OIDC; demonstrates the simplest possible tenant onboarding for the lab. | S | A SA `alice-sa` in `oil-system` is added to `Tenant.spec.owners[].kind=ServiceAccount`; the SA's token (24h+ projected token) is embedded in `alice.kubeconfig`; `kubectl --kubeconfig=alice.kubeconfig get ns` returns only `oil-*`. |
+
+---
+
+## Anti-Features (Out of Scope for v0.19 POC)
+
+Ten features. Each is genuinely valuable in production Capsule but **out of scope** for this POC. Mirrors the v0.19 "Out of Scope" list in `PROJECT.md` plus Capsule-specific traps.
+
+| Anti-feature | Why Tempting | Why Wrong For This POC | What To Do Instead |
+|---|---|---|---|
+| **OIDC issuer (Dex / Keycloak) for tenant auth** | "Real" auth feels more credible. | OIDC issuer adds a whole identity service to install + a chart of CRDs; doubles the milestone scope. The POC's auth question is "does the boundary hold for *some* identity," not "is OIDC integration smooth." | Use `ServiceAccount` tokens. The OIDC integration question can be a **future POC**. (Already deferred in `PROJECT.md`.) |
+| **Production ingress + cert-manager + real TLS** | Tenants "should" have real ingress hostnames. | The POC validates `ingressOptions` admission-policy enforcement, not actual traffic flow. cert-manager + a real DNS hostname on a local k3d lab is wasted complexity. | Port-forward / NodePort. (Already deferred in `PROJECT.md`.) |
+| **Capsule installed on `hub-flux` itself** | "Make the lab self-tenant." | Couples the POC graduation question to the entire control-plane invariant. ADR-004 (hub-only Flux) becomes harder to reason about. | Capsule on `spoke-capsule` only. Hub-flux Capsule is a separate future POC. (Already deferred in `PROJECT.md`.) |
+| **Multi-spoke tenant federation (one tenant spans `spoke-apps` + `spoke-ml` + `spoke-capsule`)** | "Tenants should be cluster-aware." | Capsule has no native cross-cluster Tenant. Doing this is custom work and tests something Capsule doesn't claim. | Single-spoke tenants. (Already deferred in `PROJECT.md`.) |
+| **`ResourcePool` + `ResourcePoolClaim`** | "Cluster-wide quota with dynamic allocation" sounds powerful. | A separate CRD model with its own webhook (`/resourcepools/claims`); orthogonal to baseline tenant isolation. Adds 2-3 plans of complexity. | Plain `Tenant.spec.resourceQuotas`. ResourcePool can be a future POC if quota fairness across tenants becomes a real need. |
+| **Gateway API tenancy (`gatewayOptions.allowedClasses`)** | Looks modern. | Requires a Gateway API CRD set + an implementation (Istio / Contour) installed on the spoke; massively expands scope. | Stick to `ingressOptions`; Gateway API is adjacent and can be a future POC. |
+| **`runtimeClasses: [gvisor, kata]` enforcement** | Pod sandboxing is appealing. | gVisor / Kata require the underlying container runtime to support them; k3d/k3s on WSL2 doesn't ship those runtimes; nothing to test. | Skip. |
+| **Full Pod Security Admission (PSA) + admission-policy stack** | "Make the cluster secure." | Capsule already provides admission-policy; layering PSA, OPA Gatekeeper, or Kyverno on top is a separate v0 line. | The POC is "is Capsule sufficient," not "is Capsule + Kyverno better." Defer. |
+| **Real network-policy baseline (default-deny + per-tenant overlays)** | "Tenant traffic should be isolated." | NetworkPolicy in k3d/k3s requires the network plugin to enforce it (k3s ships a CNI that does, but verifying actual traffic isolation is a network-plumbing task, not a Capsule task). | Validate that `GlobalTenantResource` *can* fan out a NetworkPolicy (DF-05) without verifying actual packet drop. Real packet-level enforcement is a future POC. |
+| **"Capsule replaces all RBAC"** | Easy mental shortcut. | Capsule **layers on top of** Kubernetes RBAC; it doesn't replace it. Misunderstanding this leaks tenants into each other or convinces graduates the POC tested something it didn't. The POC must be explicit: native RBAC denies cross-tenant; Capsule automates the boundary. | Document this in the graduation ADR's "What we proved / what we did not prove." |
 
 ---
 
 ## Feature Dependencies
 
 ```
-task preflight
-    └──gates──> task create-clusters
-                    └──required-by──> task bootstrap-flux
-                                          └──required-by──> task register-spokes
-                                                                └──required-by──> task deploy-examples
-                                                                                      └──enables──> task health-check
+TS-01 (spoke-capsule cluster)
+   └── TS-02 (Capsule operator HelmRelease)
+          ├── TS-03 (capsule-proxy)
+          ├── TS-04 (Tenant CRs)
+          │      ├── TS-05 (owner self-serves NS)
+          │      │      ├── TS-06 (ResourceQuota auto-injection)
+          │      │      ├── TS-07 (positive RBAC)
+          │      │      └── TS-08 (negative RBAC)  ←-- depends on TS-04 + TS-05
+          │      ├── TS-09 (proxy-routed kubeconfig)  ←-- depends on TS-03
+          │      ├── TS-10 (Flux tenant Kustomization)  ←-- depends on TS-02 + flux flag patches
+          │      └── TS-12 (delete tenant teardown)
+          └── TS-11 (webhook failure obs)
 
-task destroy ──must-preserve──> docker build cache (CUDA image)
-    └──required-by──> task rebuild
+DF-01 ── enhances ── TS-06   (ResourceQuota aggregated across NS)
+DF-02 ── enhances ── TS-04   (ingressOptions hostname collision)
+DF-03 ── enhances ── TS-04, TS-12   (forceTenantPrefix, preventDeletion)
+DF-04 ── enhances ── TS-04   (cordoned)
+DF-05 ── enhances ── TS-06   (GlobalTenantResource fan-out)
+DF-06 ── enhances ── TS-08   (additionalRoleBindings non-owner)
+DF-07 ── reuses ──── ADR-004 (multi-spoke Flux fan-out via kubeConfig)
+DF-08 ── enhances ── TS-09   (SA token auth)
 
-task fix-dns ──enhances──> task health-check (run when cross-cluster DNS fails post-Docker/WSL restart)
+KARYON POC MOUNT ── precedes ── TS-01
+                              (sentinel-guarded patch surface for ALL POCs, not just Capsule)
 
-.env (gitignored) ──required-by──> task bootstrap-flux (GITHUB_OWNER/REPO/TOKEN)
-    └──documented-by──> .env.example
-
-.tool-versions ──required-by──> task preflight (asdf install)
-
-scripts/install-docker.sh ──prerequisite-for──> task preflight (Docker daemon check)
-scripts/install-nvidia-container-toolkit.sh ──prerequisite-for──> task preflight (GPU chain check)
-scripts/install-tools.sh (asdf) ──prerequisite-for──> task preflight (tool presence checks)
-
-images/Dockerfile.k3s-cuda ──required-by──> task create-clusters (spoke-ml uses custom image)
-    └──must-cache-across──> task destroy → task rebuild
+Flux flag patches (--default-service-account, --no-cross-namespace-refs, --no-remote-bases)
+   └── precedes ── TS-10
+   └── may impact ── existing v0.18 root Kustomization (carefully scoped to tenant namespaces only,
+                     OR applied cluster-wide with verification that v0.18 root still reconciles)
 ```
 
 ### Dependency Notes
 
-- **`preflight` gates everything.** The existing `prereqs.sh` is read-only; `create-clusters` must refuse to run if preflight fails. This is the #1 friction-reduction lever for the lab.
-- **`fix-dns` is not in the main rebuild chain** — it's a recovery task triggered by symptom (cross-cluster DNS resolution failure after Docker/WSL restart). It enhances `health-check` by being the documented remediation when health-check reports stale CoreDNS.
-- **CUDA image cache preservation** is the single architectural constraint that makes the 20-min rebuild SLO achievable. Any future "make `destroy` more thorough" PR must respect this.
-- **`register-spokes` depends on `bootstrap-flux`** — the flux-system namespace must exist on the hub to store kubeconfig secrets.
-- **`deploy-examples` depends on `register-spokes`** — spoke Kustomizations reference the kubeconfig secret name via `spec.kubeConfig.secretRef`.
+- **`KARYON POC MOUNT` precedes everything else.** This is the generic external-POC sentinel-guarded patch surface (mirror of `KARYON SPOKES MOUNT` from v0.18). It must be designed first because it is *not* Capsule-specific — it is the seam any future POC (e.g., a Knative POC, an Istio POC) will hook into. Designing it inside-out from Capsule risks coupling the seam to Capsule shape.
+- **TS-10 (Flux tenant Kustomization) is the highest-risk single requirement** because it touches the v0.18 Flux bootstrap surface. The flag patches must be applied carefully: `--no-cross-namespace-refs=true` cluster-wide could break a v0.18 cross-namespace ref the team didn't notice. Mitigation: scope the flag patches to a tenant-aware operator-side `CapsuleConfiguration` if available, or apply cluster-wide and rerun the v0.18 health-check as a regression gate.
+- **TS-11 (webhook failure observation) is non-optional but easy to skip mentally.** The `failurePolicy: Fail` semantics turn the cluster brittle when capsule-controller is down. Any "adopt" recommendation that does not include observed recovery is incomplete.
+- **TS-12 (tenant teardown) is the cheapest test of the boundary.** A clean delete proves Capsule's owner refs are wired correctly; stranded resources flag misconfigurations early.
 
 ---
 
-## MVP Definition
+## MVP Definition (Mapped to Phases)
 
-### Launch With (v1) — Starter's Current Feature Surface
+The features map naturally onto a 4-phase POC. Each phase ends with a verifiable artifact.
 
-Minimum viable lab. Every item below is already in the starter's locked feature set.
+### Phase 1 — POC Onboarding Seam (`KARYON POC MOUNT` + `spoke-capsule`)
 
-- [x] `task preflight` — env/resources/GPU chain/tool/port checks (port of existing `prereqs.sh`)
-- [x] `task create-clusters` — idempotent creation of hub-flux + spoke-ml (GPU) + spoke-apps on shared `k8s-net`
-- [x] `task bootstrap-flux` — `flux bootstrap github` on hub, path `clusters/hub-flux`
-- [x] `task register-spokes` — SA + cluster-admin CRB + kubeconfig Secret per spoke
-- [x] `task deploy-examples` — podinfo on spoke-apps, `nvidia-smi` pod on spoke-ml
-- [x] `task fix-dns` — stop/start hub to refresh stale CoreDNS NodeHosts
-- [x] `task health-check` — clusters, nodes, Flux controllers, spoke Kustomizations, cross-cluster DNS resolution
-- [x] `task destroy` — confirmed teardown of clusters + `k8s-net`, preserving build cache
-- [x] `task rebuild` — full scorched-earth chain, < 20 min with CUDA image cached
-- [x] Five ADRs (WSL2+Docker, k3d-vs-Kind, Flux-vs-ArgoCD, hub-only-Flux, k8s-version-pin)
-- [x] `.tool-versions` via asdf
-- [x] `.env.example` with `GITHUB_OWNER`/`GITHUB_REPO`/`GITHUB_TOKEN`
-- [x] README with Windows prereqs, WSL config, Docker install, NVIDIA setup, cluster creation, Flux bootstrap, spoke registration, teardown
-- [x] Documented NAT-mode fallback for `networkingMode=mirrored`
+- [x] TS-01 — `spoke-capsule` cluster, persistent, NOT in `task rebuild`
+- [ ] (precedes TS-01) — `KARYON POC MOUNT` sentinel-guarded patch surface in `Taskfile.yml` + `scripts/`
+- [ ] preflight extensions for the new cluster (port 6446 free, registered apiserver SAN, etc.)
 
-### Should Add To v1 (Flagged Gaps — Low Cost, High Credibility Payoff)
+**Phase artifact:** `task pocs:capsule-up` creates `spoke-capsule` and registers it as a Flux spoke, idempotently, without affecting `task rebuild`.
 
-Small items that bring the starter to parity with every public Flux example repo for < 1 hour of work.
+### Phase 2 — Capsule + Capsule-Proxy Install via Flux
 
-- [ ] **Add `k9s` to `.tool-versions`** — 1 line, available via asdf, universal TUI for the clusters the lab creates. Filling a real UX gap.
-- [ ] **Add a Mermaid hub-spoke diagram to `docs/architecture.md` (or inline in README)** — GitHub renders Mermaid natively; topology is hard to grok from prose alone. ~20 lines.
-- [ ] **Invoke `flux check` in `task health-check`** — idiomatic Flux health verification, one line. Catches controller version drift the starter's current health-check doesn't.
-- [ ] **`task preflight` should verify `.env` exists and contains required keys** — current preflight checks tools and ports but doesn't validate the secrets contract the bootstrap depends on. Fails late (at `flux bootstrap`) instead of early.
-- [ ] **Add a minimum CI workflow** — `shellcheck` on `scripts/*.sh` + `kubeconform` on `clusters/**/*.yaml` + `markdownlint` on docs. See "Starter May Have Missed" below.
+- [ ] TS-02 — Capsule HelmRelease reconciling on hub-flux into spoke-capsule
+- [ ] TS-03 — capsule-proxy reachable (port 9001)
+- [ ] DF-07 — confirms ADR-004 invariant survives
 
-### Add After Validation (v1.x)
+**Phase artifact:** `kubectl get pods -n capsule-system` on spoke-capsule shows `capsule-controller-manager` and `capsule-proxy` Running; `kubectl get helmrelease capsule -n flux-system` on hub-flux shows `Ready=True`.
 
-- [ ] **SOPS + age for real secrets** — when a secret beyond `GITHUB_TOKEN` actually exists in the lab
-- [ ] **TROUBLESHOOTING.md separate from README** — when the rebuild-runbook outgrows its current scope
-- [ ] **PR template + CONTRIBUTING.md** — when/if the repo attracts external contributors
-- [ ] **Renovate bot for Flux/k3s/CUDA base version bumps** — low-effort ongoing maintenance tool
+### Phase 3 — Tenants, Owners, Positive + Negative RBAC, Proxy Kubeconfigs
 
-### Future Consideration (v2+)
+- [ ] TS-04 — two tenants `oil` and `gas`
+- [ ] TS-05 — owners self-serve namespaces
+- [ ] TS-06 — ResourceQuota / LimitRange auto-injection
+- [ ] TS-07 — positive RBAC
+- [ ] TS-08 — negative RBAC (N1-N9 from the negative table)
+- [ ] TS-09 — tenant kubeconfigs route through capsule-proxy
+- [ ] DF-08 — SA-token auth (concrete auth path)
+- [ ] DF-03 — forceTenantPrefix + preventDeletion (cheap, validate while here)
 
-- [ ] Service mesh (Linkerd preferred over Istio — lower footprint, simpler; only if a real workload needs it)
-- [ ] kube-prometheus-stack on hub, scraping spokes — `fluxcd/flux2-monitoring-example` is the reference
-- [ ] Real ML framework workload (PyTorch stable w/ sm_120 support once landed)
-- [ ] Additional spoke (`spoke-dev`?) to exercise Flux's multi-target Kustomizations more rigorously
-- [ ] Migration to per-spoke Flux if spoke count grows beyond 3 (hub-only topology stops scaling)
+**Phase artifact:** `tests/capsule/negative-rbac.bats` runs N1-N9 against alice and bob and is fully green; `cat alice.kubeconfig | yq '.clusters[0].cluster.server'` shows port `9001`.
+
+### Phase 4 — Flux Tenant Reconciliation, Webhook Failure, Teardown, Graduation ADR
+
+- [ ] TS-10 — Flux tenant-scoped Kustomization with `serviceAccountName` and the three flag patches
+- [ ] N10, N11 — cross-tenant sourceRef denied; default-SA impersonation honored
+- [ ] TS-11 — webhook failure observed and recovered
+- [ ] TS-12 — `kubectl delete tenant` clean teardown
+- [ ] **Graduation ADR** — adopt / defer / reject / another POC, citing each TS-* result
+
+**Phase artifact:** `docs/adr/ADR-006-capsule-graduation.md` — Nygard 4-section, Status: Accepted, with explicit references to bats results and a "what we did not prove" section listing the anti-features.
+
+### Add After Validation (Future POCs / Milestones)
+
+If graduation is "adopt":
+- [ ] OIDC issuer + tenant auth (separate POC milestone)
+- [ ] Real ingress + cert-manager + tenant TLS (separate milestone)
+- [ ] Capsule on hub-flux itself (extension milestone)
+- [ ] ResourcePool / ResourcePoolClaim (a quota-fairness milestone)
+- [ ] NetworkPolicy fan-out + actual packet-level isolation tests (a network-isolation milestone)
+
+If graduation is "defer" or "reject":
+- [ ] ADR documents the reasons; no follow-up scheduled.
 
 ---
 
 ## Feature Prioritization Matrix
 
-Scoped to the flagged v1 gaps only (existing starter features are already P1).
-
-| Feature | User Value | Implementation Cost | Priority | Rationale |
-|---|---|---|---|---|
-| `k9s` in `.tool-versions` | HIGH | TRIVIAL | P1 | 1-line change; author will use it constantly. |
-| Mermaid architecture diagram | MEDIUM | TRIVIAL | P1 | Makes README comprehensible on first read. |
-| `flux check` in health-check | MEDIUM | TRIVIAL | P1 | Idiomatic, catches controller issues. |
-| `.env` presence in preflight | HIGH | SMALL | P1 | Fails early, saves a debugging loop. |
-| Minimum CI workflow (shellcheck + kubeconform + markdownlint) | HIGH | SMALL | **P1 or P2** | **P2 if staying truly local-only; P1 before repo is made public to external viewers.** |
-| SOPS + age for secrets | LOW (v1 has no real secrets) | MEDIUM | P3 | Defer until real secret material exists. |
-| TROUBLESHOOTING.md split | LOW | TRIVIAL | P3 | Fold into rebuild-runbook.md until size forces split. |
-| kube-prometheus-stack | LOW (lab has no alerts, no multi-user) | LARGE | P3 | Violates rebuild SLO; add when observability is the milestone. |
-| Flagger / progressive delivery | LOW | LARGE | P3 | Cargo-cult for single-user lab. |
-
----
-
-## Competitor Feature Analysis
-
-Closest public-repo comparables — what do they ship that karyon doesn't, and vice versa?
-
-| Feature | `fluxcd/flux2-hub-spoke-example` (canonical, 41 stars) | `fluxcd/flux2-kustomize-helm-example` (official, heavy) | `ahgraber/homelab-gitops-k3s` (popular homelab) | **karyon starter** |
-|---|---|---|---|---|
-| **Cluster runtime** | Kind (3 clusters) | Kind (2 clusters) | k3s (bare metal) | **k3d (3 clusters)** |
-| **Orchestrator** | Makefile | Makefile | Ansible + Taskfile | **Taskfile** |
-| **Hub-spoke topology** | Yes | No (per-env) | No (single cluster) | **Yes** |
-| **GPU support** | No | No | No | **Yes (spoke-ml, device-plugin, sm_120)** |
-| **Sample app** | podinfo + cert-manager + ingress-nginx | podinfo + cert-manager + Envoy Gateway | Full homelab stack | **podinfo + GPU smoke** |
-| **CI: validate manifests** | `kubeconform` via `make validate` + GHA | `kubeconform` GHA workflow | Pre-commit + GHA | **None (deferred)** |
-| **CI: e2e spin-up** | Kind fleet in GHA | Kind cluster in GHA | N/A | **None** |
-| **Shellcheck / shfmt** | No | No | Yes (pre-commit) | **None** |
-| **Secrets** | Kubeconfig as K8s Secret only (no user secrets) | Not explicit | SOPS + age | **`.env` + `.env.example` placeholder** |
-| **Observability stack** | `fluxcd/flux2-monitoring-example` is a separate repo | No | kube-prometheus-stack + Loki | **None (deferred, correct)** |
-| **Flagger / progressive delivery** | No | No | No | **None (correctly excluded)** |
-| **Image automation** | No | No | Yes (Renovate) | **None** |
-| **Architecture diagram** | Yes (PNG in README) | No | Yes | **Unclear (docs/architecture.md listed, diagram not specified)** |
-| **ADRs** | No | No | No | **Yes (5 ADRs)** |
-| **Teardown task** | `make fleet-down` | No explicit | Ansible teardown | **`task destroy` + `task rebuild`** |
-| **Preflight env check** | No | No | Partial (ansible roles) | **Yes (`prereqs.sh`)** |
-| **Rebuild-time SLO** | Not measured | Not measured | Not measured | **Yes (< 20 min)** |
-| **NAT-mode WSL2 fallback docs** | N/A (not WSL-specific) | N/A | N/A | **Yes** |
-| **`fix-dns` equivalent** | No (Kind doesn't have this issue) | No | No | **Yes (k3d-specific)** |
-
-**Where karyon stands out:** GPU pass-through, measured rebuild SLO, explicit ADRs, WSL2-specific hazards documented, k3d-specific CoreDNS workaround, preflight env gate. These are all real differentiators — none of the public references cover this terrain.
-
-**Where karyon is missing what everyone else ships:** CI workflows (kubeconform + shellcheck). That's the one.
+| Feature | User Value (lab-internal: clarity of POC signal) | Implementation Cost | Priority |
+|---|---|---|---|
+| TS-01 spoke-capsule | HIGH | LOW | P1 |
+| TS-02 Capsule HelmRelease | HIGH | MEDIUM | P1 |
+| TS-03 capsule-proxy | HIGH | MEDIUM | P1 |
+| TS-04 Tenants | HIGH | LOW | P1 |
+| TS-05 NS self-serve | HIGH | LOW | P1 |
+| TS-06 Quota + LimitRange auto | HIGH | LOW | P1 |
+| TS-07 Positive RBAC | HIGH | LOW | P1 |
+| TS-08 Negative RBAC | HIGH | LOW | P1 |
+| TS-09 Proxy-routed kubeconfig | HIGH | MEDIUM | P1 |
+| TS-10 Flux tenant Kustomization | HIGH | HIGH | P1 |
+| TS-11 Webhook failure obs | HIGH | MEDIUM | P1 |
+| TS-12 Teardown clean | HIGH | LOW | P1 |
+| DF-01 Quota aggregation | MEDIUM | MEDIUM | P2 |
+| DF-02 Hostname collision | MEDIUM | MEDIUM | P2 |
+| DF-03 forceTenantPrefix + preventDeletion | MEDIUM | LOW | P2 |
+| DF-04 cordoned | MEDIUM | LOW | P2 |
+| DF-05 GlobalTenantResource | MEDIUM | MEDIUM | P2 |
+| DF-06 additionalRoleBindings non-owner | MEDIUM | LOW | P2 |
+| DF-07 Multi-spoke Flux fan-out (reused) | LOW | LOW | P2 (already proven by v0.18) |
+| DF-08 SA-token auth | MEDIUM | LOW | P2 (concrete auth path for the POC) |
 
 ---
 
-## Starter May Have Missed — Explicit Callout
+## Competitor / Alternative Feature Analysis
 
-**Downstream consumer (requirements.md) should decide whether to accept these as v1 additions or hold to the current locked scope:**
+| Feature | vNamespace Operator | Hierarchical Namespace Controller (HNC) | Capsule (this POC) |
+|---|---|---|---|
+| Tenant CRD | No (raw NS only) | Sub-namespace CRD (`SubnamespaceAnchor`) | `Tenant` (cluster-scoped) |
+| Owner model | RBAC RoleBinding only | Inherits via parent NS | `User`/`Group`/`ServiceAccount` first-class |
+| Cluster-scoped LIST filtering | No | No | **`capsule-proxy` (yes)** |
+| ResourceQuota across NS | No | Inherits (per-NS) | **Aggregated (yes)** |
+| Admission-policy enforcement | No | No | **9 webhooks (yes)** |
+| GitOps story | n/a | n/a | **`flux2-capsule-multi-tenancy`, hub-managed pattern documented (yes)** |
+| CNCF status | None | CNCF (Sandbox) | **CNCF (Sandbox)** |
+| Active development | Variable | Active | **Active** |
 
-### 1. Minimum CI workflow (shellcheck + kubeconform + markdownlint)
-
-**Status:** Explicitly deferred in `PROJECT.md > Out of Scope` ("CI/CD pipeline — local dev loop only; GitHub Actions integration deferred").
-
-**Recommendation:** Reconsider before the repo goes public. The canonical `fluxcd/flux2-hub-spoke-example` ships a `test` workflow (kubeconform validation of all manifests against Flux OpenAPI) and an `e2e` workflow (Kind spin-up + Flux bootstrap integration test). Cost to match the `test` half: one GHA workflow file, ~50 lines. Catches: broken YAML, missing CRD references, drifted manifest schemas, regressed shell scripts. The `e2e` half is out of scope because GHA runners can't do GPU — but the non-GPU half is feasible.
-
-**Why it matters even for a single-author public repo:** public-repo contract implies "the example works." A `kubeconform` CI run is the cheapest credible proof.
-
-**If kept out of scope:** consider running `shellcheck scripts/*.sh` and `kubeconform` locally as part of `task preflight` or a new `task lint`. This at least gives the author a pre-commit safety net.
-
-### 2. `flux check` not explicitly invoked in health-check
-
-**Status:** Starter's `task health-check` checks "Flux controllers Ready on hub-flux" but doesn't call out `flux check` specifically.
-
-**Recommendation:** `flux check` is the idiomatic way to verify Flux CLI ↔ cluster ↔ controllers ↔ CRD versions are all compatible. Add `flux check --pre` to preflight (verifies CLI + K8s API compatibility) and `flux check` to health-check (verifies installed controllers match CLI version). Cost: 2 lines.
-
-### 3. `.env` presence + schema check missing from preflight
-
-**Status:** Starter preflight checks tools, ports, docker, GPU chain — but doesn't validate `.env` exists or contains `GITHUB_OWNER` / `GITHUB_REPO` / `GITHUB_TOKEN`.
-
-**Recommendation:** Add `.env` presence + required-keys check to `scripts/preflight.sh`. Current failure mode: user runs `task preflight` (passes), runs `task create-clusters` (passes), runs `task bootstrap-flux` (fails with cryptic auth error because `GITHUB_TOKEN` unset). Fail earlier.
-
-### 4. `k9s` not in `.tool-versions`
-
-**Status:** Starter lists "kubectl, helm, flux, k3d, task, jq, yq." No k9s.
-
-**Recommendation:** Add `k9s` to `.tool-versions`. It's the canonical k8s TUI, available via asdf, and the author will use it reflexively. Trivial ergonomic win.
-
-### 5. Architecture diagram format not pinned
-
-**Status:** Starter lists `docs/architecture.md` but doesn't specify whether it contains a diagram.
-
-**Recommendation:** Use Mermaid (renders natively in GitHub; source-controllable; no separate tool). The hub-spoke topology with 3 clusters + kubeconfig secrets + Kustomization arrows is inscrutable from prose. One Mermaid `architecture-beta` block is ~20 lines.
-
-### 6. Explicit "nuke everything" escape hatch beyond `task destroy`
-
-**Status:** `task destroy` deletes clusters + `k8s-net` but preserves build cache (correct for rebuild SLO).
-
-**Recommendation:** Consider a separate `task nuke` (distinct from `destroy`) that wipes build cache + all dangling volumes + all k3d containers regardless of name. Users occasionally need to fully reset a corrupted Docker state (especially after WSL upgrades). Keep `task destroy` as the fast-path; `task nuke` as the emergency option. Requires extra confirmation.
-
-### None of these are blockers for v1.
-
-The starter is **comprehensive and opinionated**. The five gaps above are polish, not correctness issues. If the downstream requirements doc chooses to keep all of them out of scope, the lab still works end-to-end.
+The competitor signal is that **Capsule is the most complete CNCF multi-tenancy operator** for the "I have a single cluster and want to share it" use case. HNC is the closest but solves a slightly different problem (namespace hierarchy / inheritance). vNamespace and similar operators stop at namespace lifecycle. The POC question "is Capsule worth adopting" is therefore *not* "Capsule vs alternative operator" but "Capsule vs no operator (raw RBAC + ResourceQuota + manual admission policies)."
 
 ---
 
 ## Sources
 
-**Canonical references (HIGH confidence):**
-- [fluxcd/flux2-hub-spoke-example](https://github.com/fluxcd/flux2-hub-spoke-example) — official hub-spoke reference, 41 stars; Makefile + GHA test/e2e workflows + podinfo/cert-manager/ingress-nginx
-- [fluxcd/flux2-kustomize-helm-example](https://github.com/fluxcd/flux2-kustomize-helm-example) — official multi-env example; kubeconform CI, podinfo, Envoy Gateway
-- [fluxcd/flux2-monitoring-example](https://github.com/fluxcd/flux2-monitoring-example) — reference for when observability is eventually added
-- [k3d docs: Running CUDA workloads](https://k3d.io/v5.7.4/usage/advanced/cuda/) — official GPU path for k3d
-- [NVIDIA/k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin) — device-plugin DaemonSet reference
-- [Flux troubleshooting cheatsheet](https://fluxcd.io/flux/cheatsheets/troubleshooting/) — `flux check` + reconcile commands
-- [Flux Multi-cluster Architecture (Stefan Prodan)](https://stefanprodan.com/blog/2024/fluxcd-multi-cluster-architecture/) — authoritative hub-spoke guidance
+### Authoritative — Context7 `/projectcapsule/capsule` (HIGH confidence)
+- [Capsule project README](https://github.com/projectcapsule/capsule)
+- [Capsule Helm chart README — webhook configuration, install values](https://github.com/projectcapsule/capsule/blob/main/charts/capsule/README.md)
+- [Capsule SELF_ASSESSMENT.md — design rationale, capsule-proxy purpose](https://github.com/projectcapsule/capsule/blob/main/SELF_ASSESSMENT.md)
+- [Capsule DEVELOPMENT.md — webhook list (`/cordoning /ingresses /namespaces /networkpolicies /nodes /pods /persistentvolumeclaims /services /tenants`)](https://github.com/projectcapsule/capsule/blob/main/DEVELOPMENT.md)
+- [Capsule SECURITY.md — cosign signature verification](https://github.com/projectcapsule/capsule/blob/main/SECURITY.md)
 
-**Homelab references (MEDIUM confidence):**
-- [ahgraber/homelab-gitops-k3s](https://github.com/ahgraber/homelab-gitops-k3s) — popular k3s + Flux homelab with TROUBLESHOOTING docs
-- [HYP3R00T/homelab](https://github.com/HYP3R00T/homelab) — k3s + Flux + monitoring structure
-- [gianniskt/k8s-gitops-chaos-lab](https://github.com/gianniskt/k8s-gitops-chaos-lab) — GitOps homelab with Flux + Linkerd + Prometheus (reference for anti-features)
-- [ShadyF/k8s-homelab](https://github.com/ShadyF/k8s-homelab) — Flux + Renovate pattern
+### Authoritative — Capsule project site (HIGH confidence)
+- [projectcapsule.dev — landing page (CNCF Sandbox status, framework overview)](https://projectcapsule.dev/)
+- [Capsule + Flux integration guide](https://projectcapsule.dev/docs/guides/use-fluxcd/)
+- [Capsule tenant enforcement webhooks](https://projectcapsule.dev/docs/tenants/enforcement/)
+- [Capsule operating: authentication](https://projectcapsule.dev/docs/operating/authentication/)
+- [Capsule proxy docs](https://projectcapsule.dev/docs/proxy/)
 
-**Tooling + CI (MEDIUM confidence):**
-- [yannh/kubeconform](https://github.com/yannh/kubeconform) — canonical manifest validator
-- [DavidAnson/markdownlint-cli2-action](https://github.com/marketplace/actions/markdown-linting-action) — markdown lint GHA
-- [setup-k3d GitHub Action](https://github.com/marketplace/actions/setup-k3d) — k3d-in-CI reference
-- [jumanjihouse/pre-commit-hooks](https://github.com/jumanjihouse/pre-commit-hooks) — shellcheck + shfmt for pre-commit
+### Authoritative — Flux multi-tenancy (HIGH confidence)
+- [Flux multi-tenancy lockdown (`--no-cross-namespace-refs`, `--no-remote-bases`, `--default-service-account`)](https://fluxcd.io/flux/installation/configuration/multitenancy/)
+- [Flux security best practices — auditing default service account configuration](https://fluxcd.io/flux/security/best-practices)
+- [Flux Kustomization — enforcing impersonation](https://fluxcd.io/flux/components/kustomize/kustomizations)
+- [`fluxcd/flux2-multi-tenancy` reference repo](https://github.com/fluxcd/flux2-multi-tenancy)
 
-**Secret management (HIGH confidence):**
-- [getsops/sops](https://github.com/getsops/sops) — primary SOPS reference
-- [Mozilla SOPS vs Sealed Secret (fredrkl)](https://fredrkl.com/blog/mozilla-sops-vs-sealed-secret/) — comparison informing v1.x recommendation
-- [Managing secrets with SOPS in your homelab (codedge)](https://www.codedge.de/posts/managing-secrets-sops-homelab/) — homelab-scoped SOPS walkthrough
+### Authoritative — Hybrid Flux + Capsule pattern (HIGH confidence)
+- [`clastix/flux2-capsule-multi-tenancy` — proxy-routed tenant Flux (hybrid pattern)](https://github.com/clastix/flux2-capsule-multi-tenancy)
+- [Architecture doc for the hybrid pattern](https://github.com/clastix/flux2-capsule-multi-tenancy/blob/main/docs/ARCHITECTURE.md)
 
-**Anti-feature context (MEDIUM confidence):**
-- [stefanprodan/gitops-istio](https://github.com/stefanprodan/gitops-istio) — Flagger reference (why it's out of scope here)
-- [Renovate Flux docs](https://docs.renovatebot.com/modules/manager/flux/) — Flux-aware dependency bot (deferred)
-- [KiND vs K3d vs K0s (sanj.dev)](https://sanj.dev/post/kind-vs-k3d-vs-k0s) — runtime comparison supporting ADR-002
+### Real-world / case study (MEDIUM confidence)
+- [TomTom Engineering Blog — Kubernetes multi-tenancy with Capsule](https://engineering.tomtom.com/capsule-kubernetes-multitenancy/)
+- [pet2cattle — How to make Kubernetes multi-tenant with Capsule (kubeconfig + can-i tests)](https://pet2cattle.com/2025/02/kubernetes-multi-tenant-capsule)
+- [DZone — Implementing EKS Multi-Tenancy Using Capsule (Part 1)](https://dzone.com/articles/implementing-eks-multi-tenancy-using-capsule)
+
+### Webhook-down behavior (MEDIUM confidence — corroborates `failurePolicy: Fail` semantics)
+- [`projectcapsule/capsule#143` — Capsule pods occasionally become unresponsive](https://github.com/projectcapsule/capsule/issues/143)
+- [`gardener/gardener#2779` — Mutating webhook doesn't abide by failurePolicy of Ignore](https://github.com/gardener/gardener/issues/2779)
+- [`kubernetes/kubernetes#128162` — Pod admission can fail due to webhooks + context deadline exceeded](https://github.com/kubernetes/kubernetes/issues/128162)
+
+### Karyon project context
+- [`/home/rich/code/gsd/karyon/.planning/PROJECT.md` — v0.19 milestone scope, deferred items, ADR-004 hub-only Flux invariant](file:///home/rich/code/gsd/karyon/.planning/PROJECT.md)
+- [`/home/rich/code/gsd/karyon/.planning/MILESTONES.md` — v0.18 shipped accomplishments, baseline platform features](file:///home/rich/code/gsd/karyon/.planning/MILESTONES.md)
 
 ---
 
-*Feature research for: Local multi-cluster Kubernetes lab (k3d + Flux hub-spoke + WSL2 + optional GPU spoke)*
-*Researched: 2026-04-22*
+*Feature research for: Capsule multi-tenancy POC (v0.19) — single-spoke isolated POC reconciled hub-only via Flux.*
+*Researched: 2026-04-29*
+*Confidence: HIGH — Context7 authoritative + Flux + Capsule official docs + multiple production case studies. Two MEDIUM-confidence claims (webhook-down precise behavior under multi-replica capsule-controller HA, and capsule-proxy filter behavior on `nodes` when `nodes` webhook is disabled by default) flagged inline as POC-level falsifiers.*

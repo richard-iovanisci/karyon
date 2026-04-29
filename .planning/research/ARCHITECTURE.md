@@ -1,679 +1,577 @@
-# Architecture Research
+# Architecture Research — v0.19 Capsule Multi-Tenancy POC Integration
 
-**Domain:** Local hub-spoke Flux multi-cluster lab on k3d (WSL2 + Docker + shared Docker network), with one GPU-capable spoke.
-**Researched:** 2026-04-22
-**Confidence:** HIGH on Flux patterns, Dockerfile shape, ServiceAccount recipes; MEDIUM on cross-cluster Docker-DNS semantics (documented for single-cluster, inferred-but-widely-practiced for shared-network multi-cluster); MEDIUM on `task fix-dns` being the right 2026-era workaround (newer CoreDNS reload PRs exist but no clean single-flag replacement is shipped).
-
----
-
-## Standard Architecture
-
-### System Overview — the three clusters, one network
-
-```
-┌──────────────────────────── WSL2 Ubuntu 24.04 ─────────────────────────────┐
-│                                                                             │
-│   ┌────────────────────────── docker bridge: k8s-net ────────────────────┐  │
-│   │                                                                      │  │
-│   │   ┌───────────────────── k3d cluster: hub-flux ──────────────────┐   │  │
-│   │   │  containers:                                                 │   │  │
-│   │   │    k3d-hub-flux-server-0   (kubeapi :6443 → host :6443)      │   │  │
-│   │   │    k3d-hub-flux-serverlb                                     │   │  │
-│   │   │  workloads:                                                  │   │  │
-│   │   │    flux-system ns: source-controller, kustomize-controller,  │   │  │
-│   │   │                    helm-controller, notification-controller  │   │  │
-│   │   │    flux-system ns Secrets:                                   │   │  │
-│   │   │      - flux-system           (bootstrap PAT)                 │   │  │
-│   │   │      - spoke-ml-kubeconfig   (key: value.yaml)               │   │  │
-│   │   │      - spoke-apps-kubeconfig (key: value.yaml)               │   │  │
-│   │   └─────────────┬───────────────────────┬────────────────────────┘   │  │
-│   │                 │ spec.kubeConfig      │ spec.kubeConfig             │  │
-│   │                 │ secretRef            │ secretRef                   │  │
-│   │                 ▼                       ▼                            │  │
-│   │   ┌─── k3d cluster: spoke-ml ───┐  ┌── k3d cluster: spoke-apps ──┐   │  │
-│   │   │  k3d-spoke-ml-server-0      │  │  k3d-spoke-apps-server-0    │   │  │
-│   │   │  (kubeapi :6443 → :6444)    │  │  (kubeapi :6443 → :6445)    │   │  │
-│   │   │  image: custom k3s+CUDA     │  │  image: rancher/k3s         │   │  │
-│   │   │  runtime: nvidia            │  │                             │   │  │
-│   │   │  nvidia-device-plugin DS    │  │                             │   │  │
-│   │   │  SA: flux-reconciler        │  │  SA: flux-reconciler        │   │  │
-│   │   │  CRB: cluster-admin         │  │  CRB: cluster-admin         │   │  │
-│   │   │  GPU workloads:             │  │  App workloads:             │   │  │
-│   │   │    gpu-smoke-test pod       │  │    podinfo                  │   │  │
-│   │   └─────────────────────────────┘  └─────────────────────────────┘   │  │
-│   │                                                                      │  │
-│   │   Docker embedded DNS (127.0.0.11 inside every container):           │  │
-│   │     k3d-hub-flux-server-0    → 172.x.x.x                             │  │
-│   │     k3d-spoke-ml-server-0    → 172.x.x.x   ◄── hub pods resolve this │  │
-│   │     k3d-spoke-apps-server-0  → 172.x.x.x   ◄── hub pods resolve this │  │
-│   └──────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│   ▲ kubeconfig contexts on host point at 127.0.0.1:6443/6444/6445           │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
- ▲ Repo-side:  github.com/$OWNER/$REPO      ◄── flux-system GitRepository polls this
-   ├── clusters/hub-flux/
-   │   ├── flux-system/            (bootstrap-managed; gotk-components, gotk-sync, kustomization)
-   │   └── spokes/                 (hand-authored; Kustomizations targeting kubeconfig Secrets)
-   ├── clusters/spoke-ml/          (reconciled by hub Flux via spec.kubeConfig)
-   └── clusters/spoke-apps/        (reconciled by hub Flux via spec.kubeConfig)
-```
-
-### Component Responsibilities
-
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| `hub-flux` cluster | Runs Flux controllers, holds all spoke kubeconfig Secrets, is the only cluster pointed at Git | k3d + `rancher/k3s:v1.34.6-k3s1`, stock Flux v2 via `flux bootstrap github` |
-| `spoke-ml` cluster | Runs GPU workloads; receives manifests from hub via kube-apiserver | k3d + custom `k3s+CUDA` image, `--gpus all`, NVIDIA device plugin DaemonSet |
-| `spoke-apps` cluster | Runs general apps; receives manifests from hub via kube-apiserver | k3d + stock `rancher/k3s:v1.34.6-k3s1` |
-| Shared docker network `k8s-net` | Provides inter-cluster DNS (container-name) and IP connectivity | User-defined bridge network; Docker embedded DNS at 127.0.0.11 |
-| `flux-reconciler` SA on spokes | Cluster-admin identity hub uses when reconciling INTO spoke | `ServiceAccount` + `ClusterRoleBinding`(cluster-admin) + explicit `Secret` (type `kubernetes.io/service-account-token`) |
-| `<spoke>-kubeconfig` Secret on hub | Credentials bundle (server URL + CA + token) hub's kustomize-controller loads | `Secret` in `flux-system` ns, stringData key `value.yaml` |
-| Hub `Kustomization` (one per spoke) | Tells Flux "reconcile path X from the GitRepository INTO the cluster whose kubeconfig is in Secret Y" | `kustomize.toolkit.fluxcd.io/v1` with `spec.kubeConfig.secretRef` |
+**Domain:** Local Kubernetes lab (k3d + WSL2 + Flux GitOps) — adding a multi-tenancy POC spoke to a 3-cluster hub-and-spoke topology
+**Researched:** 2026-04-29
+**Confidence:** HIGH (existing topology fully verified by reading committed files; Capsule + Flux integration verified against `clastix/flux2-capsule-multi-tenancy` reference + `projectcapsule.dev` docs via Context7 + WebFetch)
 
 ---
 
-## Recommended Project Structure
+## Summary
 
-This is the layout that matches both the starter's directory intent AND the canonical [`fluxcd/flux2-hub-spoke-example`](https://github.com/fluxcd/flux2-hub-spoke-example) / [Stefan Prodan's multi-cluster architecture blog](https://stefanprodan.com/blog/2024/fluxcd-multi-cluster-architecture/).
+The Capsule POC integrates as **a fourth k3d cluster (`spoke-capsule`)** that the existing hub-only Flux control plane reconciles into via the same `spec.kubeConfig.secretRef` pattern already used for `spoke-apps` and `spoke-ml`. ADR-004 (hub-only Flux) is preserved verbatim — Flux controllers run only on `hub-flux` and reach `spoke-capsule` over `https://k3d-spoke-capsule-server-0:6443`.
 
-```
-karyon/
-├── clusters/                              ◄── bootstrap points at clusters/hub-flux
-│   ├── hub-flux/
-│   │   ├── flux-system/                   ◄── BOOTSTRAP-MANAGED — do not hand-edit
-│   │   │   ├── gotk-components.yaml       (generated by `flux bootstrap`)
-│   │   │   ├── gotk-sync.yaml             (generated: GitRepository + root Kustomization)
-│   │   │   └── kustomization.yaml         (generated: references the two above)
-│   │   └── spokes/                        ◄── HAND-AUTHORED
-│   │       ├── kustomization.yaml         (aggregates the two spoke Kustomizations)
-│   │       ├── spoke-ml.yaml              (Flux Kustomization w/ spec.kubeConfig → spoke-ml-kubeconfig)
-│   │       └── spoke-apps.yaml            (Flux Kustomization w/ spec.kubeConfig → spoke-apps-kubeconfig)
-│   ├── spoke-ml/                          ◄── reconciled INTO spoke-ml by hub Flux
-│   │   ├── infrastructure/
-│   │   │   ├── kustomization.yaml
-│   │   │   ├── runtime-class-nvidia.yaml  (RuntimeClass `nvidia`)
-│   │   │   └── nvidia-device-plugin.yaml  (DaemonSet)
-│   │   └── apps/
-│   │       └── gpu-smoke-test.yaml
-│   └── spoke-apps/                        ◄── reconciled INTO spoke-apps by hub Flux
-│       ├── infrastructure/
-│       └── apps/
-│           └── podinfo.yaml
-├── images/
-│   ├── Dockerfile.k3s-cuda                (FROM nvcr.io/nvidia/cuda:12.8+; k3s layered in)
-│   └── device-plugin-daemonset.yaml       (baked-in fallback; normally reconciled by Flux)
-├── scripts/
-│   ├── preflight.sh
-│   ├── create-clusters.sh
-│   ├── bootstrap-flux.sh
-│   ├── register-spokes-for-flux.sh
-│   ├── fix-coredns.sh                     (stop/start hub to refresh NodeHosts)
-│   └── health-check.sh
-├── Taskfile.yml
-├── .env.example
-└── docs/
-    └── adr/
-```
+Three things are genuinely new:
 
-### Structure Rationale
+1. **A second sentinel-guarded mount seam in the FLUX PATCH SURFACE.** The existing `# KARYON SPOKES MOUNT` lives in `clusters/hub-flux/flux-system/kustomization.yaml` (NOT `clusters/hub-flux/kustomization.yaml` as the prompt suggested — the bootstrap path is `clusters/hub-flux` and the patch surface that gets reconciled by Flux is the file inside `flux-system/`). v0.19 adds a parallel `# KARYON POC MOUNT` block in the same file that attaches `../pocs` so any future external POC drops in under `pocs/<poc-name>/` without touching the spokes mount.
 
-- **`clusters/hub-flux/flux-system/` is inviolate:** `flux bootstrap github --path=clusters/hub-flux` writes three files there and wires itself to reconcile from that path. Any hand-edit is reverted on the next reconcile. This is documented behavior, not speculation.
-- **`clusters/hub-flux/spokes/` is separate from `flux-system/`:** Keeping spoke-targeting Kustomizations OUT of `flux-system/` (a) survives future `flux bootstrap` re-runs and (b) makes it obvious what is bootstrap-generated vs. author-written. Because `clusters/hub-flux/` is the root reconcile path, the `spokes/` sibling directory is automatically picked up by the root Kustomization's recursive scan of that path.
-- **`clusters/spoke-ml/` and `clusters/spoke-apps/` hold NO Flux controller manifests:** those clusters don't run Flux. These directories hold only the workload manifests Flux will project INTO each spoke via `spec.kubeConfig`. Splitting `infrastructure/` vs `apps/` follows the [flux2-kustomize-helm-example](https://github.com/fluxcd/flux2-kustomize-helm-example) / Prodan multi-cluster pattern and enables dependency ordering (`dependsOn: [infrastructure]`).
-- **`images/` is build artifact source** — the CUDA Dockerfile and a copy-of-record of the device-plugin DaemonSet baked into the custom k3s image (per k3d's CUDA guide — the DaemonSet is installed at `/var/lib/rancher/k3s/server/manifests/` in the image so that it's present immediately on cluster creation, BEFORE Flux is reconciling into the spoke). Flux can then take over managing it idempotently.
+2. **Outer reconciliation = identical to spokes.** `clusters/hub-flux/pocs/capsule.yaml` is a hub-side `Kustomization` with `spec.kubeConfig.secretRef.name: spoke-capsule-kubeconfig` pointing at `pocs/capsule/` in git. This is mechanically the same shape as `clusters/hub-flux/spokes/spoke-apps.yaml` (the proven SPOKE-04..06 contract).
+
+3. **Inner reconciliation = hub-managed with tenant SA impersonation.** Two tenant Kustomizations live under `pocs/capsule/tenants/<tenant>/` on the hub. They use **both** `spec.kubeConfig.secretRef` (to reach `spoke-capsule` through `capsule-proxy`) **and** `spec.serviceAccountName` (to impersonate a tenant-owned ServiceAccount that Capsule has accepted as a Tenant Owner). This is the official `clastix/flux2-capsule-multi-tenancy` pattern; **option (c) from the question — selected over (a)** because (a) leaks cluster-admin to every tenant by reusing the spoke's `flux-reconciler` SA. Option (b) is rejected outright because it requires Flux on `spoke-capsule` and breaks ADR-004.
+
+Cluster registration is a deliberately **separate** path: `scripts/register-poc-cluster.sh` mirrors `register-spokes-for-flux.sh` but is invoked manually and is **never** chained into `task rebuild`. `task rebuild` continues to terminate at the v1 health gate untouched. `task health-check` gains an opt-in `KARYON_POC_CHECK=capsule` env-flag path that adds `spoke-capsule` to its existing assertions; without the flag the script is byte-for-byte the same v1 contract.
+
+The graduation ADR (suggested ADR-008 below) is the only path by which `spoke-capsule` can ever migrate into the default rebuild chain.
 
 ---
 
-## Architectural Patterns
+## Topology Diagram
 
-### Pattern 1: Hub-only Flux control plane with `spec.kubeConfig` reconciliation
+```
+                  ┌───────────────────────────────────────────────────────────┐
+                  │                Single WSL2 Ubuntu 24.04                    │
+                  │                Docker network: k8s-net                     │
+                  │                                                            │
+                  │  ┌────────────────────────────────────────────────────┐    │
+                  │  │  k3d-hub-flux  (port 6443) — FLUX HUB ONLY         │    │
+                  │  │  ┌─────────────────────────────────────────────┐   │    │
+                  │  │  │ flux-system: source / kustomize / helm /    │   │    │
+                  │  │  │ notification controllers                    │   │    │
+                  │  │  │                                             │   │    │
+                  │  │  │ Kustomizations (all hub-side):              │   │    │
+                  │  │  │   spoke-apps           → spec.kubeConfig    │───┼────┼─→ k3d-spoke-apps  (6445)
+                  │  │  │   spoke-ml             → spec.kubeConfig    │───┼────┼─→ k3d-spoke-ml    (6444, GPU)
+                  │  │  │                                             │   │    │
+                  │  │  │   poc-capsule          → spec.kubeConfig    │───┼──┐ │
+                  │  │  │   tenant-alpha   → kubeConfig+SA impersonate│───┼──┤ │
+                  │  │  │   tenant-bravo   → kubeConfig+SA impersonate│───┼──┤ │
+                  │  │  └─────────────────────────────────────────────┘   │  │ │
+                  │  │  Secrets (flux-system, NOT in git):                │  │ │
+                  │  │    spoke-apps-kubeconfig                           │  │ │
+                  │  │    spoke-ml-kubeconfig                             │  │ │
+                  │  │    spoke-capsule-kubeconfig    (direct apiserver)  │  │ │
+                  │  │    tenant-alpha-kubeconfig     (via capsule-proxy) │  │ │
+                  │  │    tenant-bravo-kubeconfig     (via capsule-proxy) │  │ │
+                  │  └────────────────────────────────────────────────────┘  │ │
+                  │                                                          │ │
+                  │  ┌────────────────────────────────────────────────────┐  │ │
+                  │  │  k3d-spoke-capsule  (port 6446) — POC SPOKE        │  │ │
+                  │  │  Persistent for the POC; NOT in `task rebuild`     │←─┼─┘ │
+                  │  │                                                    │  │   │
+                  │  │  capsule-system/                                   │  │   │
+                  │  │    capsule-controller-manager      (HelmRelease)   │  │   │
+                  │  │    capsule-proxy           :9001   (HelmRelease)   │  │   │
+                  │  │    CapsuleConfiguration "default"                  │  │   │
+                  │  │                                                    │  │   │
+                  │  │  Tenants (capsule.clastix.io/v1beta2):             │  │   │
+                  │  │    Tenant alpha  → owners[serviceaccount:tenant-   │  │   │
+                  │  │                     alpha:gitops-reconciler]       │  │   │
+                  │  │    Tenant bravo  → owners[serviceaccount:tenant-   │  │   │
+                  │  │                     bravo:gitops-reconciler]       │  │   │
+                  │  │                                                    │  │   │
+                  │  │  Tenant namespaces (created by Capsule webhooks    │  │   │
+                  │  │  when reconciler creates them):                    │  │   │
+                  │  │    alpha-app1                                      │  │   │
+                  │  │    bravo-app1                                      │  │   │
+                  │  │                                                    │  │   │
+                  │  │  flux-reconciler SA  (cluster-admin) — used for    │  │   │
+                  │  │  the OUTER reconcile (Capsule install + Tenants)   │  │   │
+                  │  └────────────────────────────────────────────────────┘  │   │
+                  │                                                            │
+                  │  ┌─────────────┐         ┌─────────────┐                   │
+                  │  │k3d-spoke-ml │         │k3d-spoke-   │                   │
+                  │  │  (6444)     │         │  apps (6445)│                   │
+                  │  │  +GPU       │         │             │                   │
+                  │  └─────────────┘         └─────────────┘                   │
+                  └───────────────────────────────────────────────────────────┘
 
-**What:** Only the hub cluster runs Flux controllers. Every workload destined for a spoke is described as a Flux `Kustomization` (or `HelmRelease`) on the hub with a `spec.kubeConfig.secretRef` pointing to a `Secret` that contains a kubeconfig for the spoke. The kustomize-controller on the hub applies the rendered manifests to the spoke's API server — the spoke never learns about Git.
+   Author's laptop (out-of-band, NOT through Flux):
+      tenant-alpha-kubeconfig.yaml  (→ capsule-proxy NodePort, exec via kubectl)
+      tenant-bravo-kubeconfig.yaml  (→ capsule-proxy NodePort, exec via kubectl)
+```
 
-**When to use:** Small (2–3) spoke count, trust in a central hub is acceptable, operational overhead of per-cluster Flux is undesirable.
+**Key invariants:**
 
-**Trade-offs:**
-- (+) One source of truth, one reconcile controller, one PAT to manage.
-- (+) Simpler teardown (`task destroy` doesn't need to de-register anything Git-side).
-- (−) Hub is SPoF for continuous delivery; spoke drift cannot be self-healed without hub reachability.
-- (−) No ArgoCD-style cluster generator — each spoke requires an explicit hand-authored Kustomization. Acceptable at 2–3 spokes (per ADR-003); painful at 10+.
+- **No Flux controllers on `spoke-capsule`.** ADR-004 unchanged.
+- **Two reconciliation hops:** OUTER = hub Flux → spoke-capsule apiserver directly (cluster-admin via `flux-reconciler` SA, identical shape to existing spokes). INNER = hub Flux → capsule-proxy → tenant-scoped impersonated SA (the new pattern).
+- **`spoke-capsule` is on `k8s-net`.** Same shared Docker bridge, same TLS-SAN trick (`k3d-spoke-capsule-server-0`), so the hub's `kustomize-controller` reaches it without DNS workarounds beyond the existing `task fix-dns`.
 
-**Minimal working hub `Kustomization` targeting a spoke** — this is the canonical shape per [Flux kustomize-controller v1 spec](https://github.com/fluxcd/kustomize-controller/blob/main/docs/spec/v1/kustomizations.md):
+---
+
+## KARYON POC MOUNT Shape
+
+The existing `# KARYON SPOKES MOUNT` sentinel lives in `clusters/hub-flux/flux-system/kustomization.yaml` (the FLUX PATCH SURFACE), inserted by `scripts/register-spokes-for-flux.sh` via `ensure_hub_spokes_mount()`. v0.19 adds a parallel sentinel in the same file. The new mount points at `../pocs`, a sibling directory of `../spokes`.
+
+**Final shape of `clusters/hub-flux/flux-system/kustomization.yaml` after v0.19:**
 
 ```yaml
-# clusters/hub-flux/spokes/spoke-ml.yaml
+# ──────────────────────────────────────────────────────────────────────────
+# FLUX PATCH SURFACE
+#
+# This file IS the supported patch surface for the hub-flux bootstrap.
+# Edits here SURVIVE re-bootstrap — add `patches:`, `configMapGenerator:`,
+# `images:` etc. here to customize the 4 core controllers.
+#
+# Peer files in this directory — gotk-components.yaml, gotk-sync.yaml —
+# are bootstrap-managed and WILL be overwritten by `flux bootstrap`.
+# Do NOT hand-edit them.
+#
+# See: docs/flux-hub-spoke.md
+# ──────────────────────────────────────────────────────────────────────────
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - gotk-components.yaml
+  - gotk-sync.yaml
+  # KARYON SPOKES MOUNT
+  - ../spokes
+  # KARYON POC MOUNT
+  - ../pocs
+```
+
+**Why TWO sentinels not one:**
+
+- `../spokes` is part of the v1 contract — every cluster created by `task create-clusters` registers through it. It must be present in the v1 default rebuild path.
+- `../pocs` exists only when at least one POC is registered. It is *opt-in*. Putting POC mounts under `../spokes` would force every `task rebuild` to validate POC kustomizations, defeating the whole isolation goal.
+- Two distinct sentinels also make it trivial to grep-audit which mount is being patched and which script owns it (`register-spokes-for-flux.sh` owns `# KARYON SPOKES MOUNT`; `register-poc-cluster.sh` owns `# KARYON POC MOUNT`).
+
+**Sentinel-insertion algorithm** (port the `ensure_hub_spokes_mount()` awk pattern verbatim with the new sentinel and resource string):
+
+```bash
+# scripts/register-poc-cluster.sh — abridged
+readonly POCS_SENTINEL="# KARYON POC MOUNT"
+readonly POCS_RESOURCE="../pocs"
+readonly HUB_KUST_FILE="${REPO_ROOT}/clusters/hub-flux/flux-system/kustomization.yaml"
+
+# Same idempotent yq-then-awk pass as ensure_hub_spokes_mount(), but with
+# POCS_SENTINEL/POCS_RESOURCE substituted. Re-runs are no-ops once the
+# block is present.
+```
+
+**`clusters/hub-flux/pocs/kustomization.yaml`** (created on first POC registration):
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - capsule.yaml
+```
+
+**`clusters/hub-flux/pocs/capsule.yaml`** (the OUTER hub-side Kustomization — mechanically identical to `clusters/hub-flux/spokes/spoke-apps.yaml`):
+
+```yaml
+# clusters/hub-flux/pocs/capsule.yaml
+# Flux v1 Kustomization — hub-flux's kustomize-controller reconciles
+# pocs/capsule/ into k3d-spoke-capsule via the spoke-capsule-kubeconfig
+# Secret (applied imperatively by scripts/register-poc-cluster.sh; never
+# committed because it contains a bearer token).
+#
+# This is the OUTER reconcile: cluster-admin SA on spoke-capsule, used to
+# install Capsule operator + capsule-proxy + Tenants + tenant SAs. The
+# INNER reconcile (per-tenant Kustomizations under pocs/capsule/tenants/)
+# uses spec.serviceAccountName impersonation instead.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: spoke-ml
+  name: poc-capsule
   namespace: flux-system
 spec:
-  interval: 10m
-  path: ./clusters/spoke-ml
+  interval: 5m
+  path: ./pocs/capsule
   prune: true
   sourceRef:
     kind: GitRepository
-    name: flux-system         # the bootstrap-created GitRepository
+    name: flux-system
   kubeConfig:
     secretRef:
-      name: spoke-ml-kubeconfig   # must live in the SAME namespace (flux-system)
-      # key: value.yaml           # OPTIONAL — defaults to 'value' or 'value.yaml'
-  # Optional — order workloads behind infra:
-  # dependsOn:
-  #   - name: spoke-ml-infrastructure
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
 ```
 
-**On decryption / SOPS for the kubeconfig Secret itself:** `spec.decryption` on a Kustomization decrypts manifests inside its `path` — it does NOT apply to the `kubeConfig.secretRef` Secret. That Secret must already exist, plaintext, in the cluster. Three options:
+---
 
-1. **Plain imperative creation** (starter's implied default, best for v1): script `register-spokes-for-flux.sh` calls `kubectl create secret generic spoke-ml-kubeconfig --from-file=value.yaml=...`. The token inside expires only if you rotate it; fine for a lab.
-2. **SOPS-encrypted Secret manifest committed to git**, decrypted by kustomize-controller when reconciling its parent Kustomization. Works, but bootstraps a chicken-and-egg (kustomize-controller can't target a spoke until the decrypted Secret exists on the hub). Defer to a later milestone.
-3. **External-Secrets Operator or sealed-secrets**. Out of scope for v1 per PROJECT.md's explicit Out-of-Scope list.
+## Repo Layout for `pocs/capsule/`
 
-→ **Recommendation: Option 1 for v1.** Store token in a `kubernetes.io/service-account-token` Secret on the spoke (never-expiring legacy token — see Pattern 3), build the kubeconfig imperatively, `kubectl apply` it to `flux-system` on the hub.
+The hub reconciles `./pocs/capsule/` into `spoke-capsule` (one directory under git, three logical layers):
 
-### Pattern 2: Spoke kubeconfig Secret format (definitive)
+```
+pocs/
+└── capsule/
+    ├── kustomization.yaml            # top-level — pulls in operator/ proxy/ config/ tenants/
+    │
+    ├── operator/                     # Capsule controller-manager (HelmRelease + repo)
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml            #   capsule-system
+    │   ├── repository.yaml           #   HelmRepository projectcapsule
+    │   └── release.yaml              #   HelmRelease capsule, chart capsule, version pinned
+    │
+    ├── proxy/                        # capsule-proxy (HelmRelease)
+    │   ├── kustomization.yaml
+    │   ├── repository.yaml           #   HelmRepository projectcapsule (or shared)
+    │   ├── release.yaml              #   HelmRelease capsule-proxy
+    │   │                             #     values: service.type=NodePort, nodePort=30443
+    │   │                             #     (POC: no ingress; reachable via k3d host port)
+    │   └── service-loadbalancer.yaml #   (optional) k3d port-publish for proxy
+    │
+    ├── config/                       # cluster-wide CapsuleConfiguration
+    │   ├── kustomization.yaml
+    │   └── capsuleconfiguration.yaml #   forceTenantPrefix=true, allowSAPromotion=true,
+    │                                 #   userGroups=[capsule.clastix.io,
+    │                                 #     system:serviceaccounts:tenant-alpha,
+    │                                 #     system:serviceaccounts:tenant-bravo]
+    │
+    └── tenants/
+        ├── kustomization.yaml        # pulls in alpha/ + bravo/
+        │
+        ├── alpha/
+        │   ├── kustomization.yaml
+        │   ├── namespace.yaml        #   tenant-alpha (the tenant's HOME ns; lives outside
+        │   │                         #   Capsule-managed namespaces; holds the SA + GitRepo)
+        │   ├── serviceaccount.yaml   #   gitops-reconciler SA in tenant-alpha
+        │   ├── rbac.yaml             #   self-impersonation Role + RoleBinding (per
+        │   │                         #   clastix/flux2-capsule-multi-tenancy reference)
+        │   ├── tenant.yaml           #   capsule.clastix.io/v1beta2 Tenant
+        │   │                         #     owners[ServiceAccount: tenant-alpha:
+        │   │                         #     gitops-reconciler]
+        │   ├── source.yaml           #   GitRepository in tenant-alpha namespace
+        │   │                         #   (POC: same monorepo; tenant-owned repos future)
+        │   └── kustomization-app.yaml#   Kustomization in tenant-alpha namespace, with
+        │                             #   spec.kubeConfig (proxy) + spec.serviceAccountName
+        │                             #   = gitops-reconciler. Path = ./pocs/capsule/
+        │                             #   tenants/alpha/workload/
+        │
+        ├── alpha-workload/           # tenant alpha's actual app payload
+        │   ├── kustomization.yaml
+        │   ├── namespace.yaml        #   alpha-app1 (Capsule webhook validates: must
+        │   │                         #   carry capsule.clastix.io/tenant=alpha label and
+        │   │                         #   match forceTenantPrefix)
+        │   └── deployment.yaml       #   trivial podinfo-equivalent
+        │
+        ├── bravo/                    # mirror of alpha/
+        │   └── (same files, tenant-bravo)
+        │
+        └── bravo-workload/
+            └── (same files, bravo-app1)
+```
 
-**What:** The Secret that `spec.kubeConfig.secretRef` points to must be of type `Opaque`, in the same namespace as the Kustomization (`flux-system`), with its kubeconfig payload under the key `value` OR `value.yaml`.
+**Layout rationale:**
 
-**Verified facts (HIGH confidence — from the official kustomize-controller v1 spec):**
+- **`operator/`, `proxy/`, `config/` are reconciled by the OUTER hub→spoke-capsule path** (cluster-admin SA), because Capsule install requires cluster-scoped CRD + webhook + ClusterRoleBinding ops that no tenant SA can do.
+- **`tenants/<name>/` (the tenant control objects) are reconciled by the OUTER path too**, because creating a `Tenant` CR + a tenant-home Namespace + the tenant's `gitops-reconciler` SA requires admin authority on the cluster.
+- **`tenants/<name>-workload/` (the app payload) is reconciled by the INNER tenant Kustomization** with `spec.serviceAccountName: gitops-reconciler` impersonation. This is where the multi-tenancy contract is actually exercised — the workload Kustomization can ONLY succeed if the tenant's Capsule-enforced RBAC allows it.
+- **Tenant kubeconfigs for HUMAN owners are out-of-band entirely** (see Public-repo / secrets section). They are not produced by Flux; they are produced by `scripts/issue-tenant-kubeconfig.sh capsule alpha` and printed to stdout / written outside the repo.
 
-- **Default key name:** "the KubeConfig bytes will be loaded from the `.secretRef.key` key (**default: `value` or `value.yaml`**)". Either works out-of-the-box. The starter commits to `value.yaml` — that's valid and is the form shown in the Flux docs' own example. **Keep `value.yaml`.**
-- **Server URL in the kubeconfig:** must point at an address reachable from kustomize-controller's Pod network namespace. For our topology that means `https://k3d-<spoke>-server-0:6443` — the in-network Docker DNS name, NOT the host-published `127.0.0.1:6444/6445`. The host-side mappings are only reachable from the WSL host; they are unreachable from inside a hub pod.
-- **CA-data handling:** `certificate-authority-data` is a base64-encoded PEM of the spoke's server CA cert. It must be valid for the `server:` address, so **the spoke must be created with `--tls-san k3d-<name>-server-0`** (the starter already encodes this) so that its kube-apiserver's serving cert includes that hostname as a SAN. Without this SAN, TLS verification from the hub will fail.
-- **Self-contained requirement:** "The KubeConfig should be self-contained and not rely on binaries, the environment, or credential files from the controller Pod." No `exec` auth plugins, no `cmd-path`. Static token only.
-
-**Minimal Secret YAML** (the kubeconfig is literally embedded as `stringData.value.yaml`):
+**Concrete `tenants/alpha/kustomization-app.yaml`** (the INNER reconciliation — option (c)):
 
 ```yaml
-apiVersion: v1
-kind: Secret
+# pocs/capsule/tenants/alpha/kustomization-app.yaml
+# INNER reconciliation: hub-flux's kustomize-controller reconciles
+# pocs/capsule/tenants/alpha-workload/ INTO spoke-capsule, but routed through
+# capsule-proxy and impersonating the tenant-alpha gitops-reconciler SA.
+# This is the official clastix/flux2-capsule-multi-tenancy pattern.
+#
+# spec.kubeConfig points at a Secret that contains a kubeconfig for
+# https://capsule-proxy.capsule-system.svc:9001 (NOT the apiserver direct),
+# bearer token = tenant-alpha:gitops-reconciler SA token.
+#
+# spec.serviceAccountName is the SAME SA — Flux impersonates the tenant SA
+# while authenticated AS that same SA, the self-impersonation pattern that
+# prevents privilege escalation back into hub-flux's reconciler identity.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
 metadata:
-  name: spoke-ml-kubeconfig
-  namespace: flux-system
-type: Opaque
-stringData:
-  value.yaml: |
-    apiVersion: v1
-    kind: Config
-    current-context: spoke-ml
-    clusters:
-      - name: spoke-ml
-        cluster:
-          server: https://k3d-spoke-ml-server-0:6443
-          certificate-authority-data: <base64 spoke CA>
-    users:
-      - name: flux-reconciler
-        user:
-          token: <service-account-token>
-    contexts:
-      - name: spoke-ml
-        context:
-          cluster: spoke-ml
-          user: flux-reconciler
+  name: tenant-alpha-app
+  namespace: tenant-alpha            # NOTE: in tenant-home ns, NOT flux-system
+spec:
+  interval: 5m
+  path: ./pocs/capsule/tenants/alpha-workload
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: tenant-alpha               # also in tenant-alpha ns
+  serviceAccountName: gitops-reconciler  # ← KEY FIELD: impersonation
+  kubeConfig:                            # ← KEY FIELD: proxy not apiserver
+    secretRef:
+      name: tenant-alpha-proxy-kubeconfig
+      key: value.yaml
 ```
 
-### Pattern 3: Remote cluster ServiceAccount + long-lived token
+**Why the INNER Kustomization itself lives in `tenant-alpha` namespace (not `flux-system`):** Flux's `spec.serviceAccountName` cannot cross-namespace reference. The Kustomization, the SA, the GitRepository, and the impersonation target ALL must live in the tenant's home namespace. This is the documented `flux2-multi-tenancy` lockdown contract and is exactly what makes tenants unable to escalate.
 
-**What:** On each spoke, create a `ServiceAccount` (namespace `kube-system`), bind it cluster-admin, and — because Kubernetes 1.24+ no longer auto-generates Secrets for ServiceAccounts — explicitly create a `Secret` of type `kubernetes.io/service-account-token` annotated with the SA's name. The token controller populates that Secret with a non-expiring token the hub can embed in the kubeconfig.
-
-**Why not TokenRequest (`kubectl create token`) for this lab:**
-
-| Criterion | Secret-backed legacy token | TokenRequest API (`kubectl create token`) |
-|---|---|---|
-| Lifetime | Indefinite (until Secret deleted) | Bound; default 1h, max typically 48h–1y depending on apiserver flags |
-| Rotation burden | None | Must re-issue + re-write hub Secret before expiry |
-| k3s v1.34 availability | **Fully supported** (feature stable GA since 1.27) | Supported |
-| Lab rebuild compatibility | `task rebuild` runs once; token lives forever with cluster | Expires during idle periods, breaks next reconcile without re-run |
-
-→ **Recommendation (HIGH confidence):** For this lab, use the legacy Secret-backed token. It is explicitly still supported by the official Kubernetes service-accounts-admin docs (the deprecation applied only to *auto-generation*, not to the mechanism itself), works cleanly on k3s v1.34.6, and removes token-expiry as a lab failure mode. When v2 needs rotation or tighter security posture, swap to TokenRequest or external-secrets.
-
-**Canonical recipe** (run once per spoke, context-switched to the spoke):
-
-```yaml
-# applied to spoke-ml (and spoke-apps)
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: flux-reconciler
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: flux-reconciler
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: flux-reconciler
-    namespace: kube-system
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: flux-reconciler-token
-  namespace: kube-system
-  annotations:
-    kubernetes.io/service-account.name: flux-reconciler
-type: kubernetes.io/service-account-token
-# The token controller populates data.token and data.ca.crt on its own.
-```
-
-Then on the hub, extract and assemble:
-
-```bash
-SPOKE=spoke-ml
-SPOKE_SERVER="https://k3d-${SPOKE}-server-0:6443"
-
-# CA is already in the SA secret — no round-trip through kubeconfig needed
-SPOKE_CA=$(kubectl --context k3d-${SPOKE} -n kube-system \
-  get secret flux-reconciler-token -o jsonpath='{.data.ca\.crt}')
-SPOKE_TOKEN=$(kubectl --context k3d-${SPOKE} -n kube-system \
-  get secret flux-reconciler-token -o jsonpath='{.data.token}' | base64 -d)
-
-kubectl --context k3d-hub-flux -n flux-system create secret generic \
-  ${SPOKE}-kubeconfig \
-  --from-file=value.yaml=<(cat <<EOF
-apiVersion: v1
-kind: Config
-current-context: ${SPOKE}
-clusters:
-  - name: ${SPOKE}
-    cluster:
-      server: ${SPOKE_SERVER}
-      certificate-authority-data: ${SPOKE_CA}
-users:
-  - name: flux-reconciler
-    user:
-      token: ${SPOKE_TOKEN}
-contexts:
-  - name: ${SPOKE}
-    context:
-      cluster: ${SPOKE}
-      user: flux-reconciler
-EOF
-) --dry-run=client -o yaml | kubectl --context k3d-hub-flux apply -f -
-```
-
-### Pattern 4: Custom `k3s + CUDA` image for GPU spoke
-
-**What:** k3s's official image (`rancher/k3s`) is Alpine-based; NVIDIA's container toolkit is not supported on Alpine. The canonical pattern — straight from [k3d's own CUDA guide](https://k3d.io/v5.8.3/usage/advanced/cuda/) — is a **two-stage build whose final base is `nvcr.io/nvidia/cuda:<tag>` (Ubuntu)** with the k3s binary + rootfs copied in from `rancher/k3s` as the build stage. This inverts the "obvious" direction but is required because CUDA userspace + nvidia-container-toolkit need glibc.
-
-**Dockerfile skeleton** (pin CUDA_TAG to 12.8+ for RTX 5090 sm_120):
-
-```dockerfile
-ARG K3S_TAG="v1.34.6-k3s1"
-ARG CUDA_TAG="12.8.0-base-ubuntu22.04"
-
-FROM rancher/k3s:$K3S_TAG as k3s
-FROM nvcr.io/nvidia/cuda:$CUDA_TAG
-
-RUN apt-get update && apt-get install -y curl \
- && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
-      gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
- && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
-      > /etc/apt/sources.list.d/nvidia-container-toolkit.list \
- && apt-get update && apt-get install -y nvidia-container-toolkit \
- && nvidia-ctk runtime configure --runtime=containerd
-
-COPY --from=k3s / / --exclude=/bin
-COPY --from=k3s /bin /bin
-
-# Baked-in fallback for device plugin — ensures GPU scheduling works even before Flux reconciles
-COPY device-plugin-daemonset.yaml /var/lib/rancher/k3s/server/manifests/nvidia-device-plugin-daemonset.yaml
-
-VOLUME /var/lib/kubelet
-VOLUME /var/lib/rancher/k3s
-VOLUME /var/lib/cni
-VOLUME /var/log
-ENV PATH="$PATH:/bin/aux"
-ENTRYPOINT ["/bin/k3s"]
-CMD ["agent"]
-```
-
-**`RuntimeClass nvidia` is mandatory.** Pods that need GPU MUST include `runtimeClassName: nvidia` in their spec, or the nvidia-container-runtime hook won't fire and `nvidia-smi` will fail inside the container. This applies to both the device plugin DaemonSet and the GPU smoke-test pod.
-
-### Pattern 5: NVIDIA device plugin placement — "baked-in + Flux-managed"
-
-**What:** Two complementary mechanisms, not a choice:
-1. **Baked into the custom image** at `/var/lib/rancher/k3s/server/manifests/nvidia-device-plugin-daemonset.yaml`. k3s's built-in manifest-auto-deploy watcher applies anything in that directory at cluster start. This guarantees GPU scheduling works from the moment `k3d cluster create` completes — before hub Flux has even started reconciling.
-2. **Reconciled by Flux** from `clusters/spoke-ml/infrastructure/nvidia-device-plugin.yaml`. Once hub Flux comes online, the DaemonSet becomes GitOps-managed and can be updated via PR.
-
-Because k3s's auto-deploy-manifests and Flux-managed resources use the same API objects, the second pass simply adopts/no-ops the first. The baked-in copy is insurance against "cluster up but Flux not ready yet."
-
-→ **Recommendation:** Do both. Author the DaemonSet + RuntimeClass under `clusters/spoke-ml/infrastructure/` (for GitOps management) AND copy that exact same file into `images/device-plugin-daemonset.yaml` for the Dockerfile's `COPY` line (for cold-start).
-
-**Device plugin image:** latest stable at research time is `nvcr.io/nvidia/k8s-device-plugin:v0.17.x` / `v0.18.0` — pin to a specific v0.17.x or v0.18.x tag, not `latest`.
-
-### Pattern 6: Docker embedded DNS across `k8s-net` — the load-bearing assumption
-
-**What:** Docker Engine runs an embedded DNS server at `127.0.0.11` inside every container attached to a user-defined bridge network. That DNS server resolves **every other container's `--name` on the same user-defined network**, regardless of which "parent" (k3d cluster) created the container.
-
-**Evidence (verified):**
-- [Docker Engine bridge-driver docs](https://docs.docker.com/engine/network/drivers/bridge/): "User-defined bridges provide automatic DNS resolution between containers."
-- [k3d v5.8.3 networking design](https://k3d.io/v5.8.3/design/networking/): "k3d injects entries to the NodeHosts to enable Pods in the cluster to resolve the names of other containers in the same docker network (cluster network)."
-
-That second sentence is the hinge: k3d's CoreDNS NodeHosts plugin is populated from Docker's view of the network. When `hub-flux`, `spoke-ml`, and `spoke-apps` all share `--network k8s-net`, every container sees every other container's name resolvable.
-
-**Verified end-to-end chain for the starter's topology:**
-1. Docker Engine embedded DNS resolves `k3d-spoke-ml-server-0` for the hub cluster's containers (including kustomize-controller's pod, because pod traffic egresses through the node's network namespace when destination is outside the pod CIDR).
-2. k3d's CoreDNS NodeHosts on the hub contains an entry for every `k3d-*` container on `k8s-net` — so even if pod DNS doesn't reach Docker's 127.0.0.11 directly, it resolves via CoreDNS.
-3. TLS verifies because spokes were created with `--tls-san k3d-<name>-server-0`.
-4. Auth succeeds because the embedded ServiceAccount token has cluster-admin via the CRB.
-
-**Known failure mode — CoreDNS NodeHosts goes stale:** [k3d#1009](https://github.com/k3d-io/k3d/issues/1009) and [k3d#1112](https://github.com/k3d-io/k3d/issues/1112) document that the NodeHosts entries in CoreDNS ConfigMap can lose sync after Docker daemon restarts, WSL resume, or cluster-node topology changes. Symptom: hub Flux Kustomizations start failing with `no such host` for `k3d-spoke-ml-server-0`.
-
-**→ The starter's `task fix-dns` (`k3d cluster stop hub-flux && k3d cluster start hub-flux`) IS the correct 2026-era workaround.** There is no shipped single-flag alternative. `kubectl rollout restart deployment/coredns -n kube-system` is a lighter option that works in some variants of the bug but NOT all (because the ConfigMap itself has gone stale, not just CoreDNS's cache). Stop/start triggers k3d's per-cluster entrypoint hooks that regenerate NodeHosts from live Docker state — that's the reliable path.
-
-→ **Confidence: MEDIUM.** The `K3D_FIX_DNS` env var is a different, overlapping fix targeting WSL2 systemd-resolved quirks ([k3d#1515](https://github.com/k3d-io/k3d/issues/1515) shows it actively breaks external DNS when enabled); do NOT set it. The stop/start pattern is the least-bad known workaround.
+The OUTER Kustomization (`pocs/capsule/kustomization.yaml` reconciled by hub-flux) does the work of *creating* the tenant-alpha namespace + the SA + the GitRepository + the inner Kustomization itself. Once the inner Kustomization exists, hub-flux's `kustomize-controller` picks it up and starts the impersonated reconcile loop independently.
 
 ---
 
-## Data Flow
+## Reconciliation Pattern Decision
 
-### Flow A — Flux bootstrap (one-time on fresh hub)
+**Selected: Option (c) — Hub-managed, tenant-impersonated**
 
-```
-Developer runs `task bootstrap-flux`
-    │
-    │ reads GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN from .env
-    ▼
-flux bootstrap github --owner=... --repository=... --path=clusters/hub-flux
-    │
-    ├── (1) Creates/uses GitHub repo
-    ├── (2) Generates clusters/hub-flux/flux-system/{gotk-components,gotk-sync,kustomization}.yaml, commits, pushes
-    ├── (3) Applies gotk-components.yaml to hub cluster → flux-system namespace + controllers + CRDs
-    ├── (4) Creates Secret flux-system/flux-system (contains PAT for Git access)
-    └── (5) Applies gotk-sync.yaml:
-              GitRepository/flux-system  → watches the branch
-              Kustomization/flux-system  → path=./clusters/hub-flux, prune=true
-    │
-    ▼
-Flux now self-managing. From here, every change in clusters/hub-flux/** is reconciled back
-in. Including clusters/hub-flux/spokes/*.yaml — the hand-authored spoke Kustomizations.
-```
+The question listed three options. Here is the explicit evaluation:
 
-### Flow B — Hub → spoke reconciliation (steady state)
+| Option | Verdict | Reason |
+|--------|---------|--------|
+| (a) Hub-managed with tenant-scoped impersonation SA, but the SA itself reused from `flux-reconciler` | **REJECTED** | The existing `flux-reconciler` SA on every spoke is `cluster-admin`. Reusing it for tenants means tenants can `kubectl create clusterrolebinding ...`, defeating Capsule. |
+| (b) Tenant-self-served with Flux on `spoke-capsule` | **REJECTED** | Direct ADR-004 violation. Out of scope. |
+| (c) Hub-managed, tenant-impersonated via per-tenant SA + capsule-proxy | **SELECTED** | Matches the official `clastix/flux2-capsule-multi-tenancy` reference; preserves ADR-004; exercises the whole point of the POC (does Capsule actually contain a misbehaving tenant Kustomization?). |
 
-```
-Git commit pushed to main
-    │
-    ▼
-source-controller on hub polls GitRepository (interval 1m by default)
-    │ fetches tarball, stores in internal storage
-    ▼
-kustomize-controller on hub reconciles Kustomization/spoke-ml
-    │
-    │ (a) reads Kustomization/spoke-ml  ← spec.kubeConfig.secretRef.name = spoke-ml-kubeconfig
-    │ (b) reads Secret flux-system/spoke-ml-kubeconfig → extracts data["value.yaml"] = kubeconfig bytes
-    │ (c) builds a client-go rest.Config from those bytes
-    │     server: https://k3d-spoke-ml-server-0:6443
-    │     ca:     (spoke CA)
-    │     token:  (flux-reconciler SA token)
-    │ (d) renders ./clusters/spoke-ml/ with kustomize → K8s manifests
-    │ (e) applies manifests VIA the spoke's apiserver
-    ▼
-Pod on hub (kustomize-controller) → k3d-spoke-ml-server-0:6443 over k8s-net bridge
-    │ [docker embedded DNS resolves the hostname]
-    │ [TLS validates via --tls-san in spoke CA]
-    │ [auth via bearer token → cluster-admin]
-    ▼
-Spoke apiserver applies the manifests. nvidia-device-plugin DaemonSet starts.
-GPU smoke-test pod schedules with runtimeClassName: nvidia.
-```
+**Justification for (c):**
 
-### Flow C — `task health-check` exact sequence
+1. **Hub-only Flux is the explicit ADR-004 invariant.** Option (b) is dismissed without further analysis.
 
-```
-1. All clusters exist:           k3d cluster list --output json | jq len == 3
-2. All nodes Ready:              for c in hub-flux spoke-ml spoke-apps:
-                                   kubectl --context k3d-$c get nodes -o json |
-                                     jq '.items[].status.conditions[]|select(.type=="Ready").status == "True"'
-3. Flux controllers Ready:       kubectl --context k3d-hub-flux -n flux-system \
-                                   wait --for=condition=Ready pod -l app.kubernetes.io/part-of=flux --timeout=2m
-                                 flux --context k3d-hub-flux check
-4. Flux Kustomizations Ready:    flux --context k3d-hub-flux get kustomizations -A
-                                 # Expect: flux-system, spoke-ml, spoke-apps all "True"
-5. Cross-cluster DNS resolves:   kubectl --context k3d-hub-flux -n flux-system exec \
-                                   deploy/kustomize-controller -- \
-                                   nslookup k3d-spoke-ml-server-0
-                                 # Expect: answer in k8s-net subnet, NOT NXDOMAIN
-6. Spokes actually reconciled:   kubectl --context k3d-spoke-ml get ns gpu-smoke
-                                 kubectl --context k3d-spoke-apps get deploy -n podinfo podinfo
-7. GPU present on spoke-ml:      kubectl --context k3d-spoke-ml get nodes -o json |
-                                   jq '.items[].status.capacity."nvidia.com/gpu"' == "1"
-8. Smoke-test proves GPU:        kubectl --context k3d-spoke-ml -n gpu-smoke logs job/nvidia-smi |
-                                   grep -q "RTX 5090"
-```
+2. **Option (a) is what's *easy* and what's *wrong*.** Reusing the existing `flux-reconciler` SA from the spoke registration script means every tenant Kustomization runs as cluster-admin on `spoke-capsule`. Capsule's webhooks would still validate Tenant CRs at admission, but the tenant's *workload* Kustomization (paths, namespaces, etc.) would have full cluster privilege. The whole POC question — "does Capsule actually isolate tenants?" — is unanswerable.
+
+3. **Option (c) exercises the real failure mode.** The tenant Kustomization is constrained at three independent layers:
+   - **Network/auth layer:** The kubeConfig points at `capsule-proxy:9001`, which (a) injects label-selector filtering on cluster-scoped LIST/GET calls so the tenant cannot enumerate other tenants' namespaces, and (b) terminates connections that don't carry a tenant-owned bearer token.
+   - **Identity layer:** `spec.serviceAccountName: gitops-reconciler` makes Flux's apiserver calls execute AS that SA. Capsule's `CapsuleConfiguration.spec.userGroups` includes `system:serviceaccounts:tenant-alpha`, so the SA is recognized as a tenant member.
+   - **Authorization layer:** Capsule's mutating + validating webhooks enforce tenant boundaries (forceTenantPrefix=true, namespace cap, allowed image registries, etc.). Anything the tenant Kustomization tries that violates the Tenant CR is rejected at webhook time.
+
+4. **Multiple negative falsifiers fall out of (c) for free.** The v0.18 SPOKE-04 P18 silent-misroute pattern translates: a tenant Kustomization that *omits* `spec.serviceAccountName` would fall back to the default unprivileged SA Flux is configured with (`--default-service-account=gitops-reconciler` controller flag — see Build Order Phase 2), and Capsule's userGroups check would deny the request. A tenant Kustomization that points at the apiserver directly (bypassing capsule-proxy) cannot list cluster-scoped resources and visibly breaks. Both become first-class bats tests.
+
+5. **Authoritative reference confirms the shape.** [`clastix/flux2-capsule-multi-tenancy/docs/ARCHITECTURE.md`](https://github.com/clastix/flux2-capsule-multi-tenancy/blob/main/docs/ARCHITECTURE.md) shows literally this pattern: GitRepository in tenant ns, Kustomization in tenant ns, `spec.kubeConfig` → `gitops-reconciler-kubeconfig` Secret pointing at capsule-proxy, `spec.serviceAccountName: gitops-reconciler`, and the tenant SA registered as a Tenant Owner with `kind: ServiceAccount`.
+
+**One known sharp edge with (c):** Flux's `kustomize-controller` on `hub-flux` needs a working route to `https://capsule-proxy.capsule-system.svc:9001` from the *hub's* perspective. The capsule-proxy Service lives on `spoke-capsule`. Two possibilities, in order of POC preference:
+
+- **(c1) NodePort + k3d host-port-publish.** capsule-proxy's Service is `type: NodePort`. k3d publishes that NodePort from `k3d-spoke-capsule-server-0` on `k8s-net`. The tenant kubeconfig's `server:` is `https://k3d-spoke-capsule-server-0:<nodePort>`. Same cross-cluster trick as the apiserver itself — known-working on `k8s-net`. **This is the recommended POC path.**
+
+- **(c2) capsule-proxy on hub-flux instead.** Possible per Capsule docs, but (i) the milestone Out-of-Scope explicitly defers "Capsule installed on hub-flux itself", and (ii) it splits the POC across two clusters. Reject for v0.19.
 
 ---
 
-## Build Order (explicit dependencies)
+## Tenant Onboarding Sequence
 
-This ordering is dependency-correct. Each step's prerequisites are named.
+End-to-end "PR opens" → "tenant owner can `kubectl get pods`" — explicitly partitioned by who/what triggers each step.
+
+| # | Event | Driver | Where |
+|---|-------|--------|-------|
+| 1 | Operator opens a PR adding `pocs/capsule/tenants/alpha/` (Tenant CR, SA, GitRepository, inner Kustomization) and `pocs/capsule/tenants/alpha-workload/` (initial app skeleton) | **Manual** (human authoring) | Local checkout, pushed to remote |
+| 2 | PR merges to main | **Manual** (human review) | GitHub |
+| 3 | hub-flux's `source-controller` polls the `flux-system` GitRepository (5m interval) and fetches the new commit | **Git-driven (Flux)** | hub-flux/flux-system |
+| 4 | hub-flux's `kustomize-controller` reconciles the `flux-system` Kustomization, pulls in `clusters/hub-flux/pocs` via the KARYON POC MOUNT, and reconciles the `poc-capsule` Kustomization | **Git-driven (Flux)** | hub-flux/flux-system |
+| 5 | The `poc-capsule` Kustomization (OUTER, with `spec.kubeConfig=spoke-capsule-kubeconfig`) reconciles `pocs/capsule/` against `spoke-capsule`, applying Capsule operator (already present, idempotent), capsule-proxy (already present), `CapsuleConfiguration` (already present), AND the new `tenant-alpha` namespace + SA + RBAC + Tenant CR + tenant GitRepository + inner Kustomization | **Git-driven (Flux)** | hub-flux → spoke-capsule (cluster-admin) |
+| 6 | Capsule's controller observes the new `Tenant alpha` and registers the SA as a Tenant Owner | **In-cluster (Capsule controller)** | spoke-capsule |
+| 7 | hub-flux's `kustomize-controller` discovers the new `Kustomization tenant-alpha-app` (in `tenant-alpha` ns on spoke-capsule) and starts reconciling it. spec.kubeConfig routes through capsule-proxy NodePort; spec.serviceAccountName impersonates `tenant-alpha:gitops-reconciler` | **Git-driven (Flux, INNER reconcile)** | hub-flux → capsule-proxy → spoke-capsule (impersonated) |
+| 8 | The INNER reconcile applies `pocs/capsule/tenants/alpha-workload/` — creates `alpha-app1` namespace (validated by Capsule webhook: must carry tenant label, must satisfy forceTenantPrefix), then the workload deployment | **Git-driven (Flux)** | hub-flux → spoke-capsule (impersonated as tenant) |
+| 9 | Tenant workload pods become Ready | **In-cluster (Kubernetes scheduler)** | spoke-capsule |
+| 10 | Operator runs `bash scripts/issue-tenant-kubeconfig.sh capsule alpha > ~/.kube/karyon-tenant-alpha.yaml`. The script reads the `gitops-reconciler` SA token Secret from `tenant-alpha` ns on spoke-capsule, reads the capsule-proxy CA cert, builds a kubeconfig with `server: https://k3d-spoke-capsule-server-0:<proxy-nodePort>` and the bearer token | **Manual + Out-of-band** | Author's laptop |
+| 11 | Operator hands the kubeconfig file to the tenant owner via `.env`-style out-of-band channel (NOT via git) | **Manual** | Out-of-band |
+| 12 | Tenant owner runs `KUBECONFIG=~/.kube/karyon-tenant-alpha.yaml kubectl get pods -n alpha-app1` — request hits capsule-proxy:9001, capsule-proxy verifies the bearer token, applies labelSelector filtering, forwards to spoke-capsule apiserver, and returns only pods the tenant is authorized to see | **Live request (tenant)** | Tenant laptop / shell |
+
+**Partition summary:**
+
+- **Git-driven (Flux reconciles): 3, 4, 5, 7, 8.** Once the PR is merged, these happen without operator intervention.
+- **In-cluster (Capsule + Kubernetes): 6, 9.** Background work; observable through `kubectl describe tenant alpha` and `kubectl get pods`.
+- **Out-of-band (kubeconfig handoff): 10, 11.** The operator handing a tenant kubeconfig is deliberately *not* a Flux operation — it would require committing a bearer token to git or using an external secrets system, both deferred per milestone Out-of-Scope.
+- **Manual (human actions): 1, 2, 10, 11, 12.** Authoring, review, kubeconfig issuance, kubeconfig delivery, tenant usage.
+
+---
+
+## Build Order
+
+Phase-granular ordering with explicit "what becomes possible after" for each phase. This feeds directly into the v0.19 roadmap.
+
+### Phase 1 — POC mount seam + spoke-capsule cluster + registration
+
+**Lands:**
+- `# KARYON POC MOUNT` sentinel + `../pocs` resource added to `clusters/hub-flux/flux-system/kustomization.yaml`
+- Empty `clusters/hub-flux/pocs/kustomization.yaml` (just `resources: []`)
+- `scripts/register-poc-cluster.sh` (sibling of `register-spokes-for-flux.sh`):
+  - Creates `k3d-spoke-capsule` on port 6446, attached to `k8s-net`, with the same TLS-SAN nodefilter
+  - Provisions `flux-reconciler` SA + cluster-admin CRB + legacy SA-token Secret on `spoke-capsule`
+  - Builds the kubeconfig payload, applies it as Secret `flux-system/spoke-capsule-kubeconfig` on `hub-flux`
+  - Writes `clusters/hub-flux/pocs/capsule.yaml` (OUTER Kustomization stub, path: `./pocs/capsule`)
+  - Patches `pocs/kustomization.yaml` to reference `capsule.yaml`
+  - Verifies the credential layer end-to-end (P18 silent-misroute proof: spoke-capsule node name appears, hub-flux node name does NOT)
+- `scripts/destroy-poc-cluster.sh` (graceful teardown — must NOT delete the karyon CUDA image cache)
+- bats tests: `tests/bats/poc-cluster-01-static.bats` (sentinel present, file shapes correct), `tests/bats/poc-cluster-02-live.bats` (P18 falsifier per spoke-capsule)
+
+**Quality gate:** Running `bash scripts/register-poc-cluster.sh` is idempotent. Running `task rebuild` afterward leaves `spoke-capsule` and `pocs/capsule.yaml` UNTOUCHED — the rebuild chain destroys hub-flux + spoke-apps + spoke-ml only. (Verifiable: pre-rebuild `k3d cluster list | grep spoke-capsule` and post-rebuild same command must both succeed with the same container ID.)
+
+**After this phase becomes possible:**
+- The hub can reconcile arbitrary YAML at `pocs/capsule/` into `spoke-capsule`. The seam is open; the rest of the POC is "what do you put in `pocs/capsule/`?".
+- `task health-check` can be flagged with `KARYON_POC_CHECK=capsule` to assert spoke-capsule is healthy without affecting default health.
+
+### Phase 2 — Capsule operator + capsule-proxy + multi-tenancy lockdown
+
+**Lands:**
+- `pocs/capsule/operator/` HelmRelease for `projectcapsule/capsule` chart, pinned version
+- `pocs/capsule/proxy/` HelmRelease for `capsule-proxy` chart, with `service.type: NodePort` and `nodePort: 30443` so k3d publishes it on `k3d-spoke-capsule-server-0:30443`
+- `pocs/capsule/config/capsuleconfiguration.yaml` (`forceTenantPrefix: true`, `allowServiceAccountPromotion: true`, `userGroups` will be appended in Phase 3 per tenant)
+- **Hub-flux multi-tenancy lockdown patch** in `clusters/hub-flux/flux-system/kustomization.yaml`:
+  ```yaml
+  patches:
+  - patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --no-cross-namespace-refs=true
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --default-service-account=default
+    target:
+      kind: Deployment
+      name: "(kustomize-controller|helm-controller)"
+  ```
+  This is the [Flux multi-tenancy documented lockdown pattern](https://fluxcd.io/flux/installation/configuration/multitenancy/). **Important:** this patch affects ALL of hub-flux, not just the POC. The default service account name is set to `default` so v1 spoke Kustomizations (which DO have `spec.kubeConfig` and execute against the spoke's cluster-admin SA) are unaffected; tenant Kustomizations that omit `spec.serviceAccountName` would fall back to `default` (no permissions) and visibly fail.
+- bats tests: capsule-system pods Ready, capsule-proxy NodePort reachable from a temp pod on hub-flux (mirrors the existing `openssl_https_request` helper).
+
+**After this phase becomes possible:**
+- Tenants are creatable. Capsule's webhooks are live. Multi-tenancy lockdown is on.
+- ADR-004 is preserved (still no Flux on spoke-capsule).
+
+### Phase 3 — Two tenants with isolated namespaces
+
+**Lands:**
+- `pocs/capsule/tenants/alpha/` and `pocs/capsule/tenants/bravo/` per the layout above
+- Each tenant: home namespace, `gitops-reconciler` SA, self-impersonation Role+RoleBinding, Tenant CR with `owners[ServiceAccount: <ns>:gitops-reconciler]`, GitRepository pointing at the karyon repo (POC: same monorepo), inner Kustomization with `spec.serviceAccountName + spec.kubeConfig`
+- `pocs/capsule/tenants/alpha-workload/` + `bravo-workload/` with a trivial Deployment each
+- `scripts/issue-tenant-kubeconfig.sh capsule <tenant>` (out-of-band kubeconfig minting tool — reads the SA token secret + the capsule-proxy CA, prints a kubeconfig)
+- `pocs/capsule/proxy-kubeconfig-secrets/` — per-tenant kubeconfig Secrets for the *Flux INNER reconcile* (not for humans). Generated imperatively by `register-poc-cluster.sh` in Phase 3 mode, applied to tenant-alpha / tenant-bravo namespaces on spoke-capsule. Bearer tokens are NOT committed.
+- bats tests: positive RBAC (alpha owner CAN create Pod in alpha-app1), negative RBAC (alpha owner CANNOT exec in bravo-app1), Capsule webhook denies an alpha-prefixed namespace from a bravo-impersonated request.
+
+**After this phase becomes possible:**
+- The first answerable question of the milestone: "does Capsule + Flux actually contain a misbehaving tenant Kustomization?" — answer driven by bats falsifiers.
+
+### Phase 4 — Negative RBAC + capsule-proxy validation
+
+**Lands:**
+- bats: tenant-alpha kubeconfig listing all namespaces returns ONLY `tenant-alpha` + `alpha-app1` + (whatever Capsule allows globally — e.g., system namespaces are filtered too)
+- bats: tenant-alpha kubeconfig attempting `kubectl create clusterrolebinding` returns Forbidden
+- bats: tenant-alpha kubeconfig attempting to read a Secret in `bravo-app1` returns Forbidden (or NotFound — capsule-proxy filters)
+- bats: tenant-alpha Kustomization containing a `clusterrolebinding.yaml` reconcile-fails at the impersonated apply step (NOT silently passes)
+
+**After this phase becomes possible:**
+- Documented evidence the POC actually isolates tenants. This is the empirical input to the graduation ADR.
+
+### Phase 5 — Capsule webhook failure / teardown validation
+
+**Lands:**
+- `task fail-capsule-webhook` (test-only) that scales `capsule-controller-manager` to zero and verifies a tenant-prefix-violating Namespace is REJECTED at the apiserver (proves the webhook fail-policy)
+- `task destroy-poc capsule` — uses `scripts/destroy-poc-cluster.sh` to tear down cluster + remove `clusters/hub-flux/pocs/capsule.yaml` from git. Importantly: leaves `# KARYON POC MOUNT` and `../pocs` mount in place so future POCs onboard cleanly.
+- bats: post-`task destroy-poc capsule` health-check confirms hub-flux + spoke-apps + spoke-ml are still green.
+
+**After this phase becomes possible:**
+- Confidence the POC is *actually* removable without scarring the v1 lab. Reversibility is a graduation ADR input.
+
+### Phase 6 — Graduation ADR + retro
+
+**Lands:**
+- ADR-008 (graduation): adopt Capsule into v0.20+ as default platform / defer / reject / pivot to another POC
+- Decision codes for the milestone (D-17..D-N) recorded in PROJECT.md
+
+**After this phase becomes possible:**
+- Either v0.20 incorporates Capsule into `task rebuild` (and the POC mount is collapsed into a real default), or v0.20 picks the next experiment.
+
+### Phase ordering rationale
 
 ```
-Step 0 ── preflight
-          depends on: nothing
-          verifies: WSL2, Docker, NVIDIA chain, tools, free ports, no residue
-          output: exit 0 or actionable error
-          │
-          ▼
-Step 1 ── Build custom k3s+CUDA image
-          depends on: Docker running, NVIDIA container toolkit configured
-          output: local docker image karyon/k3s-cuda:v1.34.6-k3s1-cuda-12.8.0-base-ubuntu22.04
-          rationale: needed by Step 3 spoke-ml cluster create; long build → do early, cache across rebuilds
-          │
-          ├─── can run in parallel with Step 2 (Docker network creation)
-          ▼
-Step 2 ── Create docker network k8s-net
-          depends on: Docker running
-          output: user-defined bridge network exists
-          rationale: ALL clusters attach here; embedded DNS works only on user-defined networks
-          │
-          ▼
-Step 3 ── Create k3d clusters (hub-flux, spoke-ml, spoke-apps)
-          depends on: k8s-net exists; custom k3s+CUDA image exists
-          critical flags per cluster:
-            --network k8s-net                              (shared DNS)
-            --tls-san k3d-<name>-server-0                  (spoke CA validates against hostname)
-            --k3s-arg --disable=traefik@server:0           (lab, avoid port squatting; optional)
-            hub-flux:   --image rancher/k3s:v1.34.6-k3s1   --api-port 127.0.0.1:6443
-            spoke-ml:   --image karyon/k3s-cuda:...        --api-port 127.0.0.1:6444  --gpus all
-            spoke-apps: --image rancher/k3s:v1.34.6-k3s1   --api-port 127.0.0.1:6445
-          output: three running clusters; spoke-ml already has the baked-in device-plugin DaemonSet
-          │
-          │ Hub cluster create and spoke cluster creates CAN be parallelized
-          │ (different containers, no shared state beyond the network).
-          ▼
-Step 4 ── flux bootstrap github on hub
-          depends on: hub-flux cluster up; GITHUB_TOKEN in env; clusters/hub-flux/spokes/*.yaml already committed
-          output: flux-system namespace populated; self-managing GitOps active
-          gotcha: bootstrap happens BEFORE step 5, but spoke Kustomizations under clusters/hub-flux/spokes/
-                  will fail reconciliation until step 5 creates their Secret — this is expected and self-heals
-          │
-          │ MUST run sequentially — step 5 creates resources in hub's flux-system namespace,
-          │ which didn't exist until step 4 finished.
-          ▼
-Step 5 ── Register spokes (SA + CRB + token Secret on spoke, kubeconfig Secret on hub)
-          depends on: all three clusters up; hub's flux-system namespace exists
-          per spoke (can parallelize across spokes):
-            kubectl --context k3d-<spoke> apply -f flux-reconciler-sa.yaml
-            kubectl --context k3d-<spoke> -n kube-system wait secret flux-reconciler-token
-            extract ca.crt + token
-            kubectl --context k3d-hub-flux -n flux-system apply kubeconfig Secret
-          output: two Secrets on hub: spoke-ml-kubeconfig, spoke-apps-kubeconfig
-          │
-          ▼
-Step 6 ── Deploy examples (automatic via Flux)
-          depends on: step 5 Secrets exist; Flux reconciles the spoke Kustomizations
-          NO explicit user action needed — Flux picks up the now-satisfied Kustomizations
-          at the next interval (default 10m; force with `flux reconcile kustomization spoke-ml`)
-          output: podinfo on spoke-apps; GPU smoke pod on spoke-ml
-          │
-          ▼
-Step 7 ── Health check
-          verifies everything above (see Flow C)
+Phase 1 ── must precede ──→ Phase 2  (no place to install Capsule until pocs/capsule/ is reconciled)
+Phase 2 ── must precede ──→ Phase 3  (no Tenant CRD / no proxy until operator + proxy are running)
+Phase 3 ── must precede ──→ Phase 4  (no tenants to test isolation against)
+Phase 4 ── must precede ──→ Phase 5  (no point validating teardown until isolation is proven)
+Phase 5 ── must precede ──→ Phase 6  (graduation cannot be informed without teardown evidence)
 ```
 
-### Parallelization summary
-
-| Steps | Can parallelize? | Why |
-|-------|------------------|-----|
-| 1 & 2 | Yes | Image build and network creation are independent |
-| 3 (hub vs spokes) | Yes | Different containers, only share `k8s-net` which already exists |
-| 5 (per spoke) | Yes | Per-spoke SA creation and hub-side Secret apply are independent per spoke |
-| Everything else | No | Strict dependency chain |
-
-Practical `Taskfile.yml` impact: `task create-clusters` can use `deps:` to express the 1+2 parallelism and fan-out spoke creation. `task register-spokes` can background per-spoke work and `wait`.
+Phase 1 is the foundational gate — until the seam is in place AND `spoke-capsule` is registered AND the OUTER reconcile path is proven with the same P18 falsifier the spokes already use, nothing downstream is meaningful.
 
 ---
 
-## Where Phases Split Naturally
+## Boundary with Existing System
 
-Four natural phase boundaries emerge from the build-order dependencies and verification artifacts. **Recommend the roadmap align to these.**
+For each existing v1 script, explicit awareness / non-awareness of `spoke-capsule`.
 
-### Phase boundary 1: Host → Clusters (end of Step 3)
-*Artifact:* three healthy clusters on `k8s-net`, all nodes Ready, `kubectl --context` works for each. *Does NOT include Flux.* This is the "is my hardware + WSL + Docker + NVIDIA chain correct?" gate. Failing here means host-level issue, not a Kubernetes issue. Acceptance: all contexts respond, spoke-ml has `nvidia.com/gpu` capacity advertised, `docker network inspect k8s-net` shows all six k3d containers attached.
+| Script / Task | Aware of `spoke-capsule`? | Modification required | Rationale |
+|---------------|---------------------------|----------------------|-----------|
+| `task preflight` / `scripts/preflight.sh` | **NO** (default) | None for default. Optional: PRE-15 reservation of port 6446 if `KARYON_POC_PRECHECK=capsule` is set. | Preflight is a fresh-host check; POC clusters are persistent and a fresh host won't have one yet. Adding port 6446 to the always-checked free-port list would cause spurious failures when the POC cluster IS running, which is the normal post-Phase-1 state. |
+| `task create-clusters` / `scripts/create-clusters.sh` | **NO** | None | The whole point: `task rebuild` (which calls create-clusters) MUST NOT touch the POC cluster. POC creation is a separate manual `bash scripts/register-poc-cluster.sh capsule` invocation. |
+| `task delete-clusters` / `scripts/delete-clusters.sh` | **NO** (default), explicit-opt-in | Add `KARYON_DELETE_POC=capsule` opt-in path that ALSO deletes spoke-capsule | A default destroy must NEVER tear down a POC — the operator might be mid-investigation. But a hard-reset path is desirable, off by default. |
+| `task bootstrap-flux` / `scripts/bootstrap-flux.sh` | **NO** | None | Flux bootstrap is hub-only and runs once; it doesn't know spokes exist, let alone POC clusters. |
+| `task register-spokes` / `scripts/register-spokes-for-flux.sh` | **NO** | None | Hardcoded list `register_spoke spoke-ml; register_spoke spoke-apps` stays as-is. POC registration is via `register-poc-cluster.sh`. |
+| `task deploy-examples` / `scripts/deploy-examples.sh` | **NO** | None | Deploys the v1 examples (podinfo, gpu-smoke). POC examples are reconciled by Flux through the POC mount; no script trigger needed. |
+| `task fix-dns` / `scripts/fix-coredns.sh` | **NO** (currently) — but should | Append `spoke-capsule` to the cluster list IF `KARYON_POC_FIXDNS=capsule` is set | k3d CoreDNS staleness affects ALL clusters on `k8s-net`. POC users will hit it. Opt-in flag only — default fix-dns continues to stop/start hub only. |
+| `task health-check` / `scripts/health-check.sh` | **OPT-IN YES** | Wrap each spoke-capsule assertion in `if [[ "${KARYON_POC_CHECK:-}" == *capsule* ]]; then ...` | Default health-check is the v1 contract (3 clusters). Setting `KARYON_POC_CHECK=capsule` adds: spoke-capsule cluster exists; capsule-system pods Ready; capsule-proxy NodePort reachable; tenant-alpha + tenant-bravo Tenants both Ready; alpha-app1 + bravo-app1 namespaces exist with correct labels. |
+| `task destroy` / `scripts/destroy.sh` | **NO** | None | destroy.sh wraps delete-clusters.sh which is hardcoded to the 3 v1 clusters. Forwarding `KARYON_DELETE_POC` is fine — but the default `task destroy` still deletes only v1 clusters. |
+| `task rebuild` / `scripts/rebuild.sh` | **NO** — explicit invariant | None | This is the single hardest invariant. `task rebuild` must remain byte-for-byte equivalent to v1. The 190-second SLO is the v1 SLO; adding a Capsule install would balloon it. POC rebuild is a SEPARATE `bash scripts/destroy-poc-cluster.sh capsule && bash scripts/register-poc-cluster.sh capsule` invocation. |
 
-### Phase boundary 2: Clusters → Flux hub (end of Step 4)
-*Artifact:* `flux-system` namespace populated on hub; `flux get kustomizations -A` shows `flux-system` Kustomization Ready. The repo is now self-managing. This separates "Flux bootstrap works" (depends only on hub + GitHub) from "cross-cluster reconciliation works" (depends on DNS, TLS, RBAC, tokens — many more failure modes).
+**The single-line summary:** every entry in the table above has `register-spokes` and `register-poc-cluster` as siblings — never one calling the other.
 
-### Phase boundary 3: Flux hub → Spoke registration (end of Step 5)
-*Artifact:* two kubeconfig Secrets on hub, each verified by `kubectl --kubeconfig <(extract) get nodes` from a hub pod. **This is the highest-risk phase** — it's where DNS, TLS-SAN, CA-data, token format, and Secret key-name can all fail. Worth its own research pass and a dedicated smoke test before moving on.
+**Public contract bats:** A new test `tests/bats/destroy-rebuild-poc-isolation.bats` verifies that:
 
-### Phase boundary 4: Spoke registration → Workloads (end of Steps 6 + 7)
-*Artifact:* `flux get kustomizations -A` all Ready; podinfo reachable on spoke-apps; `nvidia-smi` output visible from a pod on spoke-ml. This is where "end user workflow works" is proved.
+1. After `bash scripts/register-poc-cluster.sh capsule`, `k3d cluster list` shows 4 clusters.
+2. After `KARYON_REBUILD_APPROVED=yes bash scripts/rebuild.sh`, `k3d cluster list` shows 4 clusters and the pre-rebuild `docker inspect k3d-spoke-capsule-server-0 -f '{{.Id}}'` matches the post-rebuild value.
 
-→ **Suggested roadmap phase split:** one phase per boundary. Phase 3 (spoke registration) deserves deeper research / a validation script because it's where the hub-spoke architectural pattern literally succeeds or fails.
-
----
-
-## Starter assumptions that research validates / contradicts
-
-| Starter assumption | Research finding | Confidence |
-|---|---|---|
-| `https://k3d-<spoke>-server-0:6443` is correct server address | **CONFIRMED.** Docker embedded DNS + k3d CoreDNS NodeHosts both resolve this; k3s serves :6443 inside the container regardless of host-port mapping. | HIGH |
-| Secret key name `value.yaml` is what Flux expects | **CONFIRMED.** Flux docs explicitly state default is `value` OR `value.yaml`. Either works; `value.yaml` is used in the official spec example. No change needed. | HIGH |
-| `task fix-dns` via `k3d cluster stop/start` is necessary | **CONFIRMED as best-available workaround.** Known bug (k3d #1009, #1112) with no shipped fix as of v5.8.3. `kubectl rollout restart coredns` is insufficient because the ConfigMap itself goes stale. Do not use `K3D_FIX_DNS=1` — it breaks external DNS. | MEDIUM (high on "this is needed", medium on "nothing better shipped in 5.8+") |
-| Hub-only Flux via `spec.kubeConfig` is clean | **CONFIRMED** by canonical `fluxcd/flux2-hub-spoke-example`. Stefan Prodan's 2024 multi-cluster post endorses the pattern for lab/dev-scale. | HIGH |
-| CUDA base is the right base, with k3s layered in | **CONFIRMED.** Direct from official k3d CUDA guide. The inverse (k3s base + CUDA layered) does not work because k3s's Alpine base lacks glibc / apt. | HIGH |
-| NVIDIA device plugin DaemonSet is sufficient (no GPU Operator) | **CONFIRMED.** Matches k3d's own documented approach. Operator is correctly scoped out for v1. | HIGH |
-| Legacy Secret-backed SA tokens work on k3s v1.34 | **CONFIRMED.** `LegacyServiceAccountTokenNoAutoGeneration` GA'd in 1.27, but only the auto-generation changed — creating an explicit Secret of type `kubernetes.io/service-account-token` still works indefinitely. | HIGH |
-| `k3s v1.34.6-k3s1` is Flux-compatible | **CONFIRMED** by absence of incompatibility reports + Flux v2's Kubernetes support matrix historically running 2 minor versions behind latest, which covers 1.34 in early 2026. Note: k3s v1.34 ships etcd 3.6 — not relevant for k3d single-server clusters but worth flagging if someone attempts HA later. | HIGH |
-| Device plugin DaemonSet goes under `clusters/spoke-ml/infrastructure/` reconciled by hub | **REFINE.** Recommend ALSO baking it into the custom image at `/var/lib/rancher/k3s/server/manifests/` so GPU scheduling works from t=0 before Flux reconciliation. Hub-managed copy is redundant but idempotent, and provides GitOps lifecycle for updates. | HIGH |
+This is the empirical statement of "rebuild does NOT touch the POC".
 
 ---
 
-## Scaling Considerations
+## Public-repo / Secrets Layer
 
-The domain is a local lab, so "scale" is bounded by the dev machine. Relevant dimensions:
+What lives where, post-v0.19:
 
-| Dimension | Current (3 clusters) | What breaks first | Mitigation |
-|-----------|----------------------|-------------------|------------|
-| Cluster count | 3 | Explicit hand-authored Kustomization per spoke (per ADR-003 trade-off) | Switch to Flux via per-spoke Flux install, or adopt ArgoCD ApplicationSet, or write a tiny generator that produces `clusters/hub-flux/spokes/<name>.yaml` |
-| Memory (52 GB WSL pin) | ~4–6 GB idle all-in | Too many Flux HelmReleases with large charts | Reduce HelmRelease count; use Kustomize; `--disable=traefik,servicelb` on spokes |
-| GPU count | 1 (RTX 5090) | GPU over-subscription across pods | NVIDIA time-slicing config in device plugin (out of scope v1) or MIG on supported GPUs |
-| Token rotation | Never (legacy SA token) | Nothing breaks, but security drifts | Move to TokenRequest + external-secrets in v2 |
-| CoreDNS NodeHosts staleness | Minor, recoverable | Hub pods can't resolve `k3d-*-server-0` after Docker restart | `task fix-dns` (documented); track upstream fix |
+| Artifact | Location | Public-repo? | Rationale |
+|----------|----------|--------------|-----------|
+| `clusters/hub-flux/pocs/capsule.yaml` (OUTER Kustomization with `secretRef.name: spoke-capsule-kubeconfig`) | git | **YES** | Same shape as `clusters/hub-flux/spokes/spoke-apps.yaml` — references a Secret name, doesn't contain the Secret. |
+| `pocs/capsule/operator/release.yaml`, `proxy/release.yaml`, `config/capsuleconfiguration.yaml` | git | **YES** | Static manifests; no secret material. |
+| `pocs/capsule/tenants/<name>/tenant.yaml` (Tenant CR), `serviceaccount.yaml`, `rbac.yaml`, `source.yaml` (GitRepository), `kustomization-app.yaml` (inner Kustomization) | git | **YES** | All declarative tenant infrastructure. |
+| `pocs/capsule/tenants/<name>-workload/*.yaml` | git | **YES** | Tenant payload — POC examples committed. |
+| `Secret flux-system/spoke-capsule-kubeconfig` (cluster-admin token for OUTER reconcile) | spoke-capsule cluster (applied imperatively by `register-poc-cluster.sh`) | **NO** — never committed | Same model as `spoke-apps-kubeconfig`. Bearer token never enters git. |
+| `Secret tenant-<n>/tenant-<n>-proxy-kubeconfig` (tenant SA token + proxy server URL, for INNER reconcile) | spoke-capsule cluster (applied imperatively by `register-poc-cluster.sh` in Phase 3 mode) | **NO** — never committed | Bearer token + proxy CA. Generated from the SA's auto-rotated token Secret on spoke-capsule. |
+| Tenant-owner kubeconfig file (for HUMAN tenant owner, i.e. `karyon-tenant-alpha.yaml`) | Author's laptop, then handed to tenant out-of-band | **NO** — never committed; never even produced by Flux | Generated by `scripts/issue-tenant-kubeconfig.sh capsule alpha`. The script reads the SA token from spoke-capsule, builds the kubeconfig, writes to stdout. The operator handles delivery (encrypted email, signed message, etc.). |
+| Capsule version pin / proxy chart version | `.tool-versions` or values files | **YES** | Same model as k3s + CUDA pins. Reproducible. |
+| `.env` keys for the POC (e.g., `KARYON_POC_CAPSULE_PROXY_NODEPORT=30443`) | gitignored `.env`; `.env.example` lists keys | **NO** for `.env`, **YES** for `.env.example` | Same contract as the existing GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN. |
 
----
+**Gitleaks behavior:** the existing `.gitleaks.toml` allowlist + native pre-commit hook + post-push CI scan apply unchanged. Adding `pocs/capsule/**/*.yaml` to the lint surface is automatic. New scripts that mint kubeconfigs (`issue-tenant-kubeconfig.sh`, `register-poc-cluster.sh` Phase 3 mode) follow the existing register-spokes convention: bearer tokens are passed via stdin to `kubectl create secret generic --dry-run=client | kubectl apply -f -`, never written to `--from-literal`, never tee'd to log files.
 
-## Anti-Patterns
-
-### Anti-Pattern 1: Using `host.k3d.internal` as the spoke server address
-
-**What people do:** Put `server: https://host.k3d.internal:6444` in the spoke kubeconfig (using the host-published port).
-**Why it's wrong:** `host.k3d.internal` resolves to the gateway IP of the docker network, not to the spoke. On hub pods, the traffic would hairpin out to the WSL host and try to come back — usually blocked by netfilter, always slower, and requires the spoke's kube-apiserver cert to include `host.k3d.internal` in SAN. Completely unnecessary overhead when containers on the same docker network can talk directly.
-**Do this instead:** Use `https://k3d-<spoke>-server-0:6443` — direct container-to-container on `k8s-net`.
-
-### Anti-Pattern 2: Installing Flux on every spoke too
-
-**What people do:** Bootstrap Flux on each cluster "for consistency." Each spoke pulls the same repo with its own path.
-**Why it's wrong:** Triples controller footprint, triples failure modes, adds 3× GitHub PATs (or one over-permissioned shared one), and breaks the simple "one place to look for cluster state" property of hub-spoke. ADR-004 already rejects this for v1.
-**Do this instead:** Hub-only Flux. If later you need spoke autonomy for air-gapped use cases, revisit in v2.
-
-### Anti-Pattern 3: Hand-editing `clusters/hub-flux/flux-system/`
-
-**What people do:** Tweak `gotk-components.yaml` to customize a controller flag. Change gets reverted within 10 minutes.
-**Why it's wrong:** Flux's root Kustomization reconciles its own directory. `flux bootstrap` is idempotent and will overwrite hand changes.
-**Do this instead:** Put customizations in a separate file (e.g., `clusters/hub-flux/flux-system-patch.yaml`) and reference it from a sibling `kustomization.yaml`. Or use `flux bootstrap --toleration-keys=...`/flags. Or, preferred, don't customize in v1.
-
-### Anti-Pattern 4: Skipping `--tls-san k3d-<name>-server-0` at cluster create
-
-**What people do:** Create the spoke without the TLS SAN, then try to hit `https://k3d-spoke-ml-server-0:6443` from the hub. Gets "x509: certificate is valid for 127.0.0.1, ::1, 10.43.0.1, kubernetes.default.svc, ...".
-**Why it's wrong:** Cannot be fixed post-hoc without re-issuing the serving cert (painful on k3s). Must be set at create time.
-**Do this instead:** Encode it in `scripts/create-clusters.sh` for every cluster, hub and spokes.
-
-### Anti-Pattern 5: Using TokenRequest API tokens for spoke kubeconfigs in a lab
-
-**What people do:** `kubectl create token flux-reconciler --duration=24h`, embed in kubeconfig, commit to registration script.
-**Why it's wrong:** Token expires. Next reconcile fails with 401. Has to be rotated.
-**Do this instead:** For a lab with `task rebuild` semantics, Secret-backed tokens that live with the cluster. For prod, TokenRequest + external-secrets + rotation workflow.
-
-### Anti-Pattern 6: Putting the spoke-targeting Kustomization inside `flux-system/`
-
-**What people do:** Add `spoke-ml.yaml` next to `gotk-sync.yaml` under `clusters/hub-flux/flux-system/`.
-**Why it's wrong:** Next `flux bootstrap` reverts it (directory is bootstrap-managed).
-**Do this instead:** Put spoke Kustomizations in a SIBLING directory under `clusters/hub-flux/spokes/` with its own `kustomization.yaml`. The root Flux Kustomization recursively picks them up.
+**One open contract decision (for the milestone team):** does `scripts/issue-tenant-kubeconfig.sh` emit to stdout only, or also write to a gitignored path like `.kubeconfigs/karyon-tenant-<name>.yaml`? Stdout-only is the safer default (operator pipes to their preferred location). Recommend stdout-only with a usage example in `docs/capsule-poc.md`.
 
 ---
 
-## Integration Points
+## Suggested ADRs
 
-### External Services
+The v0.19 milestone is expected to lock at least three architectural decisions. ADR numbering picks up where v0.18 ended (ADR-005).
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| GitHub | `flux bootstrap github` creates PAT-backed Secret `flux-system/flux-system`; Flux polls via HTTPS | PAT must have `repo` scope; public repo still needs a PAT for write-back during bootstrap |
-| NVIDIA Container Registry (nvcr.io) | Pulled at docker-build time (CUDA base, device plugin image) | Public; no auth needed for these specific images |
-| Docker Hub (rancher/k3s) | Pulled at docker-build and cluster-create | Pin digest to avoid surprise upgrades |
+| ADR | Title | Status at milestone open | Status at milestone close |
+|-----|-------|--------------------------|---------------------------|
+| **ADR-006** | POC mount pattern (`# KARYON POC MOUNT` sentinel + `pocs/<name>/` layout + `register-poc-cluster.sh` separate from `register-spokes-for-flux.sh`) | Proposed (Phase 1) | Accepted (Phase 1 closes) |
+| **ADR-007** | Capsule POC cluster topology (spoke-capsule on k8s-net port 6446, hub-only Flux preserved, OUTER+INNER reconcile pattern with `spec.kubeConfig`+`spec.serviceAccountName`, capsule-proxy NodePort exposure) | Proposed (Phase 2) | Accepted (Phase 2 closes) |
+| **ADR-008** | Capsule graduation decision (adopt as default platform, defer for v0.20, reject in favor of another approach, or pivot to a different multi-tenancy POC) | TBD (depends on Phase 4-5 evidence) | Accepted (Phase 6 closes the milestone) |
 
-### Internal Boundaries
+**Optional / conditional ADRs** (lock only if the underlying decision is contested during the milestone):
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| hub kustomize-controller ↔ spoke kube-apiserver | HTTPS over k8s-net; bearer token auth; server cert validated via embedded CA data | The single load-bearing path; failure here = lab broken |
-| spoke CoreDNS ↔ Docker embedded DNS | k3d maintains CoreDNS NodeHosts ConfigMap synced from Docker network state | Goes stale on Docker restart; see `task fix-dns` |
-| hub Flux ↔ GitHub | HTTPS via source-controller; PAT in flux-system Secret | Survives restart; no special handling |
-| GPU pod ↔ nvidia-container-runtime | Pod declares `runtimeClassName: nvidia` → containerd delegates to nvidia-container-runtime → CDI device injection | `RuntimeClass` object must exist in spoke cluster |
+- **ADR-006a** *(if the "two sentinels" choice is debated):* "Two sentinels not one" — why `# KARYON SPOKES MOUNT` and `# KARYON POC MOUNT` are kept separate rather than collapsed.
+- **ADR-007a** *(if the kubeconfig generator path is contested):* "Tenant kubeconfig minting via `issue-tenant-kubeconfig.sh` rather than the upstream `proxy-kubeconfig-generator` utility" — likely just a vendoring decision.
+- **ADR-007b** *(if Phase 4 negative RBAC reveals gaps):* "Multi-tenancy lockdown patches on hub-flux: `--no-cross-namespace-refs=true` + `--default-service-account` and their compatibility with v1 spoke Kustomizations."
+
+**ADR template:** Nygard 4-section (Status / Context / Decision / Consequences), per existing 0001-0005 ADRs. Status: Proposed → Accepted on the milestone-close commit.
 
 ---
 
 ## Sources
 
-Tier 1 — Official / authoritative (HIGH confidence):
-- [Flux Kustomization spec v1 (kustomize-controller)](https://github.com/fluxcd/kustomize-controller/blob/main/docs/spec/v1/kustomizations.md) — definitive for `spec.kubeConfig.secretRef`, default key `value` / `value.yaml`
-- [Flux components/kustomize/kustomizations docs](https://fluxcd.io/flux/components/kustomize/kustomizations/) — user-facing Kustomization reference
-- [Flux repository structure guide](https://fluxcd.io/flux/guides/repository-structure/) — monorepo / repo-per-env / multi-tenancy patterns
-- [fluxcd/flux2-hub-spoke-example](https://github.com/fluxcd/flux2-hub-spoke-example) — the canonical hub-spoke reference repo
-- [k3d CUDA guide (v5.8.3)](https://k3d.io/v5.8.3/usage/advanced/cuda/) — authoritative Dockerfile + device plugin DaemonSet
-- [k3d networking design (v5.8.3)](https://k3d.io/v5.8.3/design/networking/) — NodeHosts + host.k3d.internal behavior
-- [Kubernetes service-accounts-admin docs](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/) — legacy token Secret mechanism explicitly supported in 1.24+
-- [Docker bridge-driver docs](https://docs.docker.com/engine/network/drivers/bridge/) — embedded DNS semantics on user-defined networks
-- [K3s v1.34.X release notes](https://docs.k3s.io/release-notes/v1.34.X) — version + etcd 3.6 note
-- [Flux bootstrap for GitHub](https://fluxcd.io/flux/installation/bootstrap/github/) — PAT Secret location
+### Authoritative (HIGH confidence)
 
-Tier 2 — Issue trackers (MEDIUM confidence for current-state findings):
-- [k3d #1009 — CoreDNS NodeHosts lost after adding a new node](https://github.com/k3d-io/k3d/issues/1009)
-- [k3d #1112 — CoreDNS customization lost after restart](https://github.com/k3d-io/k3d/issues/1112)
-- [k3d #1515 — K3D_FIX_DNS breaks external DNS](https://github.com/k3d-io/k3d/issues/1515)
-- [k3d #1516 — External DNS resolution not working on pods (v5.7.0)](https://github.com/k3d-io/k3d/issues/1516)
-- [k3d discussion #1015 — Connecting across k3d clusters](https://github.com/k3d-io/k3d/discussions/1015)
-- [Flux discussion #3280 — Deploy workloads on remote clusters via kubeconfig](https://github.com/fluxcd/flux2/discussions/3280)
-- [Flux discussion #4174 — How to add resources in remote cluster by flux](https://github.com/fluxcd/flux2/discussions/4174)
+- Existing karyon repo files read directly:
+  - `/home/rich/code/gsd/karyon/clusters/hub-flux/flux-system/kustomization.yaml` — contains `# KARYON SPOKES MOUNT` and the FLUX PATCH SURFACE comment block
+  - `/home/rich/code/gsd/karyon/clusters/hub-flux/spokes/spoke-apps.yaml` — proven `spec.kubeConfig.secretRef` shape with `key: value.yaml`
+  - `/home/rich/code/gsd/karyon/scripts/register-spokes-for-flux.sh` — `ensure_hub_spokes_mount()` + `apply_hub_secret()` patterns for sentinel insertion and imperative kubeconfig Secret creation
+  - `/home/rich/code/gsd/karyon/scripts/create-clusters.sh` — k3d port + TLS-SAN nodefilter + GPU drift-check pattern
+  - `/home/rich/code/gsd/karyon/scripts/rebuild.sh` — exact 7-step destructive chain
+  - `/home/rich/code/gsd/karyon/docs/adr/0004-hub-only-flux-control-plane.md` — ADR-004 invariant and P18 silent-misroute documentation
+- [Capsule Tenant CRD (v1beta2)](https://context7.com/projectcapsule/capsule/llms.txt) via Context7 (HIGH — official upstream)
+- [Capsule + Flux multi-tenancy reference architecture (`clastix/flux2-capsule-multi-tenancy`)](https://github.com/clastix/flux2-capsule-multi-tenancy/blob/main/docs/ARCHITECTURE.md) — explicit `spec.kubeConfig` (proxy) + `spec.serviceAccountName` impersonation pattern (HIGH — official Capsule repo, this is the `clastix` namespace)
+- [Capsule Helm install reference (`projectcapsule/capsule` chart)](https://github.com/projectcapsule/capsule/blob/main/charts/capsule/README.md) (HIGH — upstream chart README)
+- [Flux multi-tenancy lockdown documentation](https://fluxcd.io/flux/installation/configuration/multitenancy/) — `--no-cross-namespace-refs=true` + `--default-service-account` controller flags (HIGH — Flux official docs)
+- [Flux Kustomization API reference](https://fluxcd.io/flux/components/kustomize/kustomizations/) — `spec.serviceAccountName` semantics (HIGH — Flux official docs)
+- [`projectcapsule/capsule-proxy` Helm chart README](https://github.com/projectcapsule/capsule-proxy/blob/main/charts/capsule-proxy/README.md) — NodePort + service exposure (HIGH — upstream chart)
 
-Tier 3 — Tutorial / commentary (corroborating; LOW individually, MEDIUM in aggregate):
-- [Stefan Prodan — FluxCD Multi-cluster Architecture (2024)](https://stefanprodan.com/blog/2024/fluxcd-multi-cluster-architecture/)
-- [OneUptime — Set Up Hub-and-Spoke Mode Multi-Cluster with Flux CD (2026)](https://oneuptime.com/blog/post/2026-03-13-how-to-set-up-hub-and-spoke-mode-multi-cluster-with-flux-cd/view) — note this source claims `value` (not `value.yaml`) as the key; cross-checked against Flux v1 spec which confirms both work
-- [fluxcd/flux2-multi-tenancy](https://github.com/fluxcd/flux2-multi-tenancy) — directory layout reference for multi-tenant patterns
+### Cross-referenced (MEDIUM confidence)
+
+- [`fluxcd/flux2-multi-tenancy`](https://github.com/fluxcd/flux2-multi-tenancy) — Flux's own multi-tenancy reference, complements the Capsule integration but doesn't include Capsule
+- [`projectcapsule/capsule-addon-fluxcd`](https://github.com/projectcapsule/capsule-addon-fluxcd) — Capsule's Flux integration tooling
+- [`projectcapsule.dev` Capsule docs](https://projectcapsule.dev/docs/guides/use-fluxcd/) — narrative explanation of self-impersonation and capsule-proxy in the kubeConfig
+
+### Lower-confidence / illustrative
+
+- [oneuptime.com walkthrough on Capsule + Flux](https://oneuptime.com/blog/post/2026-03-05-capsule-flux-cd-multi-tenancy/view) — used only as cross-check; not authoritative
 
 ---
-*Architecture research for: local hub-spoke Flux lab on k3d (karyon)*
-*Researched: 2026-04-22*
+
+*Architecture research for: v0.19 Capsule Multi-Tenancy POC integration with the existing 3-cluster k3d + hub-only Flux topology*
+*Researched: 2026-04-29*
