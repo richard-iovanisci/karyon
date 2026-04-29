@@ -9,7 +9,6 @@ CLAUDE.local.md
 # Phase 6 D-16 expansion ──────────────────────────────────
 
 # Kubeconfig artifacts (fix-coredns / register-spokes scratch)
-kubeconfig
 kubeconfig*
 *.kubeconfig
 
