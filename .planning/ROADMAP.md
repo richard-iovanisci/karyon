@@ -57,7 +57,13 @@
   5. Hub-flux reconciles into spoke-capsule via outer Kustomization `clusters/hub-flux/pocs/capsule.yaml` with `spec.kubeConfig.secretRef.key: value.yaml` (P18 inheritance) — silent-misroute falsifier passes
   6. Tenant kubeconfig leak defense in place: extended `.gitignore` globs + new `.gitleaks.toml` rule for `kind: Config` + bearer-token shape, verified by synthetic-fixture bats
   7. `task fix-dns-poc-capsule` recovers stale CoreDNS NodeHosts on spoke-capsule alone, without affecting v0.18 default `task fix-dns`; host-restart procedure documented in `docs/poc-capsule.md`
-**Plans**: TBD (`/gsd-plan-phase 7` will derive plans; expected to lead with EKSDOC-01 plan, then sentinel + isolation, then cluster + outer reconcile, then host-restart docs)
+**Plans**: 6 plans (Wave 0 Nyquist gate + Waves 1-3 implementation)
+- [ ] 07-00-PLAN.md — Wave 0 Nyquist gate: 7 bats stubs + 2 gitleaks fixtures (POC-01..04, CAPCLU-01..04, EKSDOC-01 contracts)
+- [ ] 07-01-PLAN.md — EKS doc (docs/capsule-on-eks.md, Status: Draft) — EKSDOC-01 lands first per D-13
+- [ ] 07-02-PLAN.md — POC seam static infra (# KARYON POC MOUNT sentinel + clusters/hub-flux/pocs/{kustomization.yaml, capsule.yaml} + pocs/capsule/kustomization.yaml placeholder) — POC-01, CAPCLU-02
+- [ ] 07-03-PLAN.md — spoke-capsule cluster + register-poc-cluster.sh (with P18 falsifier) — POC-02, CAPCLU-01, CAPCLU-02 (live)
+- [ ] 07-04-PLAN.md — Preflight 30443 fail-fast + tenant-kubeconfig leak defense (.gitignore + .gitleaks.toml) — POC-03, POC-04
+- [ ] 07-05-PLAN.md — Host-restart recovery (scripts/poc/capsule/fix-dns.sh + task fix-dns-poc-capsule + docs/poc-capsule.md) — CAPCLU-03, CAPCLU-04
 
 ### Phase 8: Capsule + capsule-proxy Bare-Minimum Install
 **Goal**: Capsule operator and capsule-proxy run on spoke-capsule via two separate Flux HelmReleases reconciled hub-only; CRDs are visible and the proxy is reachable from the WSL host
@@ -127,7 +133,7 @@
 | 4. Spoke Registration | v0.18 | 5/5 | Complete | 2026-04-28 |
 | 5. Workloads + Health + Rebuild | v0.18 | 6/6 | Complete | 2026-04-28 |
 | 6. Repo Hygiene + Docs + ADRs | v0.18 | 8/8 | Complete | 2026-04-29 |
-| 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 0/0 | Not Started | — |
+| 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 0/6 | Planned | — |
 | 8. Capsule + capsule-proxy Install | v0.19 | 0/0 | Not Started | — |
 | 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/0 | Not Started | — |
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 0/0 | Not Started | — |

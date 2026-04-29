@@ -553,7 +553,7 @@ else
     --image "${K3S_STOCK_IMAGE}" \
     --api-port "${POC_API_PORT}" \
     --network "${K8S_NET_NAME}" \
-    --port "${POC_NODEPORT}:${POC_NODEPORT}@server:0" \
+    --port "${POC_NODEPORT}:${POC_NODEPORT}@loadbalancer" \
     --k3s-arg "--tls-san=k3d-${POC_CLUSTER}-server-0@server:*"
   pass "created: cluster ${POC_CLUSTER}"
 fi
@@ -565,7 +565,7 @@ fi
 **Critical invariants:**
 - D-10 pins: api-port `6446`, NodePort `30443` published, `--tls-san k3d-spoke-capsule-server-0`, on `k8s-net`.
 - Stock image (no CUDA): `rancher/k3s:v1.34.6-k3s1`. Phase 8 will install Capsule operator + capsule-proxy as standard containers; no GPU work on spoke-capsule.
-- The `--port "30443:30443@server:0"` flag publishes the host port `30443` to the spoke's server-0 node, which will host the capsule-proxy NodePort Service in Phase 8. (See "Resolved Open Question 1" below for `@server:0` vs `@loadbalancer` choice.)
+- The `--port "30443:30443@loadbalancer"` flag publishes the host port `30443` on the spoke's serverlb container — matches v0.18's drift-verify pattern (which inspects serverlb only). capsule-proxy NodePort Service in Phase 8 routes via serverlb -> server-0 transparently. (See §"Open Questions (RESOLVED)" #1 below.)
 
 ### Pattern 5: 30443 fail-fast inversion in preflight (POC-04)
 
@@ -1156,7 +1156,7 @@ tenants/**/admin.yaml
 | Allowlist-only `.gitleaks.toml` | Allowlist + first positive rule (`kubeconfig-bearer-token`) | 2026-04 (this phase) | Establishes the project's pattern for adding positive rules; Phase 11 may extend with a SOPS-shaped rule. |
 
 **Deprecated/outdated:**
-- The `--port "30443:30443@loadbalancer"` k3d incantation (per PITFALLS P28 and STACK lines 119-122) is acceptable but the `@server:0` variant is more direct for POC use because it routes traffic to the spoke's server-0 node where the capsule-proxy NodePort Service will live (Phase 8). Both work for k3d v5.8.3; the milestone-research SUMMARY.md flags this as "lock during Phase 8 plan review" — for Phase 7 the recommendation is `@server:0` because Phase 7's create-cluster.sh exposes the port BEFORE capsule-proxy is installed (Phase 8 dependency).
+- ~~The `--port "30443:30443@server:0"` variant was initially considered for POC use (would route directly to server-0 where capsule-proxy will live in Phase 8).~~ **RESOLVED** at Phase 7 plan review: lock `@loadbalancer` so the host port lives on the serverlb container, matching v0.18's drift-verify pattern (which inspects serverlb only). Both flags work in k3d v5.8.3; capsule-proxy NodePort Service in Phase 8 routes via serverlb -> server-0 transparently. See §"Open Questions (RESOLVED)" #1.
 
 ---
 
@@ -1166,7 +1166,7 @@ tenants/**/admin.yaml
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | The `@server:0` k3d port-publish flag is preferred over `@loadbalancer` for spoke-capsule's 30443 (because Phase 7 creates the cluster before capsule-proxy lands; routing to `@server:0` is more direct than via the k3d loadbalancer) | Pattern 4 + State of the Art | LOW — both work in k3d v5.8.3. If wrong, Phase 8 capsule-proxy reachability test (`curl -k https://127.0.0.1:30443/healthz`) catches the mismatch; switch is a single-line edit in `create-cluster.sh`. |
+| A1 | The `@loadbalancer` k3d port-publish flag is locked for spoke-capsule's 30443 (host port lives on serverlb container — matches v0.18 drift-verify pattern). \[**RESOLVED** during Phase 7 plan review per §"Open Questions (RESOLVED)" #1.\] | Pattern 4 + State of the Art | LOW — both flags work in k3d v5.8.3. If reachability issues surface in Phase 8 (capsule-proxy NodePort), switch to `@server:0` is a single-line edit in `create-cluster.sh`. |
 | A2 | The new gitleaks rule should land in `.gitleaks.toml` AND not require any change to the existing pre-commit hook (`hooks/pre-commit`) or CI scan job | Pattern 6 | LOW — the existing hook calls `gitleaks git --pre-commit --staged --redact --verbose`, which scans all staged content with the project's `.gitleaks.toml` config. Adding a rule should require no plumbing change. Verifies during plan-step bats. |
 | A3 | An empty `pocs/capsule/kustomization.yaml` (`resources: []`) is valid Kustomize and reconciles as a no-op | Pitfall 7 + Code Examples | LOW — Kustomize spec allows empty resource lists. If wrong, Phase 7 live-test catches it; the fallback is to ship a single trivial `Namespace` manifest in `pocs/capsule/` which Phase 8 then promotes/replaces. |
 | A4 | gitleaks 8.30.1's `(?ms)` multi-line regex syntax works against `git history` AND against `gitleaks detect --no-git --source <file>` invocations (i.e., the rule fires on both pre-commit + history scan + per-file scan) | Pattern 6 | LOW — gitleaks docs claim `minVersion = "v8.25.0"` for multi-line; v8.30.1 is well above that floor. The bats fixture (synthetic-kubeconfig.yaml) is the falsifier. |
@@ -1181,32 +1181,32 @@ The table above lists 8 assumptions. **Most are LOW or NEGLIGIBLE risk** because
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`@server:0` vs `@loadbalancer` for the k3d 30443 port-publish** (resolves at Phase 7 plan review; A1 above)
    - What we know: both work in k3d v5.8.3; STACK.md suggests `@server:0`, PITFALLS.md P28 suggests `@loadbalancer`.
    - What's unclear: which is the *idiomatic* choice for a NodePort Service that doesn't yet exist (Phase 8 work).
-   - Recommendation: lock `@server:0` for Phase 7 — it routes directly to the spoke's server-0 node where capsule-proxy's NodePort will live; document the alternative as "if any reachability issues, switch to `@loadbalancer` and re-test."
+   - RESOLVED: lock `@loadbalancer` for Phase 7 — publishes the host port on the serverlb container, matching v0.18's drift-verify pattern which inspects serverlb only. capsule-proxy NodePort Service in Phase 8 routes via serverlb -> server-0 transparently (k3d serverlb is just an HAProxy frontend). The `@server:0` alternative was considered but rejected because it would force the drift-verify regex to inspect the server-0 container directly (a divergence from v0.18 pattern).
 
 2. **EKSDOC-01 file size budget** (resolves at Phase 7 plan author judgment)
    - What we know: D-01 says "brief". D-02 mandates three verbatim YAML blocks (IRSA + LB/ALB + nodeSelector). D-04 mandates 3-item NOT-PROVED list.
    - What's unclear: a hard line/word limit. If the doc balloons to >300 lines the "team-presentation artifact" goal is harmed.
-   - Recommendation: target ~150-220 lines (counting Mermaid + 3 YAML blocks). If a reviewer flags it as "too long," cut narrative; never cut the verbatim YAML blocks (those are D-02 lock).
+   - RESOLVED: target ~150-220 lines (counting Mermaid + 3 YAML blocks). If a reviewer flags it as "too long," cut narrative; never cut the verbatim YAML blocks (those are D-02 lock).
 
 3. **Phase 7 plan-side bats coverage for live-only behavior** (resolves at plan author judgment)
    - What we know: The CAPCLU-02 P18 falsifier is a live bats. The POC-03 gitleaks fixture is live (gitleaks runs over fixture).
    - What's unclear: whether `tests/bats/poc-cluster-02-live.bats` (the P18 falsifier per spoke-capsule) lives in Phase 7 or defers to Phase 11. The milestone-research SUMMARY.md lists "P18 falsifier per spoke-capsule" under Phase 8 deliverables.
-   - Recommendation: Phase 7's `register-poc-cluster.sh` already performs the verification inline (mirrors `register-spokes-for-flux.sh` `verify_credential_layer()`); Phase 11 (VAL-04) re-runs the live test as part of the SLO regression. So Phase 7 doesn't need a separate `tests/bats/poc-cluster-02-live.bats` file — the script-internal verification is sufficient. If a planner disagrees, escalate.
+   - RESOLVED: Phase 7's `register-poc-cluster.sh` already performs the verification inline (mirrors `register-spokes-for-flux.sh` `verify_credential_layer()`); Phase 11 (VAL-04) re-runs the live test as part of the SLO regression. So Phase 7 doesn't need a separate `tests/bats/poc-cluster-02-live.bats` file — the script-internal verification is sufficient. If a planner disagrees, escalate.
 
 4. **`docs/poc-capsule.md` skeleton extent** (resolves at Phase 7 plan author judgment)
    - What we know: CAPCLU-04 mandates a "host-restart procedure" section; Discretion default is "quickstart-style + brief Troubleshooting."
    - What's unclear: whether the file ships as just the host-restart section in Phase 7, or as a richer skeleton with stub sections that Phase 10/11 fill.
-   - Recommendation: ship a focused doc with ONLY the host-restart + Troubleshooting sections. Phase 10 will add "Tenant kubeconfig delivery contract"; Phase 11 will add "Teardown procedure." Stubbing those sections in Phase 7 risks "do not edit until Phase 10" comments that decay.
+   - RESOLVED: ship a focused doc with ONLY the host-restart + Troubleshooting sections. Phase 10 will add "Tenant kubeconfig delivery contract"; Phase 11 will add "Teardown procedure." Stubbing those sections in Phase 7 risks "do not edit until Phase 10" comments that decay.
 
 5. **EKSDOC-01 `Status: Draft` frontmatter format** (resolves at Phase 7 plan author judgment)
    - What we know: D-13 explicitly allows `Status: Draft` until Phase 11 graduation rolls forward to `Status: Reviewed`.
    - What's unclear: where in the doc the status lives — top-of-file YAML frontmatter, or first heading line.
-   - Recommendation: top-of-file YAML frontmatter `--- status: Draft ---` (matches v0.18 ADR-style). Phase 11 ADR-008 update flips the value, no other re-flow needed.
+   - RESOLVED: top-of-file YAML frontmatter `--- status: Draft ---` (matches v0.18 ADR-style). Phase 11 ADR-008 update flips the value, no other re-flow needed.
 
 ---
 

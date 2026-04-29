@@ -145,15 +145,15 @@ Validated by `/gsd-new-milestone` roadmapper (2026-04-29); each REQ-ID is mapped
 
 | REQ-ID | Phase | Plan(s) |
 |--------|-------|---------|
-| POC-01 | Phase 7 | TBD |
-| POC-02 | Phase 7 | TBD |
-| POC-03 | Phase 7 | TBD |
-| POC-04 | Phase 7 | TBD |
-| CAPCLU-01 | Phase 7 | TBD |
-| CAPCLU-02 | Phase 7 | TBD |
-| CAPCLU-03 | Phase 7 | TBD |
-| CAPCLU-04 | Phase 7 | TBD |
-| EKSDOC-01 | Phase 7 | TBD |
+| POC-01 | Phase 7 | 07-00, 07-02 |
+| POC-02 | Phase 7 | 07-00, 07-03 |
+| POC-03 | Phase 7 | 07-00, 07-04 |
+| POC-04 | Phase 7 | 07-00, 07-04 |
+| CAPCLU-01 | Phase 7 | 07-00, 07-03 |
+| CAPCLU-02 | Phase 7 | 07-00, 07-02, 07-03 |
+| CAPCLU-03 | Phase 7 | 07-00, 07-05 |
+| CAPCLU-04 | Phase 7 | 07-00, 07-05 |
+| EKSDOC-01 | Phase 7 | 07-00, 07-01 |
 | CAP-01 | Phase 8 | TBD |
 | CAP-02 | Phase 8 | TBD |
 | CAP-03 | Phase 8 | TBD |
