@@ -37,7 +37,7 @@
 #### Phase Summary
 
 - [ ] **Phase 7: Foundation — POC Seam + spoke-capsule Cluster + EKS Capsule Doc** — Generic POC mount surface, persistent isolated POC k3d cluster, and EKS-targeted Capsule rough-cut doc for team-presentation
-- [ ] **Phase 8: Capsule + capsule-proxy Bare-Minimum Install** — Two upstream HelmReleases reconciled hub-only into spoke-capsule; operator alive + proxy reachable + CRDs visible
+- [x] **Phase 8: Capsule + capsule-proxy Bare-Minimum Install** — Two upstream HelmReleases reconciled hub-only into spoke-capsule; operator alive + proxy reachable + CRDs visible (completed 2026-04-29)
 - [ ] **Phase 9: Tenants + Flux Multi-Tenancy Lockdown** — Two Tenants with disjoint owners, hub Flux controllers patched with lockdown flags, P27 defense in tenant inner Kustomizations
 - [ ] **Phase 10: Tenant Owner Kubeconfigs + Capsule-Proxy Round-trip** — Imperative kubeconfig minting routed via proxy, never in git, tenant-scoped LIST visibility
 - [ ] **Phase 11: Validation + Graduation ADR-008** — Negative RBAC suite (N1-N12), webhook failure recovery, clean teardown, rebuild SLO regression gate, graduation ADR
@@ -78,7 +78,7 @@
 - [x] 08-00-PLAN.md — Wave 0 Nyquist gate: 10 bats files RED (5 static + 5 live, cluster-info gated) covering CAP-01/02/03 contracts + Pitfall 8 reframe + Pitfall 9 anti-pattern lint
 - [x] 08-01-PLAN.md — Operator HelmRelease + OCIRepository + local kustomize (pocs/capsule/operator/) — CAP-01, CAP-03
 - [x] 08-02-PLAN.md — Proxy HelmRelease + OCIRepository + local kustomize (pocs/capsule/proxy/) + atomic rewrite of pocs/capsule/kustomization.yaml to resources: [operator/, proxy/] — CAP-02, CAP-03
-- [ ] 08-03-PLAN.md — Verifier — live HelmRelease Ready=True + CRDs + proxy reachable + ADR-004 invariant + FOLDED CARRYOVER (outer poc-capsule Kustomization Ready=True; Phase 7 verification 1b) + Phase 7 P31/P40/P18 regression rerun
+- [x] 08-03-PLAN.md — Verifier — live HelmRelease Ready=True + CRDs + proxy reachable + ADR-004 invariant + FOLDED CARRYOVER (outer poc-capsule Kustomization Ready=True; Phase 7 verification 1b) + Phase 7 P31/P40/P18 regression rerun
 
 ### Phase 9: Tenants + Flux Multi-Tenancy Lockdown
 **Goal**: Two tenants with disjoint owners exist on spoke-capsule with auto-materialized resource isolation; hub Flux controllers run with multi-tenancy lockdown flags; tenant inner Kustomizations carry the load-bearing P27 defense (`spec.serviceAccountName`)
@@ -138,7 +138,7 @@
 | 5. Workloads + Health + Rebuild | v0.18 | 6/6 | Complete | 2026-04-28 |
 | 6. Repo Hygiene + Docs + ADRs | v0.18 | 8/8 | Complete | 2026-04-29 |
 | 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 0/6 | Planned | — |
-| 8. Capsule + capsule-proxy Install | v0.19 | 3/4 | In Progress|  |
+| 8. Capsule + capsule-proxy Install | v0.19 | 4/4 | Complete   | 2026-04-29 |
 | 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/0 | Not Started | — |
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 0/0 | Not Started | — |
 | 11. Validation + Graduation ADR-008 | v0.19 | 0/0 | Not Started | — |
