@@ -58,7 +58,7 @@
   6. Tenant kubeconfig leak defense in place: extended `.gitignore` globs + new `.gitleaks.toml` rule for `kind: Config` + bearer-token shape, verified by synthetic-fixture bats
   7. `task fix-dns-poc-capsule` recovers stale CoreDNS NodeHosts on spoke-capsule alone, without affecting v0.18 default `task fix-dns`; host-restart procedure documented in `docs/poc-capsule.md`
 **Plans**: 6 plans (Wave 0 Nyquist gate + Waves 1-3 implementation)
-- [ ] 07-00-PLAN.md — Wave 0 Nyquist gate: 7 bats stubs + 2 gitleaks fixtures (POC-01..04, CAPCLU-01..04, EKSDOC-01 contracts)
+- [x] 07-00-PLAN.md — Wave 0 Nyquist gate: 7 bats stubs + 2 gitleaks fixtures (POC-01..04, CAPCLU-01..04, EKSDOC-01 contracts)
 - [ ] 07-01-PLAN.md — EKS doc (docs/capsule-on-eks.md, Status: Draft) — EKSDOC-01 lands first per D-13
 - [ ] 07-02-PLAN.md — POC seam static infra (# KARYON POC MOUNT sentinel + clusters/hub-flux/pocs/{kustomization.yaml, capsule.yaml} + pocs/capsule/kustomization.yaml placeholder) — POC-01, CAPCLU-02
 - [ ] 07-03-PLAN.md — spoke-capsule cluster + register-poc-cluster.sh (with P18 falsifier) — POC-02, CAPCLU-01, CAPCLU-02 (live)
