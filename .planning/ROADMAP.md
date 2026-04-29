@@ -149,8 +149,8 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 06-00-PLAN.md — Wave 0 bats validation scaffold (8 NEW bats files for REPO-02..05/07 + DOCS-01/02/04/05/06..10)
-- [ ] 06-01-PLAN.md — REPO-01..04 + DOCS-06: secrets-defense atomic landing (.gitignore D-16, .gitleaks.toml, .tool-versions gitleaks pin, hooks/pre-commit, install-tools.sh Sections 7-8, one-shot history scan, ADR-001)
+- [x] 06-00-PLAN.md — Wave 0 bats validation scaffold (8 NEW bats files for REPO-02..05/07 + DOCS-01/02/04/05/06..10)
+- [x] 06-01-PLAN.md — REPO-01..04 + DOCS-06: secrets-defense atomic landing (.gitignore D-16, .gitleaks.toml, .tool-versions gitleaks pin, hooks/pre-commit, install-tools.sh Sections 7-8, one-shot history scan, ADR-001)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 06-02-PLAN.md — DOCS-07/08/09/10: ADRs 0002..0005 (k3d-over-Kind, Flux-over-ArgoCD, hub-only Flux, version pin)
