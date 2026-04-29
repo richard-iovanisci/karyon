@@ -10,7 +10,7 @@ regexes = [
   '''ghp_REPLACE_WITH_PAT_WITH_repo_SCOPE''',  # .env.example placeholder (D-09 Phase 1)
 ]
 paths = [
-  '''\.env\.example''',                         # whole-file allow (Phase 1 D-11 contract)
+  '''^\.env\.example$''',                       # whole-file allow (Phase 1 D-11 contract)
 ]
 # Add per-finding entries during the one-shot scan if needed.
 # Format: regexes = [ '''<exact-literal>''' ]
