@@ -27,20 +27,26 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [x] Five ADRs written under `docs/adr/` for the locked architectural decisions *(Validated in Phase 6: Repo Hygiene + Docs + ADRs — DOCS-06..10; ADR-001 single-WSL2 + shared docker network, ADR-002 k3d-over-Kind, ADR-003 Flux-over-ArgoCD with ApplicationSet trade-off + migration note, ADR-004 hub-only Flux control plane, ADR-005 k3s/CUDA version pin; all Nygard 4-section, Status: Accepted)*
 - [x] README covers Windows prereqs, WSL config, Docker install, NVIDIA setup, cluster creation, Flux bootstrap, spoke registration, teardown *(Validated in Phase 6: Repo Hygiene + Docs + ADRs — DOCS-01; 260-line hybrid quickstart + reference in locked DOCS-01 order; cross-links to architecture.md / gpu-notes.md / rebuild-runbook.md / 5 ADRs)*
 - [x] Repo is safe to publish publicly: no committed secrets, all sensitive inputs via gitignored `.env` with a committed `.env.example` template, placeholder comments where user substitution is required *(Validated in Phase 6: Repo Hygiene + Docs + ADRs — REPO-01..04; gitleaks 8.30.1 native pre-commit hook + .gitleaks.toml allowlist + .gitignore D-16 + post-push CI gitleaks-scan with fetch-depth: 0; one-shot history scan returned 0 findings across 251 commits)*
+- [x] Single WSL2 Ubuntu 24.04 instance hosts all clusters on a shared `k8s-net` Docker network *(Validated in Phase 1+2 — HOST-01/02 + CLU-01..05; ADR-001)*
+- [x] Docker Engine installed directly in WSL2 (no Docker Desktop integration) *(Validated in Phase 1 — HOST-03 + PRE-08; ADR-001)*
+- [x] NVIDIA container toolkit + Docker nvidia runtime configured for GPU pass-through *(Validated in Phase 1 — HOST-05 + PRE-04 default-runtime check)*
+- [x] Tool versions pinned via checked-in `.tool-versions` and installed via asdf *(Validated in Phase 1 — TOOLS-01..03 + asdf v0.18.1 + 8 plugins; later extended in Phase 6 with gitleaks 8.30.1 pin)*
+- [x] `task preflight` verifies env, resources, GPU chain, tools, ports, and residual k3d/network state *(Validated in Phase 1 — PRE-01..14; ported from prereqs.sh into scripts/preflight.sh + scripts/lib/preflight-lib.sh)*
+- [x] `task bootstrap-flux` runs `flux bootstrap github` on hub-flux idempotently (path = `clusters/hub-flux`) *(Validated in Phase 3 — FLUX-01..05; idempotent via patch-surface marker, env-only PAT handling)*
+- [x] Destructive tasks (`destroy`, `rebuild`) require explicit confirmation *(Validated in Phase 5 + audited in Phase 6 — DESTROY-01..06 + REPO-06; typed-yes confirmation in scripts/destroy.sh + scripts/rebuild.sh)*
+- [x] All scripts are idempotent, fail fast, preflight their own prerequisites, and produce useful errors *(Validated across Phases 1-5 — preflight delegation in create-clusters/bootstrap-flux/register-spokes/deploy-examples/rebuild; strict-mode bash + `set -euo pipefail` throughout)*
+- [x] Documented NAT-mode fallback procedure for WSL2 `networkingMode=mirrored` edge cases with Docker custom networks *(Validated in Phase 1 — docs/wsl-networking.md)*
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Single WSL2 Ubuntu 24.04 instance hosts all clusters on a shared `k8s-net` Docker network
-- [ ] Docker Engine installed directly in WSL2 (no Docker Desktop integration)
-- [ ] NVIDIA container toolkit + Docker nvidia runtime configured for GPU pass-through
-- [ ] Tool versions pinned via checked-in `.tool-versions` and installed via asdf
-- [ ] `task preflight` verifies env, resources, GPU chain, tools, ports, and residual k3d/network state
-- [ ] `task bootstrap-flux` runs `flux bootstrap github` on hub-flux idempotently (path = `clusters/hub-flux`)
-- [ ] Destructive tasks (`destroy`, `rebuild`) require explicit confirmation
-- [ ] All scripts are idempotent, fail fast, preflight their own prerequisites, and produce useful errors
-- [ ] Documented NAT-mode fallback procedure for WSL2 `networkingMode=mirrored` edge cases with Docker custom networks
+*v0.18 shipped fully. Run `/gsd-new-milestone` to scope v0.19 candidates. Surfaced during v0.18 close:*
+
+- [ ] Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155) — would let CI shellcheck severity drop from `error` back to `warning`
+- [ ] First-push CI verification + GitHub branch-protection setup (deferred from v0.18 06-07)
+- [ ] Real secret management (Vault / SOPS / age) — was explicitly out of scope for v0.18
+- [ ] Stale frontmatter reconciliation pass (3 phases' VALIDATION.md flags + 3 Phase 6 SUMMARY `requirements-completed` + REQUIREMENTS.md traceability table)
 
 ### Out of Scope
 
@@ -60,7 +66,9 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 **Host target:** Author's development machine — Windows 11, RTX 5090 (Blackwell, sm_120), ample RAM/disk. `.wslconfig` pins 52 GB RAM and 20 CPU to WSL. Preflight floor is tight (40 GB RAM / 16 C / 100 GB free pass; 16 GB RAM / 8 C / 30 GB warn; below → fail). Because the topology is tuned to this machine, "works on my dev box" is explicitly the floor, not a generic minimum.
 
-**Prior work:** An existing preflight checker at `prereqs.sh` (read-only, no-change, re-runnable bash) already covers WSL2 detection, Ubuntu 24.04 check, systemd, memory/CPU/disk floors, Docker daemon + group + Desktop-integration detection, WSL libcuda stub, nvidia-smi + RTX 5090 + driver 570.x+ gate, nvidia-ctk + docker nvidia runtime, port 6443–6445 / 8080–8082 occupancy, and existing k3d container / `k8s-net` residue. This script is the canonical starting point for `scripts/preflight.sh` (not a rewrite from scratch).
+**Current state (post-v0.18 — shipped 2026-04-29):** The full karyon Lab v1 stack is operational. `task rebuild` chains preflight → destroy → create-clusters → bootstrap-flux → register-spokes → deploy-examples → health-check end-to-end and was validated at **190 seconds** with warm CUDA cache (well under the 20-minute SLO). All 81 v0.18 requirements are satisfied across 6 phases / 41 plans / 90 tasks. Public-repo secrets defense is operational with 0 historical findings across 251 commits and a 5-job GitHub Actions CI workflow (gitleaks fetch-depth: 0, shellcheck, kubeconform, markdownlint, prune-lint-bats) with all third-party actions SHA-pinned. Five ADRs document the locked architectural decisions; README + architecture.md (Mermaid topology) + gpu-notes.md + rebuild-runbook.md + flux-hub-spoke.md cross-link the full reference.
+
+**Prior work (consumed during v0.18):** An existing preflight checker at `prereqs.sh` was ported to `scripts/preflight.sh` + `scripts/lib/preflight-lib.sh` and extended with PRE-04 (default-runtime), PRE-09..14 (env, shim precedence, systemd-resolved, clock skew, cgroup v2, mirrored-mode bridge probe). Both `prereqs.sh` and the original `starter.md` walkthrough were superseded by the new entry-point surface (README + Taskfile) and removed in Phase 6 Plan 05.
 
 **Repo visibility:** Public from day one. This shifts the secrets model: no real tokens, kubeconfigs, or certs may land in git. GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN (and any other user-substituted values) live in a gitignored `.env` populated locally; a committed `.env.example` documents the contract. `flux bootstrap github` writes its PAT to an in-cluster Secret only; `flux-system/` manifests are fine to commit but the PAT must not be.
 
@@ -93,18 +101,20 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Single WSL2 Ubuntu 24.04 distro for all clusters | All WSL2 distros share one host VM — per-distro isolation is illusory (→ ADR-001) | — Pending |
-| Docker Engine installed natively in WSL (not Docker Desktop) | Avoids extra WSL distros consuming shared memory (→ ADR-001) | — Pending |
-| k3d over Kind | Official GPU support, lower idle RAM, explicit `--network` control (→ ADR-002) | — Pending |
-| Flux over ArgoCD | Simpler for lab scope; trade-off: no clean ApplicationSet cluster-generator equivalent; acceptable for 2–3 spokes (→ ADR-003) | — Pending |
-| Hub-only Flux control plane (v1) | Reduces controller footprint on spokes; hub uses `spec.kubeConfig` + kubeconfig Secrets to reconcile into spokes (→ ADR-004) | — Validated in Phase 4 |
-| Pin k3s to `rancher/k3s:v1.34.6-k3s1`; pin CUDA base to 12.8+ | Flux-compatible current line; CUDA 12.8 is floor for RTX 5090 sm_120 (→ ADR-005) | — Pending |
-| Tool versions via asdf + `.tool-versions` | Reproducible versions; shim precedence avoids collisions with system binaries | — Pending |
-| Public repo with gitignored `.env` + `.env.example` template | Shareable by design; zero real secrets in git; explicit contract for substitution | — Pending |
-| GPU smoke-test limited to `nvidia-smi` inside a pod | Avoids coupling lab health to PyTorch nightly availability for sm_120 | — Validated in Phase 5 |
-| Port existing `prereqs.sh` as `scripts/preflight.sh` | Existing script already covers the full checklist; starting from scratch would be wasted effort | — Pending |
-| Pin nvidia-device-plugin to v0.17.4 (overrides REQUIREMENTS.md v0.19.0+) | No stable v0.19.x release compatible with RTX 5090 / Blackwell / sm_120 at Phase 2 research time — phase-scoped D-15 override | — Validated in Phase 2 |
-| `scripts/delete-clusters.sh` must never invoke `docker (system\|builder\|image\|volume) prune` | BuildKit CUDA cache must survive teardown so Phase 5 `task rebuild` SLO (< 20 min) is achievable; literal `INTENTIONALLY NOT calling` comment is the Phase 6 DESTROY-04 lint's grep target | — Validated in Phase 2 (D-14) |
+| Single WSL2 Ubuntu 24.04 distro for all clusters | All WSL2 distros share one host VM — per-distro isolation is illusory (→ ADR-001) | ✓ Validated in Phase 1 (HOST-01) + ADR-001 |
+| Docker Engine installed natively in WSL (not Docker Desktop) | Avoids extra WSL distros consuming shared memory (→ ADR-001) | ✓ Validated in Phase 1 (HOST-03 + PRE-08 fail gate) |
+| k3d over Kind | Official GPU support, lower idle RAM, explicit `--network` control (→ ADR-002) | ✓ Validated in Phase 2 (CLU-01..05) + ADR-002 |
+| Flux over ArgoCD | Simpler for lab scope; trade-off: no clean ApplicationSet cluster-generator equivalent; acceptable for 2–3 spokes (→ ADR-003) | ✓ Validated in Phase 3 (FLUX-01..05) + ADR-003 |
+| Hub-only Flux control plane (v1) | Reduces controller footprint on spokes; hub uses `spec.kubeConfig` + kubeconfig Secrets to reconcile into spokes (→ ADR-004) | ✓ Validated in Phase 4 (SPOKE-04..06) + ADR-004 |
+| Pin k3s to `rancher/k3s:v1.34.6-k3s1`; pin CUDA base to 12.8+ | Flux-compatible current line; CUDA 12.8 is floor for RTX 5090 sm_120 (→ ADR-005) | ✓ Validated in Phase 2 (IMG-01..05) + ADR-005 |
+| Tool versions via asdf + `.tool-versions` | Reproducible versions; shim precedence avoids collisions with system binaries | ✓ Validated in Phase 1 (TOOLS-01..03 + PRE-10 shim precedence) |
+| Public repo with gitignored `.env` + `.env.example` template | Shareable by design; zero real secrets in git; explicit contract for substitution | ✓ Validated in Phase 6 (REPO-01..04; 0 historical findings across 251 commits) |
+| GPU smoke-test limited to `nvidia-smi` inside a pod | Avoids coupling lab health to PyTorch nightly availability for sm_120 | ✓ Validated in Phase 5 (DEP-04) |
+| Port existing `prereqs.sh` as `scripts/preflight.sh` | Existing script already covers the full checklist; starting from scratch would be wasted effort | ✓ Validated in Phase 1 (PRE-01..14; lib extracted to scripts/lib/preflight-lib.sh) |
+| Pin nvidia-device-plugin to v0.17.4 (overrides REQUIREMENTS.md v0.19.0+) | No stable v0.19.x release compatible with RTX 5090 / Blackwell / sm_120 at Phase 2 research time — phase-scoped D-15 override | ✓ Validated in Phase 2 (IMG-04) |
+| `scripts/delete-clusters.sh` must never invoke `docker (system\|builder\|image\|volume) prune` | BuildKit CUDA cache must survive teardown so Phase 5 `task rebuild` SLO (< 20 min) is achievable; literal `INTENTIONALLY NOT calling` comment is the Phase 6 DESTROY-04 lint's grep target | ✓ Validated in Phase 2 + 5 (D-14; SLO 190s achieved) |
+| Wave 0 bats validation scaffold (Nyquist gate) | Every executor task in Phase 6 Waves 1-3 has a pre-existing automated test command before implementation lands; no "implement and test in same plan" anti-pattern | ✓ Validated in Phase 6 (06-00; 39 tests across 8 files; all green after Waves 1-3) |
+| All GitHub Actions pinned to 40-char commit SHAs (D-09) | Tag re-points are a supply-chain risk; SHAs are immutable | ✓ Validated in Phase 6 (REPO-07; 4 actions pinned, post-push CI green locally) |
 
 ## Evolution
 
@@ -124,4 +134,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-29 after Phase 6 (repo-hygiene-docs-adrs) completion — milestone v0.18 ready for audit*
+*Last updated: 2026-04-29 after v0.18 milestone completion (karyon Lab v1 shipped — 6 phases, 41 plans, 81/81 requirements)*
