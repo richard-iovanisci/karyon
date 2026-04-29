@@ -39,7 +39,11 @@ fi
 # Idempotent: if /usr/local/bin/asdf already exists at the right version, skip.
 # ---------------------------------------------------------------------------
 section "asdf binary (${ASDF_VERSION})"
-if [[ -x /usr/local/bin/asdf ]] && /usr/local/bin/asdf --version 2>/dev/null | grep -qE "^0\.(1[89]|[2-9])"; then
+installed_asdf_version=""
+if [[ -x /usr/local/bin/asdf ]]; then
+  installed_asdf_version="$(/usr/local/bin/asdf --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
+fi
+if [[ "$installed_asdf_version" == "$ASDF_VERSION" ]]; then
   info "already done, skipping: asdf ${ASDF_VERSION}"
 else
   curl -fsSL "${ASDF_TARBALL_URL}" | sudo tar -xz -C /usr/local/bin asdf
