@@ -1,0 +1,23 @@
+# pocs/capsule/operator/ocirepository.yaml
+# Capsule operator chart source — Flux v1 OCIRepository pinning oci://ghcr.io/projectcapsule/charts/capsule:0.12.4
+#
+# Verified shapes (2026-04-29):
+#   - apiVersion source.toolkit.fluxcd.io/v1: fluxcd.io/flux/components/source/api/v1/
+#   - chart values surface: helm show values oci://ghcr.io/projectcapsule/charts/capsule --version 0.12.4
+#   - layerSelector.mediaType is the canonical Helm chart layer (fluxcd.io/flux/components/source/ocirepositories/)
+#
+# D-08-02 — per-chart OCIRepository (NOT shared with capsule-proxy; capsule-proxy has its own at pocs/capsule/proxy/ocirepository.yaml)
+# D-08-06 — interval 24h is sufficient for tag-pinned chart sources (no semver poll churn)
+# CAP-01 — tag literal "0.12.4" is the bare-minimum operator install pin
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: capsule
+  namespace: capsule-system
+spec:
+  interval: 24h
+  url: oci://ghcr.io/projectcapsule/charts/capsule
+  ref:
+    tag: "0.12.4"
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
