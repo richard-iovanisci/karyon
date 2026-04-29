@@ -153,9 +153,9 @@ Plans:
 - [x] 06-01-PLAN.md — REPO-01..04 + DOCS-06: secrets-defense atomic landing (.gitignore D-16, .gitleaks.toml, .tool-versions gitleaks pin, hooks/pre-commit, install-tools.sh Sections 7-8, one-shot history scan, ADR-001)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 06-02-PLAN.md — DOCS-07/08/09/10: ADRs 0002..0005 (k3d-over-Kind, Flux-over-ArgoCD, hub-only Flux, version pin)
-- [ ] 06-03-PLAN.md — DOCS-02 + DOCS-04: docs/architecture.md Mermaid topology + docs/gpu-notes.md
-- [ ] 06-04-PLAN.md — REPO-05 + REPO-06: Taskfile.yml audit + add preflight: task entry
+- [x] 06-02-PLAN.md — DOCS-07/08/09/10: ADRs 0002..0005 (k3d-over-Kind, Flux-over-ArgoCD, hub-only Flux, version pin)
+- [x] 06-03-PLAN.md — DOCS-02 + DOCS-04: docs/architecture.md Mermaid topology + docs/gpu-notes.md
+- [x] 06-04-PLAN.md — REPO-05 + REPO-06: Taskfile.yml audit + add preflight: task entry
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 06-05-PLAN.md — DOCS-01 + DOCS-03 verify: README.md hybrid quickstart + cleanup deletes (D-13 prereqs.sh, D-14 starter.md)
