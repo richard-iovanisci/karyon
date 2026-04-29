@@ -1,0 +1,79 @@
+# pocs/capsule/proxy/helmrelease.yaml
+# capsule-proxy install — Flux v2 HelmRelease that helm-controller (on hub-flux) reconciles
+# onto k3d-spoke-capsule via spec.kubeConfig (ADR-004 hub-only Flux preserved).
+#
+# Verified shapes (2026-04-29):
+#   - apiVersion helm.toolkit.fluxcd.io/v2: fluxcd.io/flux/components/helm/api/v2/
+#   - chart values key paths: helm show values oci://ghcr.io/projectcapsule/charts/capsule-proxy --version 0.12.0
+#
+# D-08-06 — spec.interval=5m matches outer poc-capsule Kustomization cadence
+# D-08-07 — spec.dependsOn blocks reconcile until operator HelmRelease Ready=True
+#   (Pitfall 9 / RESEARCH catch: NO `wait:` field — Flux v2 HelmRelease default behavior already
+#   blocks until dependency Ready=True; the field doesn't exist in helm.toolkit.fluxcd.io/v2.
+#   CONTEXT.md D-08-07 mention of wait:true is wrong; supersedes by RESEARCH §Pitfall 9.)
+# P18 / P40 — spec.kubeConfig.secretRef.{name,key} inheritance from clusters/hub-flux/pocs/capsule.yaml
+# CAP-02 — proxy HelmRelease Ready=True + NodePort 30443 reachable from WSL host
+#   (RESEARCH OQ-1 reframe: reachability = TLS handshake succeeds + HTTP code in [1-5][0-9][0-9],
+#   NOT literal /healthz returns 200 against chart defaults.)
+# P33 — options.additionalSANs (RESEARCH-verified key path; CONTEXT.md guess of tls.additionalSANs is wrong)
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: capsule-proxy
+  namespace: capsule-system
+spec:
+  interval: 5m
+  releaseName: capsule-proxy
+  targetNamespace: capsule-system
+  storageNamespace: capsule-system
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chartRef:
+    kind: OCIRepository
+    name: capsule-proxy
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  # D-08-07 — proxy waits for operator HelmRelease Ready=True before reconciling.
+  # Pitfall 9: dependsOn does NOT support a `wait: true` sub-field — Flux v2
+  # HelmRelease default behavior already blocks until dependency Ready=True.
+  dependsOn:
+    - name: capsule
+      namespace: capsule-system
+  values:
+    # CAP-02 — Service shape (NodePort 30443; Phase 7 D-10 published this on k3d serverlb)
+    service:
+      type: NodePort
+      port: 9001
+      portName: proxy
+      nodePort: 30443
+    # P33 — TLS SAN injection. RESEARCH-verified key path: options.additionalSANs
+    # (NOT tls.additionalSANs as CONTEXT.md `<specifics>` guessed). Without 127.0.0.1
+    # + localhost SANs, curl -k from WSL host fails TLS handshake at the cert hostname-
+    # verification step (before HTTP request even starts).
+    options:
+      listeningPort: 9001
+      enableSSL: true
+      capsuleConfigurationName: default
+      additionalSANs:
+        - 127.0.0.1
+        - localhost
+      authPreferredTypes: "BearerToken,TLSCertificate"
+    # OQ-2 — chart-default cert source. `certManager.generateCertificates: true` uses
+    # the chart's SelfSigned Issuer template, which works WITHOUT cert-manager controller
+    # installed (chart includes Issuer + Certificate definitions; the SelfSigned Issuer
+    # type doesn't require an external CA chain). Verified by `helm template` 2026-04-29.
+    # If cert reconcile loop fails on first install (unlikely), Plan 08-03 verifier
+    # surfaces this and the override path is `options.generateCertificates: true` +
+    # `certManager.generateCertificates: false` (built-in self-sign Job).
+    certManager:
+      generateCertificates: true
+    webhooks:
+      enabled: false
+    replicaCount: 1
