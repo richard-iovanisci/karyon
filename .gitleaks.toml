@@ -15,3 +15,21 @@ paths = [
 # Add per-finding entries during the one-shot scan if needed.
 # Format: regexes = [ '''<exact-literal>''' ]
 # Format: paths   = [ '''<file-path-regex>''' ]
+
+# Phase 7 v0.19 POC-03: kubeconfig-shaped artifact + bearer token regex.
+# gitleaks 8.30.1 supports multi-line regex via (?ms) and [\r\n] character classes.
+# minVersion = "v8.25.0" satisfied by the project's pinned 8.30.1.
+# Ref: .planning/research/PITFALLS.md §P29; tests/fixtures/gitleaks/synthetic-kubeconfig.yaml
+# is the bats positive fixture (path-allowlisted below so it can live in the repo).
+
+[[rules]]
+id = "kubeconfig-bearer-token"
+description = "Kubernetes kubeconfig with embedded bearer token (kind: Config + users.token)"
+regex = '''(?ms)^kind:\s*Config[\s\S]*?users:[\s\S]*?token:\s*[A-Za-z0-9._-]{32,}'''
+tags = ["kubernetes", "kubeconfig", "bearer-token", "v0.19"]
+
+[rules.allowlist]
+description = "Phase 7 synthetic fixtures (verified inert; positive-test only)"
+paths = [
+  '''^tests/fixtures/gitleaks/synthetic-kubeconfig\.yaml$''',
+]
