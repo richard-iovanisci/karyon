@@ -4,8 +4,8 @@ milestone: v0.19
 milestone_name: Capsule Multi-Tenancy POC
 status: executing
 stopped_at: Phase 8 context gathered
-last_updated: "2026-04-29T19:25:36.229Z"
-last_activity: 2026-04-29 -- Phase 8 planning complete
+last_updated: "2026-04-29T19:26:47.113Z"
+last_activity: 2026-04-29 -- Phase 8 execution started
 progress:
   total_phases: 6
   completed_phases: 1
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 7 — Foundation — POC Seam + spoke-capsule Cluster + EKS Capsule Doc
+**Current focus:** Phase 8 — capsule-capsule-proxy-bare-minimum-install
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-29 -- Phase 8 planning complete
+Phase: 8 (capsule-capsule-proxy-bare-minimum-install) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 8
+Last activity: 2026-04-29 -- Phase 8 execution started
 
 ## Performance Metrics
 
