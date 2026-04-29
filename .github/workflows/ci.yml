@@ -1,0 +1,99 @@
+# .github/workflows/ci.yml
+# karyon CI - 5 parallel jobs (D-09 + D-11 + D-12).
+# Triggers: every push to any branch + every pull_request.
+# Branch protection on `main` requires all 5 to be green to merge (configured
+# manually in GitHub UI; documented in README.md "Repo Hygiene & CI").
+
+name: CI
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38  # v2.0.0
+        with:
+          scandir: './scripts'
+          # severity: error - Phase 1-5 scripts have pre-existing SC2034 (unused
+          # readonly vars) and SC2155 (declare-and-assign) warnings that are
+          # technical debt out of scope for Phase 6 (per CONTEXT.md domain
+          # boundary). CI gates on `error` until Phase 1-5 scripts are cleaned
+          # up in a future hygiene plan; flip back to `warning` then.
+          severity: error
+
+  markdownlint:
+    name: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: DavidAnson/markdownlint-cli2-action@ce4853d43830c74c1753b39f3cf40f71c2031eb9  # v23
+        with:
+          globs: '**/*.md'
+          # .markdownlint.json is auto-discovered at the repo root.
+
+  kubeconform:
+    name: kubeconform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Install kubeconform v0.7.0
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin kubeconform
+          sudo chmod +x /usr/local/bin/kubeconform
+      - name: Validate clusters/ and examples/
+        env:
+          # Pinned SHA for the datreeio/CRDs-catalog (D-10 + RESEARCH Open Question #2).
+          # Bump this SHA when Flux CRDs change in upstream + a re-validation run is required.
+          DATREE_SHA: 8f6b5cb13c01d5ee16331f14aece201caec8e1c5
+        run: |
+          find clusters examples -name '*.yaml' -not -name 'kustomization.yaml' -print0 \
+            | xargs -0 kubeconform \
+                -strict \
+                -ignore-missing-schemas \
+                -skip CustomResourceDefinition,Kustomization \
+                -schema-location default \
+                -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/${DATREE_SHA}/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
+                -summary
+
+  prune-lint-bats:
+    name: prune-lint-bats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Install bats from apt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+      - name: Run prune-lint test (DESTROY-04 - D-12 reuses existing bats test verbatim)
+        run: bats tests/bats/destroy-rebuild-01-static.bats
+
+  gitleaks-scan:
+    name: gitleaks-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          # CRITICAL (Pitfall 3): full history needed for `gitleaks git --log-opts="--all"`.
+          # Default is fetch-depth: 1 (shallow); gitleaks would silently false-pass on
+          # historical leaks.
+          fetch-depth: 0
+      - name: Install gitleaks v8.30.1
+        run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin gitleaks
+          sudo chmod +x /usr/local/bin/gitleaks
+      - name: Scan full repo + history
+        run: |
+          gitleaks git \
+            --verbose \
+            --redact \
+            --log-opts="--all"
