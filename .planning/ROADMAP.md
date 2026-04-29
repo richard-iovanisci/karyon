@@ -158,9 +158,9 @@ Plans:
 - [x] 06-04-PLAN.md — REPO-05 + REPO-06: Taskfile.yml audit + add preflight: task entry
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 06-05-PLAN.md — DOCS-01 + DOCS-03 verify: README.md hybrid quickstart + cleanup deletes (D-13 prereqs.sh, D-14 starter.md)
-- [ ] 06-06-PLAN.md — DOCS-05: docs/rebuild-runbook.md linear steps + per-step timings + Common failures appendix
-- [ ] 06-07-PLAN.md — REPO-07: .github/workflows/ci.yml (5 parallel jobs, pinned SHAs, fetch-depth: 0 on gitleaks) + .markdownlint.json
+- [x] 06-05-PLAN.md — DOCS-01 + DOCS-03 verify: README.md hybrid quickstart + cleanup deletes (D-13 prereqs.sh, D-14 starter.md)
+- [x] 06-06-PLAN.md — DOCS-05: docs/rebuild-runbook.md linear steps + per-step timings + Common failures appendix
+- [x] 06-07-PLAN.md — REPO-07: .github/workflows/ci.yml (5 parallel jobs, pinned SHAs, fetch-depth: 0 on gitleaks) + .markdownlint.json
 
 ## Progress
 
