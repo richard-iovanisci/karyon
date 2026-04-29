@@ -1,0 +1,88 @@
+# pocs/capsule/operator/helmrelease.yaml
+# Capsule operator install — Flux v2 HelmRelease that helm-controller (on hub-flux) reconciles
+# onto k3d-spoke-capsule via spec.kubeConfig (ADR-004 hub-only Flux preserved).
+#
+# Verified shapes (2026-04-29):
+#   - apiVersion helm.toolkit.fluxcd.io/v2: fluxcd.io/flux/components/helm/api/v2/
+#   - chart values key paths: helm show values oci://ghcr.io/projectcapsule/charts/capsule --version 0.12.4
+#
+# D-08-03 — webhooks.hooks.<hook>.failurePolicy=Ignore (per-hook key path; P26 belt-and-suspenders)
+# D-08-04 — tls.enableController=true (built-in certgen; NO cert-manager dep per PROJECT.md Out-of-Scope)
+# D-08-06 — spec.interval=5m matches outer poc-capsule Kustomization cadence
+# P18 / P40 — spec.kubeConfig.secretRef.{name,key} inheritance from clusters/hub-flux/pocs/capsule.yaml
+# CAP-01 — operator HelmRelease Ready=True + capsule-controller-manager pod Running
+# CAP-03 — chart's CRDs land deterministically (install.crds + upgrade.crds = CreateReplace)
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: capsule
+  namespace: capsule-system
+spec:
+  interval: 5m
+  releaseName: capsule
+  targetNamespace: capsule-system
+  storageNamespace: capsule-system
+  install:
+    createNamespace: true
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  chartRef:
+    kind: OCIRepository
+    name: capsule
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  values:
+    # D-08-04 — built-in certgen, NO cert-manager
+    tls:
+      enableController: true
+      create: true
+    certManager:
+      generateCertificates: false
+    crds:
+      install: true
+    # D-08-03 — failurePolicy: Ignore per-hook (P26 belt-and-suspenders).
+    # RESEARCH-verified key path: webhooks.hooks.<hook>.failurePolicy
+    # (NOT webhooks.validatingWebhookConfiguration.failurePolicy as 08-CONTEXT.md guessed).
+    # Verified by `helm show values oci://ghcr.io/projectcapsule/charts/capsule --version 0.12.4` (2026-04-29).
+    webhooks:
+      hooks:
+        tenants:
+          failurePolicy: Ignore
+        tenantLabel:
+          failurePolicy: Ignore
+        customresources:
+          failurePolicy: Ignore
+        namespaces:
+          failurePolicy: Ignore
+        pods:
+          failurePolicy: Ignore
+        services:
+          failurePolicy: Ignore
+        ingresses:
+          failurePolicy: Ignore
+        persistentvolumeclaims:
+          failurePolicy: Ignore
+        networkpolicies:
+          failurePolicy: Ignore
+        gateways:
+          failurePolicy: Ignore
+        cordoning:
+          failurePolicy: Ignore
+        devices:
+          failurePolicy: Ignore
+        serviceaccounts:
+          failurePolicy: Ignore
+        tenantResourceObjects:
+          failurePolicy: Ignore
+    # Single-replica per ADR-008 framing ("what we did not prove → HA Capsule")
+    replicaCount: 1
+    # Anti-umbrella explicit lint — proxy is a SEPARATE HelmRelease at pocs/capsule/proxy/
+    proxy:
+      enabled: false
