@@ -24,6 +24,9 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [x] `task health-check` verifies clusters, nodes, Flux controllers, spoke Kustomizations, in-hub DNS, GPU capacity, TLS SANs, and workload proofs *(Validated in Phase 5: Workloads + Health + Rebuild — HEALTH-01..06)*
 - [x] `task destroy` confirms, removes all three clusters plus `k8s-net`, and preserves the CUDA image/cache by avoiding prune commands *(Validated in Phase 5: Workloads + Health + Rebuild — DESTROY-01..04)*
 - [x] `task rebuild` runs destroy → create → bootstrap → register → deploy → health-check and completed in 190 seconds with warm CUDA image cache *(Validated in Phase 5: Workloads + Health + Rebuild — DESTROY-05..06)*
+- [x] Five ADRs written under `docs/adr/` for the locked architectural decisions *(Validated in Phase 6: Repo Hygiene + Docs + ADRs — DOCS-06..10; ADR-001 single-WSL2 + shared docker network, ADR-002 k3d-over-Kind, ADR-003 Flux-over-ArgoCD with ApplicationSet trade-off + migration note, ADR-004 hub-only Flux control plane, ADR-005 k3s/CUDA version pin; all Nygard 4-section, Status: Accepted)*
+- [x] README covers Windows prereqs, WSL config, Docker install, NVIDIA setup, cluster creation, Flux bootstrap, spoke registration, teardown *(Validated in Phase 6: Repo Hygiene + Docs + ADRs — DOCS-01; 260-line hybrid quickstart + reference in locked DOCS-01 order; cross-links to architecture.md / gpu-notes.md / rebuild-runbook.md / 5 ADRs)*
+- [x] Repo is safe to publish publicly: no committed secrets, all sensitive inputs via gitignored `.env` with a committed `.env.example` template, placeholder comments where user substitution is required *(Validated in Phase 6: Repo Hygiene + Docs + ADRs — REPO-01..04; gitleaks 8.30.1 native pre-commit hook + .gitleaks.toml allowlist + .gitignore D-16 + post-push CI gitleaks-scan with fetch-depth: 0; one-shot history scan returned 0 findings across 251 commits)*
 
 ### Active
 
@@ -35,9 +38,6 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [ ] Tool versions pinned via checked-in `.tool-versions` and installed via asdf
 - [ ] `task preflight` verifies env, resources, GPU chain, tools, ports, and residual k3d/network state
 - [ ] `task bootstrap-flux` runs `flux bootstrap github` on hub-flux idempotently (path = `clusters/hub-flux`)
-- [ ] Five ADRs written under `docs/adr/` for the locked architectural decisions
-- [ ] README covers Windows prereqs, WSL config, Docker install, NVIDIA setup, cluster creation, Flux bootstrap, spoke registration, teardown
-- [ ] Repo is safe to publish publicly: no committed secrets, all sensitive inputs via gitignored `.env` with a committed `.env.example` template, placeholder comments where user substitution is required
 - [ ] Destructive tasks (`destroy`, `rebuild`) require explicit confirmation
 - [ ] All scripts are idempotent, fail fast, preflight their own prerequisites, and produce useful errors
 - [ ] Documented NAT-mode fallback procedure for WSL2 `networkingMode=mirrored` edge cases with Docker custom networks
@@ -124,4 +124,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-28 after Phase 5 (workloads-health-rebuild) completion*
+*Last updated: 2026-04-29 after Phase 6 (repo-hygiene-docs-adrs) completion — milestone v0.18 ready for audit*
