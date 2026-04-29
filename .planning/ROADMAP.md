@@ -76,7 +76,7 @@
   4. ADR-004 invariant preserved — `kubectl --context=k3d-spoke-capsule get pods -n flux-system` returns no Flux controllers (hub-only Flux unchanged)
 **Plans**: 4 plans (Wave 0 Nyquist gate + Waves 1-3 implementation + verifier)
 - [x] 08-00-PLAN.md — Wave 0 Nyquist gate: 10 bats files RED (5 static + 5 live, cluster-info gated) covering CAP-01/02/03 contracts + Pitfall 8 reframe + Pitfall 9 anti-pattern lint
-- [ ] 08-01-PLAN.md — Operator HelmRelease + OCIRepository + local kustomize (pocs/capsule/operator/) — CAP-01, CAP-03
+- [x] 08-01-PLAN.md — Operator HelmRelease + OCIRepository + local kustomize (pocs/capsule/operator/) — CAP-01, CAP-03
 - [ ] 08-02-PLAN.md — Proxy HelmRelease + OCIRepository + local kustomize (pocs/capsule/proxy/) + atomic rewrite of pocs/capsule/kustomization.yaml to resources: [operator/, proxy/] — CAP-02, CAP-03
 - [ ] 08-03-PLAN.md — Verifier — live HelmRelease Ready=True + CRDs + proxy reachable + ADR-004 invariant + FOLDED CARRYOVER (outer poc-capsule Kustomization Ready=True; Phase 7 verification 1b) + Phase 7 P31/P40/P18 regression rerun
 
@@ -138,7 +138,7 @@
 | 5. Workloads + Health + Rebuild | v0.18 | 6/6 | Complete | 2026-04-28 |
 | 6. Repo Hygiene + Docs + ADRs | v0.18 | 8/8 | Complete | 2026-04-29 |
 | 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 0/6 | Planned | — |
-| 8. Capsule + capsule-proxy Install | v0.19 | 1/4 | In Progress|  |
+| 8. Capsule + capsule-proxy Install | v0.19 | 2/4 | In Progress|  |
 | 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/0 | Not Started | — |
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 0/0 | Not Started | — |
 | 11. Validation + Graduation ADR-008 | v0.19 | 0/0 | Not Started | — |
