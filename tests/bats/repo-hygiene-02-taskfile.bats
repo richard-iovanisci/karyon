@@ -30,9 +30,12 @@ setup() {
   done
 }
 
-@test "REPO-05: Taskfile.yml is a thin wrapper — every cmds: entry calls bash scripts/<name>.sh and nothing else" {
+@test "REPO-05: Taskfile.yml is a thin wrapper — every cmds: entry calls bash scripts/<path>.sh and nothing else" {
   [ -f "$TASKFILE" ]
-  run bash -c "awk '/^[[:space:]]+cmds:/{flag=1; next} /^  [a-z]/{flag=0} flag && /^[[:space:]]*-/' '$TASKFILE' | grep -vE '^[[:space:]]*-[[:space:]]+bash scripts/[a-z][a-z0-9-]+\\.sh\$'"
+  # Allow flat (scripts/foo.sh) and nested POC paths (scripts/poc/capsule/fix-dns.sh)
+  # per D-12 / P31 isolation. Thin-wrapper invariant preserved: still only
+  # `bash <path>.sh` is permitted; no inline kubectl/docker/k3d/flux.
+  run bash -c "awk '/^[[:space:]]+cmds:/{flag=1; next} /^  [a-z]/{flag=0} flag && /^[[:space:]]*-/' '$TASKFILE' | grep -vE '^[[:space:]]*-[[:space:]]+bash scripts/[a-z0-9/-]+\\.sh\$'"
   [ "$status" -ne 0 ]
 }
 
