@@ -152,22 +152,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 7: gitleaks asdf plugin (D-07 / REQ-REPO-04)
-# Adds the gitleaks plugin if not present. Tool version pinned in .tool-versions.
-# Section 6 above iterates .tool-versions and `asdf install`s gitleaks 8.30.1.
-# Plugin source: jmcvetta/asdf-gitleaks (resolves zricethezav/gitleaks redirect
-# to gitleaks/gitleaks releases; verified 200 OK against v8.30.1 on 2026-04-28).
-# ---------------------------------------------------------------------------
-section "asdf plugin gitleaks"
-if asdf plugin list 2>/dev/null | grep -qx gitleaks; then
-  info "already done, skipping: asdf plugin gitleaks"
-else
-  asdf plugin add gitleaks
-  pass "installing: asdf plugin gitleaks"
-fi
-
-# ---------------------------------------------------------------------------
-# Section 8: Git core.hooksPath wiring (D-06 / REQ-REPO-04)
+# Section 7: Git core.hooksPath wiring (D-06 / REQ-REPO-04)
 # Idempotent: only writes if value differs from "hooks".
 # Once set, `git commit` runs hooks/pre-commit instead of .git/hooks/pre-commit.
 # This is per-clone configuration; survives `git pull`.
