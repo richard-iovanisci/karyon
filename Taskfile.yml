@@ -1,6 +1,11 @@
 version: '3'
 
 tasks:
+  preflight:
+    desc: Read-only environment check (PRE-01..14); idempotent, exits 0 on pass / 1 on any blocker
+    cmds:
+      - bash scripts/preflight.sh
+
   build-image:
     desc: Build the karyon/k3s-cuda custom image (IMG-01..06)
     cmds:

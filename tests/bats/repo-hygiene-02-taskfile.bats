@@ -38,6 +38,10 @@ setup() {
 
 @test "REPO-05: Taskfile.yml has no inline kubectl|docker|k3d|flux invocations outside cmds:" {
   [ -f "$TASKFILE" ]
-  run bash -c "grep -vE '^[[:space:]]*(#|cmds:|-[[:space:]]+bash scripts/)' '$TASKFILE' | grep -vE '^[[:space:]]*\$' | grep -E '\\b(kubectl|docker|k3d|flux)[[:space:]]+'"
+  # Exclude comments, cmds:, desc: (descriptions narratively reference k3d/Flux),
+  # and the canonical `- bash scripts/<name>.sh` list items. The remaining lines
+  # are everything that COULD harbor an inline invocation; assert none contain
+  # a kubectl|docker|k3d|flux command followed by whitespace.
+  run bash -c "grep -vE '^[[:space:]]*(#|cmds:|desc:|-[[:space:]]+bash scripts/)' '$TASKFILE' | grep -vE '^[[:space:]]*\$' | grep -E '\\b(kubectl|docker|k3d|flux)[[:space:]]+'"
   [ "$status" -ne 0 ]
 }
