@@ -6,6 +6,13 @@
 #
 # REQ-CAPCLU-02 (Pitfall 7 — without this file the outer Kustomization reports
 # Ready=False; path not found).
+#
+# Phase 8 update (D-08-05): operator/ and proxy/ subdir refs added — the outer
+# poc-capsule Flux Kustomization now reconciles operator HelmRelease + proxy
+# HelmRelease + their per-chart OCIRepositories under capsule-system on
+# spoke-capsule via spoke-capsule-kubeconfig. Phase 9 will append config/ + tenants/.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources: []
+resources:
+- operator/
+- proxy/
