@@ -1,0 +1,13 @@
+# pocs/capsule/proxy/kustomization.yaml
+# Local Kustomize aggregator for the proxy subdir — resolved by the parent
+# pocs/capsule/kustomization.yaml (rewritten in Task 3 of this plan to resources: [operator/, proxy/]).
+#
+# D-08-01 / D-08-05 — proxy subdir under pocs/capsule/.
+# Sets namespace: capsule-system as belt-and-suspenders (the OCIRepository + HelmRelease
+# both already declare metadata.namespace: capsule-system in their own files).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: capsule-system
+resources:
+  - ocirepository.yaml
+  - helmrelease.yaml
