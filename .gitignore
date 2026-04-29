@@ -20,6 +20,13 @@ kubeconfig*
 # Flux scratch from bootstrap retries
 flux-system/identity*
 
+# Phase 7 D-14 expansion (v0.19 POC-03) ──────────────────
+# Tenant kubeconfig globs (Phase 10 ${TMPDIR:-/tmp}/karyon-tenants/ destination):
+karyon-tenants/
+*.tenant.kubeconfig
+tenants/**/access.yaml
+tenants/**/admin.yaml
+
 # OS / IDE noise
 .DS_Store
 *.swp
