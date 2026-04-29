@@ -61,7 +61,7 @@
 - [x] 07-00-PLAN.md — Wave 0 Nyquist gate: 7 bats stubs + 2 gitleaks fixtures (POC-01..04, CAPCLU-01..04, EKSDOC-01 contracts)
 - [x] 07-01-PLAN.md — EKS doc (docs/capsule-on-eks.md, Status: Draft) — EKSDOC-01 lands first per D-13
 - [x] 07-02-PLAN.md — POC seam static infra (# KARYON POC MOUNT sentinel + clusters/hub-flux/pocs/{kustomization.yaml, capsule.yaml} + pocs/capsule/kustomization.yaml placeholder) — POC-01, CAPCLU-02
-- [ ] 07-03-PLAN.md — spoke-capsule cluster + register-poc-cluster.sh (with P18 falsifier) — POC-02, CAPCLU-01, CAPCLU-02 (live)
+- [x] 07-03-PLAN.md — spoke-capsule cluster + register-poc-cluster.sh (with P18 falsifier) — POC-02, CAPCLU-01, CAPCLU-02 (live)
 - [x] 07-04-PLAN.md — Preflight 30443 fail-fast + tenant-kubeconfig leak defense (.gitignore + .gitleaks.toml) — POC-03, POC-04
 - [x] 07-05-PLAN.md — Host-restart recovery (scripts/poc/capsule/fix-dns.sh + task fix-dns-poc-capsule + docs/poc-capsule.md) — CAPCLU-03, CAPCLU-04
 
