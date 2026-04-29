@@ -41,12 +41,31 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 <!-- Current scope. Building toward these. -->
 
-*v0.18 shipped fully. Run `/gsd-new-milestone` to scope v0.19 candidates. Surfaced during v0.18 close:*
+## Current Milestone: v0.19 — Capsule Multi-Tenancy POC
 
-- [ ] Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155) — would let CI shellcheck severity drop from `error` back to `warning`
-- [ ] First-push CI verification + GitHub branch-protection setup (deferred from v0.18 06-07)
-- [ ] Real secret management (Vault / SOPS / age) — was explicitly out of scope for v0.18
-- [ ] Stale frontmatter reconciliation pass (3 phases' VALIDATION.md flags + 3 Phase 6 SUMMARY `requirements-completed` + REQUIREMENTS.md traceability table)
+**Goal:** Prove [Capsule](https://capsule.clastix.io/) as a Karyon-managed multi-tenancy pattern on a dedicated, isolated POC spoke — without polluting the default v1 topology or `task rebuild` path. Close with an explicit graduation ADR (adopt / defer / reject / another POC).
+
+**Target features:**
+
+- Generic external POC onboarding seam (`KARYON POC MOUNT` sentinel-guarded patch surface) so future POCs onboard consistently
+- `spoke-capsule` POC cluster — persistent for the POC, NOT part of default v1 topology, NOT in `task rebuild`
+- Hub-only Flux preserved — Capsule HelmRelease + tenant Kustomizations live on hub-flux, reconcile to spoke-capsule via `spec.kubeConfig` (ADR-004 invariant)
+- Capsule operator installation via Flux HelmRelease
+- Capsule-proxy installation and reachable via kubeconfig
+- ≥2 tenants with separate owners and isolated namespaces
+- Tenant owner access validation (positive RBAC)
+- Negative RBAC tests (owner-A cannot access tenant-B; no escalation to cluster-admin)
+- Kube-api access through capsule-proxy (tenant kubeconfig routes via proxy, not direct apiserver)
+- Flux tenant reconciliation investigation (multi-tenancy lockdown / SA impersonation / cross-namespace refs)
+- Capsule webhook failure / teardown validation
+- Graduation ADR closing the milestone
+
+**Carried-forward candidates from v0.18 close (not in v0.19 scope unless explicitly added later):**
+
+- Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155)
+- First-push CI verification + GitHub branch-protection setup
+- Real secret management (Vault / SOPS / age)
+- Stale frontmatter reconciliation pass (VALIDATION.md flags + REQUIREMENTS.md traceability table)
 
 ### Out of Scope
 
@@ -61,6 +80,12 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - One WSL2 distro per cluster — all distros share the host VM; per-distro isolation is illusory (ADR-001)
 - Non-Windows hosts — targets Windows 11 + WSL2 only; Linux-native and macOS not supported in v1
 - CI/CD pipeline — local dev loop only; GitHub Actions integration deferred
+- **(v0.19)** OIDC tenant authentication — token-based for the Capsule POC; OIDC issuer / dex / keycloak deferred to a later milestone
+- **(v0.19)** Production ingress / TLS for capsule-proxy — port-forward / NodePort acceptable for POC; real ingress + cert-manager deferred
+- **(v0.19)** Generic ephemeral cluster factory — `spoke-capsule` is hand-rolled and persistent for the POC; a parameterized "spawn ephemeral spoke" factory is future work
+- **(v0.19)** Multi-spoke tenant federation — POC stays on a single spoke; tenants spanning spoke-apps + spoke-ml + spoke-capsule is out of scope
+- **(v0.19)** Capsule installed on hub-flux itself — POC validates spoke-side multi-tenancy first; hub-side Capsule deferred
+- **(v0.19)** Default platform adoption of Capsule — Capsule stays outside `task rebuild` until a graduation ADR explicitly adopts it
 
 ## Context
 
@@ -134,4 +159,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-29 after v0.18 milestone completion (karyon Lab v1 shipped — 6 phases, 41 plans, 81/81 requirements)*
+*Last updated: 2026-04-29 — milestone v0.19 (Capsule Multi-Tenancy POC) opened. v0.18 (karyon Lab v1) shipped 2026-04-29 — 6 phases, 41 plans, 81/81 requirements.*
