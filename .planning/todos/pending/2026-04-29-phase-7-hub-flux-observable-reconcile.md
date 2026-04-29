@@ -35,3 +35,13 @@ This todo will auto-close when `/gsd-execute-phase 8` completes (per `resolves_p
 - Phase 7 split rationale: `.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-HUMAN-UAT.md` §1b
 - P18 script-internal falsifier (resolves 1a): `scripts/register-poc-cluster.sh` `verify_credential_layer()` function
 - Phase 8 plan when written: should include this acceptance criterion in CAP-01 / CAP-02 must_haves
+
+---
+
+## 2026-04-29 status update — fragile pass, NOT resolved
+
+The Phase 8 verifier (`08-VERIFICATION.md`, untracked) ran 2026-04-29T20:50:00Z and recorded truth #7 ("FOLDED CARRYOVER — outer `poc-capsule` Kustomization on hub-flux reports `Ready=True` against a post-Phase-7 source revision") as **VERIFIED** at `Applied revision: main@sha1:32e0b2fa`.
+
+However, the verifier also flagged this as a *masked* pass: outer Kustomization is reconciling against pre-Phase-8 source where `pocs/capsule/kustomization.yaml: resources: []` produces zero objects to apply (`inventory.entries: []`). The masking will lift the moment Phase 8 push lands, surfacing Phase 8 Gap G-04 — outer Kustomization will go `Ready=False` because spoke-capsule has no Flux CRDs to receive the HelmRelease/OCIRepository CRs being applied to it via `spec.kubeConfig: spoke-capsule-kubeconfig`.
+
+**Disposition:** Todo stays `pending` (resolves_phase: 8). It will auto-close only when Phase 8 verifier reports `passed` after G-03 + G-04 gap fixes land. The current "fragile pass" does not meet the close-out bar.

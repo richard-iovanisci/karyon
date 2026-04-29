@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: Capsule Multi-Tenancy POC
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-04-29T19:26:47.113Z"
-last_activity: 2026-04-29 -- Phase 8 execution started
+stopped_at: Phase 8 verifier surfaced gaps_found (G-03 cert source + G-04 architectural seam) — gap-close required before Phase 8 advance
+last_updated: "2026-04-29T20:30:00Z"
+last_activity: 2026-04-29 -- Phase 7 closed out [x]; Phase 8 plans 0-3 executed but verifier reports gaps_found 6/10 (08-VERIFICATION.md untracked) — needs /gsd-plan-phase 8 --gaps before close-out
 progress:
   total_phases: 6
   completed_phases: 1
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 8 — capsule-capsule-proxy-bare-minimum-install
+**Current focus:** Phase 8 — capsule-capsule-proxy-bare-minimum-install (gap-close: G-03 cert source + G-04 architectural seam)
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
-Phase: 8 (capsule-capsule-proxy-bare-minimum-install) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 8
-Last activity: 2026-04-29 -- Phase 8 execution started
+Phase: 8 (capsule-capsule-proxy-bare-minimum-install) — GAPS_FOUND (verifier 6/10)
+Plan: 4/4 plan summaries exist, but verifier surfaced 2 BLOCKER gaps (G-03 cert source, G-04 architectural seam) + 1 deferrable gap (G-01/02 push gate)
+Status: Awaiting /gsd-plan-phase 8 --gaps to schedule fix plans
+Last activity: 2026-04-29 -- Phase 7 closed out; Phase 8 verifier ran (08-VERIFICATION.md untracked, status: gaps_found) — gap-close required before close-out
 
 ## Performance Metrics
 
@@ -102,8 +102,11 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ### Pending Todos
 
-- **Phase 7 carryover — hub Flux observable reconcile of `poc-capsule`** (resolves_phase: 8). Script-internal P18 falsifier passed; runtime Flux observation of `Ready=True` deferred to Phase 8 where CAP-01/02 HelmRelease landings naturally exercise the seam. → `.planning/todos/pending/2026-04-29-phase-7-hub-flux-observable-reconcile.md`
+- **Phase 7 carryover — hub Flux observable reconcile of `poc-capsule`** (resolves_phase: 8). Script-internal P18 falsifier passed; runtime Flux observation of `Ready=True` deferred to Phase 8 where CAP-01/02 HelmRelease landings naturally exercise the seam. Phase 8 verifier truth #7 *momentarily* observed Ready=True at `32e0b2fa`, but masked by empty inventory (G-04 will break this on push). → `.planning/todos/pending/2026-04-29-phase-7-hub-flux-observable-reconcile.md`
 - **Phase 7 carryover — gitleaks rule fires on planning docs that quote inert synthetic fixture** (resolves_phase: 11). New `kubeconfig-bearer-token` rule catches embedded fixture YAML in 3 planning docs; CI gitleaks-scan job will fail on first push to origin. Phase 11 VAL-05 owns one-shot history scan; resolution must precede VAL-05. → `.planning/todos/pending/2026-04-29-phase-7-gitleaks-planning-doc-allowlist.md`
+- **Phase 7 HUMAN-UAT items 2/3/4** (non-blocking; tracked in `07-HUMAN-UAT.md`). Real Docker/WSL restart recovery (item 2 — environmental, observe-when-it-happens), Mermaid GitHub render fidelity (item 3 — gated behind first-push deferred to Phase 11), EKS doc presentation walkthrough (item 4 — subjective milestone-owner judgment).
+- **Phase 8 BLOCKER gap G-03 (BL-01) — cert source incompatible with D-08-04**. `pocs/capsule/proxy/helmrelease.yaml:75-76` uses `certManager.generateCertificates: true` which requires a cert-manager controller; spoke-capsule has none. Verifier-recommended fix: flip to `options.generateCertificates: true` + `certManager.generateCertificates: false` (controller-less certgen Job). → `08-VERIFICATION.md` Gap G-03 (untracked file).
+- **Phase 8 BLOCKER gap G-04 — architectural seam: outer Kustomization → spoke applies HR CRs to wrong cluster**. Outer `clusters/hub-flux/pocs/capsule.yaml` carries `spec.kubeConfig: spoke-capsule-kubeconfig` (Phase 7 P40/P18 invariant) but spoke has no Flux CRDs. Server-side dry-run confirms `no matches for kind "HelmRelease"`. Requires architectural decision (verifier offers Option A: remove kubeConfig from outer; Option B: split paths) before push. → `08-VERIFICATION.md` Gap G-04.
 
 ### Blockers/Concerns
 
@@ -122,13 +125,13 @@ Items acknowledged and carried forward from previous milestone close:
 | v0.18 follow-up | First-push CI verification + GitHub branch-protection setup | Active | v0.18 close 2026-04-29 |
 | v0.18 follow-up | Real secret management (Vault / SOPS / age) | Active | v0.18 explicit out-of-scope |
 | v0.18 follow-up | Stale frontmatter reconciliation pass | Active | v0.18 close 2026-04-29 |
-| v0.19 phase-7 carryover | Hub Flux observable reconcile of `poc-capsule` Kustomization (script-internal P18 falsifier passed; runtime Flux observation deferred) | Active (resolves_phase: 8) | Phase 7 close 2026-04-29 |
+| v0.19 phase-7 carryover | Hub Flux observable reconcile of `poc-capsule` Kustomization (script-internal P18 falsifier passed; runtime Flux observation deferred) | Active (resolves_phase: 8) — Phase 8 verifier truth #7 *momentarily* PASS at `32e0b2fa` but masked by empty inventory; G-04 will break on push | Phase 7 close 2026-04-29 |
 | v0.19 phase-7 carryover | gitleaks `kubeconfig-bearer-token` rule fires on planning docs (07-00-PLAN, 07-RESEARCH, 07-REVIEW) that quote inert synthetic fixture content; first-push CI will fail until allowlisted | Active (resolves_phase: 11) | Phase 7 close 2026-04-29 |
+| v0.19 phase-8 gap | G-03 (BL-01) — `certManager.generateCertificates: true` in `pocs/capsule/proxy/helmrelease.yaml:75-76` requires absent cert-manager controller; proxy pod cannot mount TLS volume | Active (BLOCKER — needs gap-fix plan) | Phase 8 verifier 2026-04-29 |
+| v0.19 phase-8 gap | G-04 — outer `clusters/hub-flux/pocs/capsule.yaml` `spec.kubeConfig: spoke-capsule-kubeconfig` redirects HR/OCIRepo CRs to spoke which has no Flux CRDs; outer Kustomization Ready=False on push | Active (BLOCKER — needs architectural decision) | Phase 8 verifier 2026-04-29 |
 
 ## Session Continuity
 
-Last session: 2026-04-29T18:31:34.429Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-capsule-capsule-proxy-bare-minimum-install/08-CONTEXT.md
-
-**Planned Phase:** 07 (foundation-poc-seam-spoke-capsule-eks-doc) — TBD plans — 2026-04-29
+Last session: 2026-04-29T20:30:00Z
+Stopped at: Phase 7 closed out [x]; Phase 8 verifier surfaced gaps_found (08-VERIFICATION.md untracked) — needs `/gsd-plan-phase 8 --gaps` to schedule G-03 + G-04 fix plans before phase advance
+Resume file: .planning/phases/08-capsule-capsule-proxy-bare-minimum-install/08-VERIFICATION.md (untracked — read before planning gap fixes)

@@ -1,8 +1,8 @@
 # Phase 8: Capsule + capsule-proxy Bare-Minimum Install - Context
 
 **Gathered:** 2026-04-29
-**Status:** Ready for planning
-**Mode:** `--auto` (Claude selected recommended defaults across all gray areas; no interactive questions)
+**Status:** Ready for planning (gap-close: D-08-11 cert source + D-08-12 architectural seam + D-08-13 push deferral confirmed)
+**Mode:** `--auto` (Claude selected recommended defaults across all gray areas; no interactive questions). **Gap-close revision 2026-04-29:** milestone owner answered G-04 with Option B (split paths) and confirmed G-01/G-02 deferral to Phase 11 VAL-05 via interactive prompt (see D-08-12, D-08-13).
 
 <domain>
 ## Phase Boundary
@@ -84,6 +84,31 @@ Land the Capsule operator and capsule-proxy on `spoke-capsule` via two **separat
 
 - **D-08-10:** Phase 7's `scripts/poc/capsule/create-cluster.sh` already locked the port-publish form. Phase 8 does NOT modify cluster create flags. Phase 8 verifier just reads the existing cluster's NodePort 30443 reachability from the WSL host — if `curl -k https://127.0.0.1:30443/healthz` fails post-install, that's a Phase 7 cluster-shape defect (gap-close back to Phase 7), NOT a Phase 8 chart-config defect.
   - **Rationale:** Phase 7 already shipped CAPCLU-01 (cluster create with `--port "30443:30443@server:0"` or equivalent — verified live by milestone owner). Phase 8 inherits and verifies, does not re-decide.
+
+### Proxy cert source — flip to controller-less Job (D-08-11) [GAP-CLOSE 2026-04-29]
+
+- **D-08-11:** **Reverses D-08-04's proxy-side cert-source choice.** The proxy HelmRelease at `pocs/capsule/proxy/helmrelease.yaml:75-76` MUST set `options.generateCertificates: true` AND `certManager.generateCertificates: false`. The original choice (`certManager.generateCertificates: true`) renders cert-manager.io `Issuer` + `Certificate` CRs, which require the cert-manager *controller* (NOT just the CRDs) to reconcile into a TLS `Secret`. spoke-capsule has only the cert-manager.io CRDs as API surface (D-08-04, "no controller installed"), so the original config would leave the proxy pod indefinitely unable to mount its TLS volume → CAP-02 cannot pass. The fix path was validated by `helm template`: the `options.generateCertificates: true` path renders a `capsule-proxy-certgen` Job using `kube-webhook-certgen` (controller-less, produces the `capsule-proxy` Secret directly).
+  - **Rationale:** verifier 08-VERIFICATION.md G-03 + reviewer 08-REVIEW.md BL-01 — `helm template` evidence reproduced and matches reviewer's analysis. D-08-04 is preserved unchanged for the operator (operator's `tls.enableController: true` is the operator chart's distinct controller-less self-sign path). D-08-11 amends ONLY the proxy-side cert source.
+  - **Bats coverage update:** `tests/bats/capsule-install-04-static-no-umbrella.bats:30-34` (WR-02) currently greps for `certManager.generateCertificates: true` as a vacuous literal lint. Replace with a yq path negative assertion: `yq eval '.spec.values.certManager.generateCertificates' pocs/capsule/proxy/helmrelease.yaml` returns `false`. Add positive assertion: `yq eval '.spec.values.options.generateCertificates' pocs/capsule/proxy/helmrelease.yaml` returns `true`.
+  - **Comment block rewrite:** Lines 68-76 internally inconsistent (WR-06 — claims chart works without controller, then describes alternative as "fallback"). Rewrite as a clean attribution to D-08-11 + D-08-04 + `helm template` evidence reference.
+
+### Outer Kustomization architectural seam — split paths (D-08-12) [GAP-CLOSE 2026-04-29]
+
+- **D-08-12:** **Architectural seam fix — Option B (split paths).** The outer `clusters/hub-flux/pocs/capsule.yaml` (Phase 7 file, P40/P18 invariant) MUST be modified to remove `spec.kubeConfig`, redirecting kustomize-controller's apply target back to **hub-flux** (where helm-controller can reconcile HelmReleases and source-controller can resolve OCIRepositories). HelmRelease CRs land on hub; the HRs' own `spec.kubeConfig` redirects helm-install actions to spoke (standard Flux remote-cluster pattern). For future spoke-targeted CRs (Phase 9 Tenant CRs and beyond), add a **second outer Kustomization** at `clusters/hub-flux/pocs/capsule-spoke.yaml` carrying `spec.kubeConfig.secretRef: spoke-capsule-kubeconfig` + `key: value.yaml` (P40/P18 inheritance preserved for spoke targets) pointing at a new path `./pocs/capsule/spoke/` — Phase 8 lands the placeholder directory `pocs/capsule/spoke/kustomization.yaml` with `resources: []` (Pitfall-7 defense), Phase 9 populates it with Tenant CRs.
+  - **Rationale:** verifier 08-VERIFICATION.md G-04 + reviewer 08-REVIEW.md WR-05 — server-side dry-run confirmed: applying HR to spoke fails with `no matches for kind "HelmRelease"` (ADR-004 invariant: spoke has zero Flux CRDs). Currently masked because outer K reconciles against pre-Phase-8 source where `pocs/capsule/kustomization.yaml: resources: []` produces zero objects to apply; masking lifts the moment push lands. Option B (split paths) is forward-compatible with Phase 9's Tenant CR needs and matches the standard Flux remote-cluster pattern (kustomize-controller applies CRs to hub; per-CR `kubeConfig` redirects helm/install/etc. actions to spoke). Option A (just remove kubeConfig from outer K) was rejected because it forces Phase 9 to re-introduce the dual-K pattern under emergency conditions; setting it up correctly now is cheaper than discovering the same gap at Phase 9 install time.
+  - **Phase 7 invariant evolution:** Phase 7's P40/P18 framing was "ALWAYS include the entire `spec.kubeConfig` block" — derived from a single-K-per-POC mental model. D-08-12 evolves the invariant to: "Spoke-targeted Kustomizations MUST include the entire `spec.kubeConfig` block; hub-targeted Kustomizations MUST NOT include `spec.kubeConfig` (keeps targets explicit). The split-path pattern is the load-bearing structure; absence of `kubeConfig` on a spoke-targeted K is the silent-misroute fault, not absence of `kubeConfig` per se." This is recorded as a Phase 7 invariant amendment (the file is in Phase 7's narrative scope, but the modification is delivered in Phase 8 gap-close because Phase 7's verifier did not observe the runtime contradiction).
+  - **Bats coverage update:** Existing `tests/bats/poc-mount-01-static.bats` already grep-asserts `secretRef.name: spoke-capsule-kubeconfig` AND `key: value.yaml` against `clusters/hub-flux/pocs/capsule.yaml` — this assertion will FAIL after the file is modified. Phase 8 gap-close MUST update this bats: split into two sub-tests, one asserting the hub-targeted outer K has NO `spec.kubeConfig`, one asserting the new spoke-targeted K (`capsule-spoke.yaml`) has the full `spec.kubeConfig.secretRef` block per P40/P18.
+  - **Files modified:**
+    - `clusters/hub-flux/pocs/capsule.yaml` (REMOVE `spec.kubeConfig` block; update head comment to reference D-08-12)
+    - `clusters/hub-flux/pocs/capsule-spoke.yaml` (CREATE; spoke-targeted K with kubeConfig, path `./pocs/capsule/spoke`)
+    - `clusters/hub-flux/pocs/kustomization.yaml` (UPDATE `resources` to include `capsule-spoke.yaml`)
+    - `pocs/capsule/spoke/kustomization.yaml` (CREATE placeholder with `resources: []` + Pitfall-7 defense comment + Phase 9 forward-pointer)
+    - `tests/bats/poc-mount-01-static.bats` (UPDATE assertions per split-path evolution)
+
+### Push gate — Path B deferral confirmed (D-08-13) [GAP-CLOSE 2026-04-29]
+
+- **D-08-13:** **G-01/G-02 (push gate) explicitly deferred to Phase 11 VAL-05** per Path B framing in 08-SUMMARY. Plans 08-01/02 commits remain local-only; the gap-close plan (08-04) does NOT include a `git push origin main` step. Phase 11 VAL-05 (one-shot history scan + first-push gate) owns the push event. The verifier's 4 FAILED must-haves (#2/#3/#4/#5) that are downstream of the push gate continue to FAIL until VAL-05; this is acknowledged tracked debt, not a Phase 8 gap.
+  - **Rationale:** verifier 08-VERIFICATION.md "Categorical assessment of Path B closure framing" — the deferral is legitimate Path B work; G-03 + G-04 are the genuinely Phase-8-shaped gaps to close now. After Phase 11 VAL-05 push lands, must-haves #2/#3/#4/#5 should resolve naturally (operator HR Ready=True; CRDs registered on spoke; proxy pod Running with valid TLS Secret; NodePort 30443 reachable).
 
 ### Claude's Discretion
 

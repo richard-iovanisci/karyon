@@ -3,12 +3,13 @@ status: partial
 phase: 07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc
 source: [.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-VERIFICATION.md]
 started: 2026-04-29T15:30:00Z
-updated: 2026-04-29T16:30:00Z
+updated: 2026-04-29T19:45:00Z
+auto_verification: 2026-04-29T19:45:00Z (--auto pre-flight)
 ---
 
 ## Current Test
 
-[awaiting human testing — items 2/3/4 below; item 1 split into 1a (resolved) + 1b (deferred to Phase 8)]
+[awaiting human testing — items 2/3/4 below; item 1 split into 1a (resolved) + 1b (deferred to Phase 8). 2026-04-29 `/gsd-verify-work 7 --auto` ran structural pre-flight on items 2/3/4 — see "auto-verification" subsections under each. Human-side actions (real Docker restart, GitHub render, presentation walkthrough) still required for definitive pass.]
 
 ## Tests
 
@@ -62,6 +63,13 @@ expected: After a Docker daemon or WSL restart that leaves spoke-capsule in a de
 
 result: [pending]
 
+auto-verification (2026-04-29):
+- ✓ `Taskfile.yml:44-47` defines `fix-dns-poc-capsule` as a sibling-not-parent of `fix-dns` (line 39). Both are top-level entries; no env-var dispatch (D-16 anti-pattern avoided).
+- ✓ `scripts/poc/capsule/fix-dns.sh` (75 lines) targets only `POC_CLUSTER="spoke-capsule"` (readonly). Zero hub-flux or `flux check` invocations against spoke-capsule (D-17 / ADR-004 — verified by grep against the script body; the 5 hub-flux/flux-check string matches are all design-rule comments documenting their absence).
+- ✓ `scripts/fix-coredns.sh` (default `task fix-dns` target) has zero references to `fix-dns-poc-capsule` or `scripts/poc/capsule/fix-dns.sh`. The two scripts share no surface (D-12 / P31 isolation).
+- ✓ Cluster currently healthy: `k3d cluster list` shows `spoke-capsule 1/1` running.
+- ⚠ HUMAN-required: cannot simulate "real Docker daemon or WSL restart causing degraded CoreDNS NodeHosts staleness" — that's the actual recovery scenario the test is asking for. Auto-pre-flight only validates the recovery mechanism is in place and isolated correctly. Definitive pass requires user to observe the failure mode after a real restart, then confirm `task fix-dns-poc-capsule` resolves it.
+
 To run:
 ```bash
 # After Docker / WSL restart, observe CoreDNS staleness:
@@ -84,6 +92,13 @@ expected: Pushing the branch to GitHub and viewing `docs/capsule-on-eks.md` in t
 
 result: [pending]
 
+auto-verification (2026-04-29):
+- ✓ Mermaid block exists at `docs/capsule-on-eks.md:46-79` (33 lines including fences). Header comment block declares it the "EKS-target topology — AWS-flavored equivalents of the karyon k3d POC".
+- ✓ Mermaid syntax structurally valid: `flowchart TB` directive; subgraphs (`aws`, `eks`, `capSys`, `tnsAlpha`, `tnsBravo`, `aws2`) properly opened/closed with quoted labels; node IDs (`op`, `px`, `appA`, `appB`, `ecr`, `nlb`, `iam`, `git`, `client`) all defined before edge use; edge syntaxes valid (`==>`, `-.->`, `-->|"..."|`); `<br/>` and `&lt;` HTML entities escaped correctly.
+- ✓ Diagram contains the expected EKS-target elements: capsule-controller-manager + capsule-proxy in `capsule-system`, two tenant namespaces (alpha-app1, bravo-app1) with IRSA-bound `gitops-reconciler` SAs, ECR-hosted Helm charts, NLB/ALB fronting capsule-proxy, IAM TrustPolicy arrows.
+- ⚠ **Test-wording mismatch surfaced**: the test's "should match" criteria reference k3d-specific elements (`hub-flux outer reconcile arrows to spoke-capsule`, `NodePort 30443`, `"no Flux on spoke-capsule" caption`) that intentionally DO NOT belong in the EKS-target diagram (the doc explicitly translates them: hub-flux → Git → ECR pipeline; :30443 NodePort → :443 NLB/ALB; no separate Flux hub since EKS uses single-cluster Flux). The artifact is correct against its declared purpose; the test wording was authored against the k3d source-of-truth, not the EKS adaptation.
+- ⚠ HUMAN-required: cannot push to GitHub (first-push gated until Phase 11 per VAL-05) or render Mermaid in browser. Definitive pass requires GitHub Web UI render once first-push is unblocked. Recommendation: when re-running this test, evaluate against the EKS-target topology criteria (Capsule operator + capsule-proxy + 2 tenant ns + ECR + IRSA + NLB/ALB nodes; chart-pipeline arrows; tenant kubectl edge), not the k3d source-of-truth.
+
 To run:
 - Push the branch to GitHub
 - Open `docs/capsule-on-eks.md` in the GitHub web UI
@@ -96,6 +111,15 @@ To run:
 expected: Milestone owner can walk a team through `docs/capsule-on-eks.md` in 10–15 minutes. Section (a) "what Capsule is" lands in one paragraph for non-experts. Section (b) (CRDs) names all 7 without overwhelming. Section (c) (RBAC) signals the admin-required steps clearly. Section (d) (rough EKS install path) leads with the high-level walkthrough then drops into IRSA + LB/ALB + VPC nodeSelector verbatim YAML for Cloud Ops. Section (e) (NOT proved — HA Capsule, OIDC, multi-spoke federation) sets the scope honestly without scaring the audience.
 
 result: [pending]
+
+auto-verification (2026-04-29):
+- ✓ Section (a) `## What Capsule is` (line 14) — single paragraph, ~70 words, links to capsule.clastix.io.
+- ✓ Section (b) `## Required CRDs (the 7)` (line 18) — table names all 7 CRDs (Tenant, CapsuleConfiguration, GlobalTenantResource, TenantResource, ResourcePool, ResourcePoolClaim, TenantOwner) with POC scope per row.
+- ✓ Section (c) `## Required permissions / RBAC` (line 32) — table of 3 subjects (Capsule operator SA, capsule-proxy SA, per-tenant SA) plus explicit "**Admin-required step:**" callout (line 40) on cluster-wide CRD install ordering.
+- ✓ Section (d) `## Rough EKS install path` (line 81) — leads with `### High-level walkthrough (Cloud Ops orientation)` (line 83, 7-step numbered list) before dropping into 3 verbatim YAML blocks (line 105 IRSA TrustPolicy JSON+YAML, line 139 NLB Service + ALB Ingress YAML, line 192 CapsuleConfiguration `allowedNodeSelectors` YAML). Sub-section `### Not yet wired in the k3d POC (EKS deltas)` (line 95) preserves audience honesty about what EKS-only setup is required.
+- ✓ Section (e) `## What this POC does NOT prove` (line 213) — exactly 3 numbered items: HA Capsule, OIDC tenant authentication, Multi-spoke federation. Closing line (221) anchors them to ADR-008 graduation vocabulary: "These three items mirror the eventual ADR-008 graduation framing so the EKS-target audience and the karyon graduation ADR speak the same vocabulary."
+- ✓ Frontmatter declares `audience: Mixed Engineering + Cloud Ops` and `status-rollover: Phase 11 graduation ADR-008` — Cloud Ops orientation contract is explicit.
+- ⚠ HUMAN-required: cannot judge "reads naturally" / "10-15 minute walk", "lands in one paragraph for non-experts", "signals admin-required steps clearly", "lift-ready for Cloud Ops", "without overwhelming", "without scaring the audience". These are presentation-fitness judgments that need the milestone owner to read end-to-end as if presenting.
 
 To run:
 - Read the doc end-to-end as if presenting to a Mixed Eng + Cloud Ops team
@@ -110,14 +134,20 @@ To run:
 total: 5
 passed: 1
 issues: 0
-pending: 3
+pending: 3 (auto-pre-flighted 2026-04-29; structural checks pass on all 3; human-side actions still required for definitive pass)
 deferred: 1
 skipped: 0
 blocked: 0
 
+## Auto-Verification Findings (2026-04-29 — `/gsd-verify-work 7 --auto`)
+
+- **Test 2** — Recovery mechanism + isolation rules verified structurally; cluster currently healthy. Cannot simulate Docker/WSL restart degradation. **Awaits real-world failure-mode observation.**
+- **Test 3** — Mermaid block exists with valid syntax; topology correctly represents the EKS-target adaptation per its own header. **Awaits GitHub Web UI render** (gated behind first-push deferred to Phase 11). **NEW FINDING:** test wording was authored against k3d source-of-truth language (`hub-flux outer reconcile arrows to spoke-capsule`, `NodePort 30443`, `"no Flux on spoke-capsule" caption`) but the artifact intentionally translates these to EKS-target equivalents. Recommend re-evaluating Test 3 against EKS-target criteria when first-push unblocks. NOT a code defect.
+- **Test 4** — All 5 required sections (a-e) present with required structural elements (7-CRD table, RBAC subjects, 7-step walkthrough, 3 verbatim YAML blocks, 3-item NOT-PROVED list anchored to ADR-008 vocabulary). **Awaits human readability + presentation-fitness judgment** (10-15 minute walkthrough trial).
+
 ## Gaps
 
-(None — all gaps surfaced as human verification items above.)
+(None — all gaps surfaced as human verification items above. Auto-pre-flight surfaced ONE test-wording-vs-artifact alignment issue on Test 3, recorded above as "NEW FINDING"; not promoted to a Gap because the artifact is correct against its declared purpose. The Test 3 expected text could optionally be revised on the user's next pass through this UAT.)
 
 ## Carryover
 

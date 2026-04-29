@@ -159,4 +159,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-29 — milestone v0.19 (Capsule Multi-Tenancy POC) opened. v0.18 (karyon Lab v1) shipped 2026-04-29 — 6 phases, 41 plans, 81/81 requirements.*
+*Last updated: 2026-04-29 — milestone v0.19 (Capsule Multi-Tenancy POC) Phase 7 closed out (6/6 plans, 9/9 must-haves verified). Phase 8 plans 0-3 executed but verifier (08-VERIFICATION.md untracked) reports `gaps_found` 6/10 — 2 BLOCKER gaps (G-03 cert source, G-04 architectural seam) need gap-close before Phase 8 advance. v0.18 (karyon Lab v1) shipped 2026-04-29 — 6 phases, 41 plans, 81/81 requirements.*
