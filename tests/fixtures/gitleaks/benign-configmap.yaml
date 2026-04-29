@@ -1,0 +1,9 @@
+# tests/fixtures/gitleaks/benign-configmap.yaml — NEGATIVE FIXTURE
+# This file MUST NOT be caught (no kind: Config + token shape).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: poc-03-negative
+data:
+  hint: this is not a kubeconfig
+  token: false-positive-canary
