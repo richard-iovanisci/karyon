@@ -41,6 +41,11 @@ tasks:
     cmds:
       - bash scripts/fix-coredns.sh
 
+  fix-dns-poc-capsule:
+    desc: Stop/start spoke-capsule to refresh stale k3d CoreDNS NodeHosts (POC; does NOT affect default fix-dns)
+    cmds:
+      - bash scripts/poc/capsule/fix-dns.sh
+
   health-check:
     desc: Verify clusters, Flux, spokes, DNS, GPU capacity, TLS SANs, and examples
     cmds:
