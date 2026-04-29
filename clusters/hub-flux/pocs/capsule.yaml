@@ -1,0 +1,27 @@
+# clusters/hub-flux/pocs/capsule.yaml
+# Flux v1 Kustomization — hub-flux's kustomize-controller reconciles
+# pocs/capsule/ into k3d-spoke-capsule via the spoke-capsule-kubeconfig Secret
+# (applied imperatively by scripts/register-poc-cluster.sh; never committed
+# because it contains a bearer token).
+#
+# REQ-CAPCLU-02 (this file's existence + secretRef shape).
+# REQ-CAPCLU-02 (key: value.yaml explicit — v0.18 P18 inheritance: silent-misroute fault is
+#   `spec.kubeConfig` ENTIRELY ABSENT, which would make kustomize-controller fall back to its
+#   in-cluster SA and reconcile to HUB. ALWAYS include the entire spec.kubeConfig block;
+#   explicit `key: value.yaml` is belt-and-suspenders against future Flux default-key changes.)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-capsule
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/capsule
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml

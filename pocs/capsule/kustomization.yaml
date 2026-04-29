@@ -1,0 +1,11 @@
+# pocs/capsule/kustomization.yaml
+# Phase 7 placeholder so the outer Flux Kustomization
+# (clusters/hub-flux/pocs/capsule.yaml, spec.path: ./pocs/capsule) reconciles
+# successfully against an empty resource list. Phase 8 will replace `resources: []`
+# with `[operator, proxy, config]` once the HelmReleases land.
+#
+# REQ-CAPCLU-02 (Pitfall 7 — without this file the outer Kustomization reports
+# Ready=False; path not found).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []
