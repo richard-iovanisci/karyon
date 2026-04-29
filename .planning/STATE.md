@@ -102,7 +102,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ### Pending Todos
 
-None yet. [From .planning/todos/pending/ — ideas captured during sessions.]
+- **Phase 7 carryover — hub Flux observable reconcile of `poc-capsule`** (resolves_phase: 8). Script-internal P18 falsifier passed; runtime Flux observation of `Ready=True` deferred to Phase 8 where CAP-01/02 HelmRelease landings naturally exercise the seam. → `.planning/todos/pending/2026-04-29-phase-7-hub-flux-observable-reconcile.md`
+- **Phase 7 carryover — gitleaks rule fires on planning docs that quote inert synthetic fixture** (resolves_phase: 11). New `kubeconfig-bearer-token` rule catches embedded fixture YAML in 3 planning docs; CI gitleaks-scan job will fail on first push to origin. Phase 11 VAL-05 owns one-shot history scan; resolution must precede VAL-05. → `.planning/todos/pending/2026-04-29-phase-7-gitleaks-planning-doc-allowlist.md`
 
 ### Blockers/Concerns
 
@@ -121,6 +122,8 @@ Items acknowledged and carried forward from previous milestone close:
 | v0.18 follow-up | First-push CI verification + GitHub branch-protection setup | Active | v0.18 close 2026-04-29 |
 | v0.18 follow-up | Real secret management (Vault / SOPS / age) | Active | v0.18 explicit out-of-scope |
 | v0.18 follow-up | Stale frontmatter reconciliation pass | Active | v0.18 close 2026-04-29 |
+| v0.19 phase-7 carryover | Hub Flux observable reconcile of `poc-capsule` Kustomization (script-internal P18 falsifier passed; runtime Flux observation deferred) | Active (resolves_phase: 8) | Phase 7 close 2026-04-29 |
+| v0.19 phase-7 carryover | gitleaks `kubeconfig-bearer-token` rule fires on planning docs (07-00-PLAN, 07-RESEARCH, 07-REVIEW) that quote inert synthetic fixture content; first-push CI will fail until allowlisted | Active (resolves_phase: 11) | Phase 7 close 2026-04-29 |
 
 ## Session Continuity
 
