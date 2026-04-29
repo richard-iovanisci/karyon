@@ -18,3 +18,5 @@ resources:
   - gotk-sync.yaml
   # KARYON SPOKES MOUNT
   - ../spokes
+  # KARYON POC MOUNT
+  - ../pocs
