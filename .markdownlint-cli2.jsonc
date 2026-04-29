@@ -1,0 +1,24 @@
+// .markdownlint-cli2.jsonc
+//
+// CLI2-only options for `markdownlint-cli2` (consumed by the markdownlint
+// CI job via `DavidAnson/markdownlint-cli2-action`). The MARKDOWNLINT RULES
+// live in `.markdownlint.json` (which markdownlint-cli2 prefers over any
+// `config:` block in this file when both exist - per cli2 docs).
+//
+// This file's job is purely to declare ignores for paths out-of-scope for
+// the end-user docs lint:
+//   - `.planning/`     - GSD planning artifacts; not authored to publish-doc
+//                        standards; markdownlint-clean is not a Phase 6 deliverable.
+//   - `starter.md`     - To be deleted in Phase 6 Plan 05 (D-14); excluded so
+//                        Plan 07's CI is green even if Plan 05 hasn't merged yet.
+//   - `CLAUDE.md`      - Claude Code config-file uses `@AGENTS.md` import
+//                        directive at line 1 (not a Markdown h1); special form.
+//   - `node_modules/`  - Vendor; never tracked.
+{
+  "ignores": [
+    ".planning/**",
+    "starter.md",
+    "CLAUDE.md",
+    "node_modules/**"
+  ]
+}
