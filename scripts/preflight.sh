@@ -189,6 +189,25 @@ for p in 6443 6444 6445 8080 8081 8082; do
   check_port "$p"
 done
 
+# v0.19 POC-04 / D-15: strict-mode port check — fails fast (does NOT warn) when
+# the port is in use. Used for POC-reserved ports where a stale listener would
+# block k3d cluster create. UNCHANGED check_port() preserved above for v0.18 ports.
+check_port_strict() {
+  local port="$1"
+  if ss -ltn 2>/dev/null | awk 'NR>1 {print $4}' | grep -qE "[:.]${port}$"; then
+    fail "Port ${port} is in use elsewhere on the host (POC-04 reserved).
+      Inspect: ss -ltnp | awk '\$4 ~ /:${port}\$/{print}'
+      Fix: free the port (kill the listener) or stop the offending service before continuing"
+    ss -ltnp 2>/dev/null | awk -v p=":${port}" '$4 ~ p {print "      " $0}' | head -2
+  else
+    pass "Port ${port} free (POC-04 fail-fast)"
+  fi
+}
+
+# ---------- 5b. Network / ports (PRE-15: POC-reserved) ----------
+section "Network / ports (PRE-15: POC-reserved)"
+check_port_strict 30443
+
 # ---------- 6. Existing container / k8s state ----------
 section "Existing container / k8s state"
 
