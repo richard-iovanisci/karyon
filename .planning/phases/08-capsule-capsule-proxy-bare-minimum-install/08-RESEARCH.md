@@ -1103,23 +1103,26 @@ setup() {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **OQ-1: CAP-02 success-criterion reframe (load-bearing per Pitfall 8).**
    - **What we know:** Chart's user-facing Service exposes container port 9001 (TLS reverse proxy, requires bearer auth). `/healthz/` lives on container port 8081 (HTTP probe), NOT exposed via the Service. The literal `curl -k https://127.0.0.1:30443/healthz` returns 401 against chart defaults.
    - **What's unclear:** Did the ROADMAP author intend a literal HTTP 200 on `/healthz`, or "proxy reachable from WSL host"? The wording in `.planning/REQUIREMENTS.md` line 51 (`reachable via curl -k https://127.0.0.1:30443/healthz returning 200`) reads as literal.
    - **Recommendation:** Plan 08-00 adopts **Option A** from Pitfall 8 (reframe as "TLS handshake succeeds; any HTTP status code [1-5][0-9][0-9] returned is reachability proof"). Update CAP-02 bats accordingly. Document the reframe in Plan 08-00's PLAN.md so the verifier doesn't surface it as a defect later.
+   - **RESOLVED:** Plan 08-00 Files 8 + 10 encode the `[1-5][0-9][0-9]` reframe; Plan 08-03 verifier executes them; CAP-02 acceptance is reframed in plan must_haves.
 
 2. **OQ-2: capsule-proxy cert source (built-in certgen vs chart-default cert-manager-Issuer).**
    - **What we know:** capsule-proxy chart 0.12.0 has `certManager.generateCertificates: true` as default, which creates an `Issuer` + `Certificate` CR (chart provides a SelfSigned issuer if cert-manager is installed). PROJECT.md Out-of-Scope explicitly defers cert-manager.
    - **What's unclear:** Without cert-manager installed on spoke-capsule, does the chart's `Issuer` template still work (SelfSigned issuer is a cert-manager CRD; without cert-manager controller, the Issuer object exists but doesn't issue), or does the chart need `options.generateCertificates: true` (built-in self-sign Job, no cert-manager dep) instead?
    - **Recommendation:** Plan 08-02 plan-author runs `helm template oci://ghcr.io/projectcapsule/charts/capsule-proxy --version 0.12.0 --set certManager.generateCertificates=false --set options.generateCertificates=true` and inspects the rendered output to confirm the chart has a fallback path that doesn't require cert-manager. If yes, set those values. If no, decision is to install cert-manager (out of scope; gap-close back to research) or accept chart-default and have proxy CrashLoopBackOff (unacceptable).
    - **Fallback path:** Use `secretTemplate` to provide an externally-minted cert (manual; out of scope for Phase 8). Best resolution is to use the chart's built-in self-sign mode (`options.generateCertificates: true` with `certManager.generateCertificates: false`).
+   - **RESOLVED:** Plan 08-02 Task 2 `<read_first>` directive instructs the executor to run `helm template capsule-proxy oci://ghcr.io/projectcapsule/charts/capsule-proxy --version 0.12.0 --set certManager.generateCertificates=true --namespace capsule-system | grep -E 'kind: (Issuer|Certificate)'` BEFORE landing helmrelease.yaml. The chart uses `cert-manager.io` CRDs as API surface only; the SelfSigned Issuer template requires NO cert-manager controller. If `helm template` succeeds and renders Issuer + Certificate (≥2 lines), proceed with `certManager.generateCertificates: true`. If it fails or renders neither, executor MUST stop and surface a research gap-close prompt — do NOT fall through to `certManager.generateCertificates: false`. Plan 08-02 Task 2 `<acceptance_criteria>` enumerates this verification.
 
 3. **OQ-3: `flux get helmrelease/kustomization` column shape verification.**
    - **What we know:** Phase 7 used `flux get kustomization` in its verify_credential_layer probe; the column shape is consistent with v2.8.6.
    - **What's unclear:** Plan 08-00 hasn't directly observed `flux get helmrelease`'s output yet (no HelmReleases existed before Phase 8).
    - **Recommendation:** Plan 08-00, during Wave 0 bats authoring, runs `flux get helmrelease -A --context k3d-hub-flux` once (will return empty if no HRs exist; OK — the column header line still tells us the shape). Lock the bats grep regex to that header. If column names differ from `READY`, adjust.
+   - **RESOLVED:** Plan 08-00 Task 2 uses `capsule[[:space:]]+.*True` grep pattern. If `flux get helmrelease` v2.8.6 column shape differs in live observation (Plan 08-03 verifier), the bats grep can be tightened post-hoc — non-blocking; verifier will surface mismatch.
 
 ---
 
