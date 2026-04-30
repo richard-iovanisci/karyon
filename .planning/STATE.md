@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
 status: ready_to_plan
-stopped_at: Phase 9 attempt-3 gap resolutions captured
-last_updated: "2026-04-30T17:55:09.822Z"
-last_activity: 2026-04-30 -- Phase 09 execution started
+stopped_at: Phase 9 complete (passed_with_overrides) — Phase 10 ready to plan
+last_updated: "2026-04-30T19:11:00.000Z"
+last_activity: 2026-04-30 -- Phase 09 closed out (Plan 09-03 attempt 3 PASS — TEN-05 delivered; Plan 09-04 verifier passed_with_overrides 8/8)
 progress:
   total_phases: 6
   completed_phases: 3
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 09 — tenants-flux-multi-tenancy-lockdown
+**Current focus:** Phase 10 — Tenant Owner Kubeconfigs + Capsule-Proxy Round-trip (PROXY-01..03)
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
