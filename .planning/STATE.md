@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
-status: executing
-stopped_at: Phase 8 closed out [x] post-gap-close — `08-VERIFICATION.md` reports `passed_with_overrides` (10/10 must-haves; 4 push-gate downstreams deferred-with-override to Phase 11 VAL-05 per D-08-13). Ready for Phase 9 discuss.
-last_updated: "2026-04-30T00:50:19.627Z"
-last_activity: 2026-04-30 -- Phase 08 marked complete
+status: planning
+stopped_at: Phase 9 context gathered
+last_updated: "2026-04-30T02:37:34.439Z"
+last_activity: 2026-04-30 -- Phase 08 closed (passed_with_overrides; 4 push-gate downstreams → Phase 11 VAL-05)
 progress:
   total_phases: 6
   completed_phases: 2
@@ -132,6 +132,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-29T20:30:00Z
-Stopped at: Phase 7 closed out [x]; Phase 8 verifier surfaced gaps_found (08-VERIFICATION.md untracked) — needs `/gsd-plan-phase 8 --gaps` to schedule G-03 + G-04 fix plans before phase advance
-Resume file: .planning/phases/08-capsule-capsule-proxy-bare-minimum-install/08-VERIFICATION.md (untracked — read before planning gap fixes)
+Last session: 2026-04-30T02:37:34.432Z
+Stopped at: Phase 9 context gathered
+Resume file: .planning/phases/09-tenants-flux-multi-tenancy-lockdown/09-CONTEXT.md
