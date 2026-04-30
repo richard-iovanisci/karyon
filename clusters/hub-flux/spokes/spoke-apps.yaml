@@ -19,6 +19,7 @@ spec:
   interval: 5m
   path: ./clusters/spoke-apps
   prune: true
+  serviceAccountName: kustomize-controller   # Phase 9 09-03 RE-PLAN — defense-in-depth against falsified RESEARCH §Gap 3 / §Gap 11 line 693 (see 09-03-SUMMARY.attempt-1-rollback.md)
   sourceRef:
     kind: GitRepository
     name: flux-system
