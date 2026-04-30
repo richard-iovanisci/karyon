@@ -496,7 +496,7 @@ True deferrals to later phases (already locked at milestone-open or by ROADMAP /
 <attempt3_gap_resolutions>
 ## Plan 09-03 Attempt 3 — Gap Resolutions (2026-04-30)
 
-> **Update mode:** `/gsd-discuss-phase 9 --gaps --auto` after two atomic rollbacks of Plan 09-03. The original D-09-XX decisions above remain LOCKED. This section captures gap-resolution decisions FOR THE ATTEMPT-3 RE-PLAN ONLY — derived from `09-03-SUMMARY.attempt-1-rollback.md` + `09-03-SUMMARY.md` (attempt-2 falsification record). All decisions auto-picked from the recommended option per `--auto` mode.
+> **Update mode:** `/gsd-discuss-phase 9 --gaps --auto` after two atomic rollbacks of Plan 09-03. The original D-09-XX decisions above remain LOCKED. This section captures gap-resolution decisions FOR THE ATTEMPT-3 RE-PLAN ONLY — derived from `09-03-SUMMARY.attempt-1-rollback.md` + `09-03-SUMMARY.attempt-2-rollback.md` (attempt-2 falsification record). All decisions auto-picked from the recommended option per `--auto` mode.
 
 ### Failure trail
 
@@ -521,7 +521,7 @@ The hub-side `spoke-{apps,ml}-kubeconfig` Secret bearer token IS the `flux-recon
 
 ### Gap A — Spoke SA mitigation hypothesis (PRIMARY)
 
-Three candidates documented in `09-03-SUMMARY.md` Re-plan path:
+Three candidates documented in `09-03-SUMMARY.attempt-2-rollback.md` Re-plan path:
 
 | Option | Description | Selected |
 |--------|-------------|----------|
@@ -561,16 +561,16 @@ Both must return non-empty (SA name + CRB name). If either is missing → fail T
 | Option | Description | Selected |
 |--------|-------------|----------|
 | (i) Add CORRECTION 2 block to §Gap 3 documenting attempt-2 falsification (spoke SA-naming-mismatch finding) | Cumulative falsification record per attempt-1 pattern | ✓ |
-| (ii) Defer to verifier or leave 09-03-SUMMARY.md as the only record | Saves a docs commit but loses the cumulative correction trail | |
+| (ii) Defer to verifier or leave 09-03-SUMMARY.attempt-2-rollback.md as the only record | Saves a docs commit but loses the cumulative correction trail | |
 
-**Selection rationale (auto-mode default):** Attempt 1 established the pattern (CORRECTION 1 already in RESEARCH.md §Gap 3 + §Gap 11). Each falsification gets its own correction block citing the SUMMARY.md that captured the live observation. The pattern documented in `09-03-SUMMARY.md tech-stack patterns` says: "when a re-plan's MITIGATION is itself falsified, the new SUMMARY captures the new falsification candidate for the next-attempt re-planner." Attempt 3 owns the RESEARCH.md write per `09-03-SUMMARY.md NEW Falsification Candidate` section's draft — preserves the cumulative falsification record for any future Phase 9 work.
+**Selection rationale (auto-mode default):** Attempt 1 established the pattern (CORRECTION 1 already in RESEARCH.md §Gap 3 + §Gap 11). Each falsification gets its own correction block citing the SUMMARY.md that captured the live observation. The pattern documented in `09-03-SUMMARY.attempt-2-rollback.md tech-stack patterns` says: "when a re-plan's MITIGATION is itself falsified, the new SUMMARY captures the new falsification candidate for the next-attempt re-planner." Attempt 3 owns the RESEARCH.md write per `09-03-SUMMARY.attempt-2-rollback.md NEW Falsification Candidate` section's draft — preserves the cumulative falsification record for any future Phase 9 work.
 
 **Concrete shape:** Append to `.planning/phases/09-tenants-flux-multi-tenancy-lockdown/09-RESEARCH.md` §Gap 3 (after the existing CORRECTION block from attempt 1):
 
 ```markdown
 ### CORRECTION 2 (Plan 09-03 attempt 2 falsifier — 2026-04-30)
 
-The Plan 09-03 RE-PLAN attempt 2's proposed mitigation (set `spec.serviceAccountName: kustomize-controller` on v0.18 spoke Kustomization CRs as defense-in-depth before the lockdown flags land) is **FALSIFIED** by live observation in Flux v2.8.6 (attempt 2 rolled back at commits `0feb191` + `cd1cf32`; documented in `09-03-SUMMARY.md`).
+The Plan 09-03 RE-PLAN attempt 2's proposed mitigation (set `spec.serviceAccountName: kustomize-controller` on v0.18 spoke Kustomization CRs as defense-in-depth before the lockdown flags land) is **FALSIFIED** by live observation in Flux v2.8.6 (attempt 2 rolled back at commits `0feb191` + `cd1cf32`; documented in `09-03-SUMMARY.attempt-2-rollback.md`).
 
 Live observation: spoke clusters only have `flux-reconciler` SA with cluster-admin (registered by `scripts/register-spokes-for-flux.sh:275-310`). `kustomize-controller` SA only exists on the hub cluster. When Flux v2.8.6 sees both `spec.kubeConfig` + `spec.serviceAccountName: kustomize-controller`, it impersonates the named SA ON THE TARGET CLUSTER (the spoke), failing with `User "system:serviceaccount:flux-system:kustomize-controller" cannot patch resource "namespaces"`. Failure persists EVEN WITHOUT the lockdown flag patches.
 
@@ -592,7 +592,7 @@ On post-patch task health-check FAIL:
 - DO NOT continue to plan-end output.
 - Atomic rollback: revert ALL plan commits in reverse chronological order until pre-Task-1 baseline is restored. Each revert uses `git revert --no-edit <sha>` (NOT `--no-verify` — invalid for git revert).
 - After all reverts, run `kubectl kustomize ... | kubectl apply` to align cluster state with reverted yaml; then `flux reconcile` each spoke; then `flux resume kustomization flux-system`; then `task health-check` to confirm exit 0 (baseline restored).
-- Document the failure mode + rollback chain in 09-03-SUMMARY.md before exit.
+- Document the failure mode + rollback chain in 09-03-SUMMARY.attempt-2-rollback.md before exit.
 ```
 
 ### Gap E — Hub-targeted K coverage scope

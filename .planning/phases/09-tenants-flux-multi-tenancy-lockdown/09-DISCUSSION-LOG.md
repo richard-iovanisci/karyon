@@ -209,9 +209,9 @@ True deferrals to later phases (already locked at milestone-open or by ROADMAP /
 | Option | Description | Selected |
 |--------|-------------|----------|
 | (i) Add CORRECTION 2 block to §Gap 3 documenting attempt-2 falsification | Cumulative falsification record per attempt-1 pattern | ✓ |
-| (ii) Defer to verifier or leave 09-03-SUMMARY.md as the only record | Saves docs commit but loses cumulative correction trail | |
+| (ii) Defer to verifier or leave 09-03-SUMMARY.attempt-2-rollback.md as the only record | Saves docs commit but loses cumulative correction trail | |
 
-**Selection rationale (auto-mode default):** Pattern established in attempt 1 (CORRECTION 1 already in RESEARCH.md). Cumulative falsification record helps future re-planners. Concrete shape pre-drafted in `09-03-SUMMARY.md NEW Falsification Candidate` section.
+**Selection rationale (auto-mode default):** Pattern established in attempt 1 (CORRECTION 1 already in RESEARCH.md). Cumulative falsification record helps future re-planners. Concrete shape pre-drafted in `09-03-SUMMARY.attempt-2-rollback.md NEW Falsification Candidate` section.
 
 ---
 
