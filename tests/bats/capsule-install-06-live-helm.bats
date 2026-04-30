@@ -16,29 +16,32 @@ setup() {
   fi
 }
 
-@test "CAP-01 live: HelmRelease capsule reports Ready=True (3 attempts × 30s sleep)" {
-  local i
+@test "CAP-01 live (WR-03 fix): HelmRelease capsule reports Ready=True (3 attempts x 30s sleep, jsonpath column-anchored)" {
+  # WR-03 fix (08-REVIEW.md): the prior `flux get | grep -qE 'capsule[[:space:]]+.*True'` regex
+  # admits false positives if the MESSAGE column contains the substring 'True' (e.g.
+  # "Release reconciliation failed: TruncatedError"). Replace with kubectl jsonpath against
+  # the explicit Ready condition status field for unambiguous parsing.
+  local i ready
   for i in 1 2 3; do
-    run flux get helmrelease capsule -n capsule-system --context k3d-hub-flux
-    if [[ "$status" -eq 0 ]] && echo "$output" | grep -qE 'capsule[[:space:]]+.*True'; then
-      return 0
-    fi
+    ready=$(kubectl --context=k3d-hub-flux -n capsule-system get helmrelease capsule \
+      -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+    [[ "$ready" == "True" ]] && return 0
     [[ $i -lt 3 ]] && sleep 30
   done
-  echo "$output"
+  echo "Last observed Ready condition: '$ready'"
   return 1
 }
 
-@test "CAP-02 live: HelmRelease capsule-proxy reports Ready=True (3 attempts × 30s sleep)" {
-  local i
+@test "CAP-02 live (WR-03 fix): HelmRelease capsule-proxy reports Ready=True (3 attempts x 30s sleep, jsonpath column-anchored)" {
+  # WR-03 fix — same rationale as the operator HR test: kubectl jsonpath instead of fragile flux-get regex.
+  local i ready
   for i in 1 2 3; do
-    run flux get helmrelease capsule-proxy -n capsule-system --context k3d-hub-flux
-    if [[ "$status" -eq 0 ]] && echo "$output" | grep -qE 'capsule-proxy[[:space:]]+.*True'; then
-      return 0
-    fi
+    ready=$(kubectl --context=k3d-hub-flux -n capsule-system get helmrelease capsule-proxy \
+      -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+    [[ "$ready" == "True" ]] && return 0
     [[ $i -lt 3 ]] && sleep 30
   done
-  echo "$output"
+  echo "Last observed Ready condition: '$ready'"
   return 1
 }
 

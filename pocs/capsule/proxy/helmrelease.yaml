@@ -57,23 +57,35 @@ spec:
     # (NOT tls.additionalSANs as CONTEXT.md `<specifics>` guessed). Without 127.0.0.1
     # + localhost SANs, curl -k from WSL host fails TLS handshake at the cert hostname-
     # verification step (before HTTP request even starts).
+    # D-08-11 (gap-close 2026-04-29) — Cert source = chart's controller-less self-sign Job.
+    # The original D-08-04 / OQ-2 choice (`certManager.generateCertificates: true`) was
+    # verifier-falsified (08-VERIFICATION.md G-03 + 08-REVIEW.md BL-01): that path renders
+    # cert-manager.io `Issuer` + `Certificate` CRs which REQUIRE the cert-manager
+    # *controller* (not just CRDs) to reconcile into the `capsule-proxy` Secret. D-08-04
+    # installs the cert-manager.io CRDs as API surface only — no controller — so those
+    # CRs would sit indefinitely unreconciled and the proxy pod would never mount its
+    # TLS volume → CAP-02 cannot pass.
+    #
+    # The fix: flip to `options.generateCertificates: true` + `certManager.generateCertificates: false`,
+    # which renders the chart's `capsule-proxy-certgen` Job (uses kube-webhook-certgen image
+    # to produce a self-signed Secret directly, controller-less). Verified by:
+    #   helm template oci://ghcr.io/projectcapsule/charts/capsule-proxy --version 0.12.0 \
+    #     --set options.generateCertificates=true --set certManager.generateCertificates=false \
+    #     | grep -E '^kind: ' | sort | uniq -c
+    # Renders 2 Jobs (capsule-proxy-certgen + capsule-proxy-crds), 0 Issuer, 0 Certificate.
+    # D-08-04 stays unchanged for the operator HelmRelease (operator's tls.enableController
+    # is the operator chart's separate controller-less self-sign path).
     options:
       listeningPort: 9001
       enableSSL: true
+      generateCertificates: true   # D-08-11 — controller-less certgen Job; produces capsule-proxy Secret
       capsuleConfigurationName: default
       additionalSANs:
         - 127.0.0.1
         - localhost
       authPreferredTypes: "BearerToken,TLSCertificate"
-    # OQ-2 — chart-default cert source. `certManager.generateCertificates: true` uses
-    # the chart's SelfSigned Issuer template, which works WITHOUT cert-manager controller
-    # installed (chart includes Issuer + Certificate definitions; the SelfSigned Issuer
-    # type doesn't require an external CA chain). Verified by `helm template` 2026-04-29.
-    # If cert reconcile loop fails on first install (unlikely), Plan 08-03 verifier
-    # surfaces this and the override path is `options.generateCertificates: true` +
-    # `certManager.generateCertificates: false` (built-in self-sign Job).
     certManager:
-      generateCertificates: true
+      generateCertificates: false   # D-08-11 — do NOT render cert-manager.io Issuer/Certificate CRs
     webhooks:
       enabled: false
     replicaCount: 1
