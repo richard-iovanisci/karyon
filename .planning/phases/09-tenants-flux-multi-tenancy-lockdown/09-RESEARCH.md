@@ -284,6 +284,21 @@ The Go comment is unambiguous: when **`spec.kubeConfig` is set** AND **`spec.ser
 
 ### Confidence: HIGH (Go source code comment is the authoritative reference).
 
+### CORRECTION (Plan 09-03 attempt 1 falsifier — 2026-04-30)
+
+The original §Gap 3 prediction "the flag applies ONLY when `spec.kubeConfig` is unset" + "If the SA exists with cluster-admin (rare but possible if karyon's Pattern 3 cluster-admin binding leaks here), full bypass" + "v0.18 spoke-{apps,ml} use cluster-admin SA via kubeConfig — no impact" is **FALSIFIED** by live observation in Flux v2.8.6 (Plan 09-03 attempt 1, rolled back at commit `9b6b3a5`; documented in `.planning/phases/09-tenants-flux-multi-tenancy-lockdown/09-03-SUMMARY.attempt-1-rollback.md`).
+
+**Live observation:**
+- Cross-cluster Kustomizations (`clusters/hub-flux/spokes/spoke-apps.yaml` + `spoke-ml.yaml`) with `spec.kubeConfig` set BUT `spec.serviceAccountName` empty
+- → kustomize-controller falls through to `--default-service-account=default` flag value on the TARGET cluster (the spokes)
+- → reconcile fails: `User "system:serviceaccount:flux-system:default" cannot patch resource "namespaces"` (mirror error on spoke-apps targeting `karyon-spoke-apps` namespace)
+
+The kubeConfig principal does **NOT** override the SA fallback when `serviceAccountName` is empty. The Go comment in `api/v1/kustomization_types.go` cited above ("If the --default-service-account flag is set, its value will be used as a controller level fallback for when KustomizationSpec.ServiceAccountName is empty.") is correct in isolation but its practical implication for cross-cluster reconciles was misread by the original §Gap 3 analysis: when `serviceAccountName` is empty, the controller-level `default` fallback ALWAYS applies, regardless of whether `spec.kubeConfig` is set.
+
+**Mitigation:** set explicit `spec.serviceAccountName` on EVERY Kustomization CR before `--default-service-account=default` lockdown lands — including the v0.18 spoke files. This is the defense-in-depth path Plan 09-03 RE-PLAN executes (Task 2 adds `spec.serviceAccountName: kustomize-controller` to `spoke-apps.yaml` + `spoke-ml.yaml`).
+
+**Confidence: HIGH (live falsifier; cluster state captured in 09-03-SUMMARY.attempt-1-rollback.md commit chain — `899f2fe` → `9b6b3a5` revert → `6cdbfb2` annotation).**
+
 ---
 
 ## Gap 4: Tenant CR full shape (TEN-01..03)
@@ -722,6 +737,24 @@ The `tenants-12-live-health-check.bats` test should:
 **Recommendation: invoke `task health-check` as part of the bats test** (single bats `run task health-check; [ "$status" -eq 0 ]`) AND ALSO run the targeted assertions above. Belt-and-suspenders.
 
 ### Confidence: HIGH (read scripts/health-check.sh directly; assertions are deterministic).
+
+### CORRECTION (Plan 09-03 attempt 1 falsifier — 2026-04-30)
+
+The §Gap 11 line 693 "MEDIUM" risk row's prediction in the "Mitigation" column is **FALSIFIED** by live observation. The specific text:
+
+> **Per Gap 3, the flag fallback to `default` SA only matters if `serviceAccountName` is empty AND the kubeConfig principal isn't otherwise the cluster-admin token. v0.18 spoke-{apps,ml} use the cluster-admin SA via kubeConfig — no impact.**
+
+is incorrect. Live observation in Flux v2.8.6 (Plan 09-03 attempt 1):
+- spoke-apps + spoke-ml had `spec.kubeConfig` set BUT `spec.serviceAccountName` empty
+- → kustomize-controller's `--default-service-account=default` flag DID override the kubeConfig principal
+- → reconcile fell through to `system:serviceaccount:flux-system:default` on the TARGET cluster
+- → forbidden namespace patch errors on both spokes
+
+The "no impact" prediction was based on the (now falsified) Gap 3 prediction that the flag scope was local-cluster only. Both predictions are FALSIFIED. The risk for "3. Spoke Kustomizations" (spoke-ml + spoke-apps Ready=True) is therefore **HIGH, not MEDIUM**, when the lockdown patches land WITHOUT the spoke-side defense-in-depth.
+
+**Revised mitigation (Plan 09-03 RE-PLAN):** Add `spec.serviceAccountName: kustomize-controller` to BOTH `clusters/hub-flux/spokes/spoke-apps.yaml` and `spoke-ml.yaml` BEFORE applying lockdown patches. This is implemented as Task 2 of Plan 09-03 RE-PLAN, prior to Task 4's FLUX PATCH SURFACE patches block.
+
+**Confidence: HIGH (live falsifier; cluster state captured in 09-03-SUMMARY.attempt-1-rollback.md commit chain — `899f2fe` → `9b6b3a5` revert → `6cdbfb2` annotation).**
 
 ---
 
