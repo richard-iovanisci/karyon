@@ -26,3 +26,4 @@ spec:
     secretRef:
       name: spoke-apps-kubeconfig
       key: value.yaml
+  serviceAccountName: flux-reconciler

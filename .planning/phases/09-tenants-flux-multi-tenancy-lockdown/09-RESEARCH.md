@@ -299,6 +299,27 @@ The kubeConfig principal does **NOT** override the SA fallback when `serviceAcco
 
 **Confidence: HIGH (live falsifier; cluster state captured in 09-03-SUMMARY.attempt-1-rollback.md commit chain — `899f2fe` → `9b6b3a5` revert → `6cdbfb2` annotation).**
 
+### CORRECTION 2 (Plan 09-03 attempt 2 falsifier — 2026-04-30)
+
+The Plan 09-03 RE-PLAN attempt 2's proposed mitigation (set `spec.serviceAccountName: kustomize-controller` on v0.18 spoke Kustomization CRs as defense-in-depth before the lockdown flags land) is **FALSIFIED** by live observation in Flux v2.8.6 (Plan 09-03 RE-PLAN attempt 2, rolled back at commits `0feb191` + `cd1cf32`; documented in `.planning/phases/09-tenants-flux-multi-tenancy-lockdown/09-03-SUMMARY.attempt-2-rollback.md`).
+
+**Live observation:**
+- Spoke clusters (k3d-spoke-{apps,ml}) only have `flux-reconciler` SA with cluster-admin (registered by `scripts/register-spokes-for-flux.sh:275-310`; ClusterRoleBinding `flux-reconciler-cluster-admin` → `cluster-admin` role)
+- They do NOT have a `kustomize-controller` SA — that name only exists on the hub cluster (where the actual kustomize-controller Deployment runs)
+- When Flux v2.8.6 sees both `spec.kubeConfig` + `spec.serviceAccountName: kustomize-controller`, it impersonates the named SA ON THE TARGET CLUSTER (the spoke), failing with `User "system:serviceaccount:flux-system:kustomize-controller" cannot patch resource "namespaces" in API group "" in the namespace "<spoke-ns>"`
+- Failure mode persists EVEN WITHOUT the lockdown flag patches applied — caused by the Task 2 yaml change alone (Flux's impersonation behavior is independent of the controller's `--default-service-account` flag when serviceAccountName is explicitly set)
+
+**Attempt 3 mitigation (locked by 09-CONTEXT.md attempt3_gap_resolutions Gap A):** Use `spec.serviceAccountName: flux-reconciler` on spoke Ks (matches actually-existing SA; self-impersonation under cluster-admin token via the spoke-{apps,ml}-kubeconfig Secret's bearer token, which IS the flux-reconciler SA's token).
+
+**Defense-in-depth invariant restated (target-cluster-specific SA naming):**
+- Hub-targeted Ks (`flux-system` K, `poc-capsule` via `capsule.yaml`) → `serviceAccountName: kustomize-controller` (matches hub-side bootstrap SA)
+- Spoke-{apps,ml}-targeted Ks (`spoke-apps`, `spoke-ml`) → `serviceAccountName: flux-reconciler` (matches spoke-side SA registered by `register-spokes-for-flux.sh`)
+- Spoke-capsule tenant Ks (Plan 09-02 — `tenants/alpha.yaml`, `tenants/bravo.yaml`) → `serviceAccountName: gitops-reconciler` (per-tenant SA on spoke-capsule per D-09-02)
+
+The three SA names are NOT interchangeable — each matches the SA available on the target cluster.
+
+**Confidence: HIGH (live falsifier; cluster state captured in `09-03-SUMMARY.attempt-2-rollback.md` commit chain — `7598cd8` (Task 2) + `cb9b00e` (Task 4) → `0feb191` + `cd1cf32` reverts → `d194031` annotation).**
+
 ---
 
 ## Gap 4: Tenant CR full shape (TEN-01..03)
@@ -755,6 +776,14 @@ The "no impact" prediction was based on the (now falsified) Gap 3 prediction tha
 **Revised mitigation (Plan 09-03 RE-PLAN):** Add `spec.serviceAccountName: kustomize-controller` to BOTH `clusters/hub-flux/spokes/spoke-apps.yaml` and `spoke-ml.yaml` BEFORE applying lockdown patches. This is implemented as Task 2 of Plan 09-03 RE-PLAN, prior to Task 4's FLUX PATCH SURFACE patches block.
 
 **Confidence: HIGH (live falsifier; cluster state captured in 09-03-SUMMARY.attempt-1-rollback.md commit chain — `899f2fe` → `9b6b3a5` revert → `6cdbfb2` annotation).**
+
+### CORRECTION 2 (Plan 09-03 attempt 2 falsifier — 2026-04-30)
+
+The §Gap 11 line 693 risk row's attempt-1 revised mitigation (set `spec.serviceAccountName: kustomize-controller` on spoke-{apps,ml}.yaml as defense-in-depth) is **FURTHER FALSIFIED** by Plan 09-03 RE-PLAN attempt 2's live observation. The `kustomize-controller` SA does NOT exist on spoke clusters (only `flux-reconciler` SA has cluster-admin per `scripts/register-spokes-for-flux.sh:275-310`).
+
+**Revised mitigation (Plan 09-03 RE-PLAN attempt 3):** `spec.serviceAccountName: flux-reconciler` on spoke-{apps,ml}.yaml — see §Gap 3 CORRECTION 2 above for details.
+
+**Confidence: HIGH (live falsifier — same evidence trail as §Gap 3 CORRECTION 2).**
 
 ---
 

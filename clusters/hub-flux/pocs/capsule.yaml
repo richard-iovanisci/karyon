@@ -18,6 +18,12 @@
 # MUST NOT include spec.kubeConfig (otherwise CRs land on the wrong cluster). The split-path
 # pattern is the load-bearing structure; absence of kubeConfig on a spoke-targeted K is the
 # silent-misroute fault, not absence of kubeConfig per se."
+# D-09-05a (Phase 9 lockdown escape hatch) — `--default-service-account=default` flag on
+# kustomize-controller (D-09-05) makes any Kustomization CR without spec.serviceAccountName
+# reconcile as no-permission `default` SA. poc-capsule is hub-targeted (no spec.kubeConfig
+# per D-08-12), so the flag applies to it. Setting spec.serviceAccountName: kustomize-controller
+# explicitly uses the hub bootstrap SA (cluster-admin via flux-system ClusterRoleBinding).
+# Without this, Phase 9 lockdown immediately bricks poc-capsule reconcile.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -30,3 +36,4 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+  serviceAccountName: kustomize-controller
