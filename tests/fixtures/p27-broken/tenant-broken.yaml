@@ -1,0 +1,30 @@
+# tests/fixtures/p27-broken/tenant-broken.yaml
+# P27 NEGATIVE FALSIFIER FIXTURE — Phase 9 D-09-08 / TEN-04
+# This file is intentionally BROKEN: it's a Flux Kustomization CR that omits
+# spec.serviceAccountName, which would allow the K to run with the kubeConfig
+# Secret's principal (cluster-admin via spoke-capsule-kubeconfig) and bypass
+# Capsule's tenant boundary entirely (P27 root cause — RESEARCH §Gap 3).
+#
+# tests/bats/tenants-02-static-p27.bats lints this fixture and MUST FAIL
+# on the missing serviceAccountName field. If the bats test ever PASSES this
+# fixture, the P27 lint is broken.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tenant-broken-no-sa
+  namespace: tenant-broken
+spec:
+  interval: 5m
+  path: ./pocs/capsule/tenants/broken-app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: tenant-broken-source
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  # NOTE: spec.serviceAccountName INTENTIONALLY OMITTED — P27 falsifier
+  dependsOn:
+    - name: poc-capsule
+      namespace: flux-system
