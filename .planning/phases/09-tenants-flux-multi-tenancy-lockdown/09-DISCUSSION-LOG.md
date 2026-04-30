@@ -172,5 +172,105 @@ True deferrals to later phases (already locked at milestone-open or by ROADMAP /
 
 ---
 
+## Plan 09-03 Attempt 3 — Gap-Resolution Discussion (2026-04-30)
+
+**Date:** 2026-04-30
+**Mode:** `--auto --gaps` (post-rollback gap-resolution discussion before attempt-3 re-plan)
+**Trigger:** Plan 09-03 has been atomically rolled back twice — attempt 1 (commits `899f2fe` → `9b6b3a5`) falsified RESEARCH §Gap 3's "flag scope is local-cluster only" prediction; attempt 2 (commits `7598cd8` + `cb9b00e` → `0feb191` + `cd1cf32`) falsified attempt-1's proposed mitigation (the `kustomize-controller` SA-name on spokes).
+**Areas discussed:** 6 attempt-3-specific gap areas (A-F). Original D-09-XX decisions remain LOCKED.
+
+---
+
+## Gap A — Spoke SA Mitigation Hypothesis (PRIMARY)
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| (a) `spec.serviceAccountName: flux-reconciler` on spoke Ks | Matches actually-existing SA on spoke (cluster-admin via CRB; self-impersonation safe) | ✓ |
+| (b) Skip spoke DiD + narrow lockdown scope | Defeats P27 safety net for spoke Ks | |
+| (c) Extend `register-spokes-for-flux.sh` to create `kustomize-controller` SA + CRB on each spoke | Out of scope — touches Phase 7 spoke-registration surface | |
+
+**Selection rationale (auto-mode default):** Minimal-scope path with strongest evidence trail. `flux-reconciler` SA exists on each spoke (verified via `register-spokes-for-flux.sh:286`); CRB binds to cluster-admin (`:292`); kubeConfig token IS the SA's own token (`:303-309`). Self-impersonation under cluster-admin is RFC-compliant kubernetes behavior.
+
+---
+
+## Gap B — Pre-patch SA-existence Assertion
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| (i) Add Task 0.5 explicit `kubectl get sa flux-reconciler` assertion on each spoke | Fail-fast guard against another premise-falsification | ✓ |
+| (ii) Trust attempt-2 SUMMARY's verification | Saves one assertion but loses fail-fast guard | |
+
+**Selection rationale (auto-mode default):** Cheap defense (one bats `run kubectl ... get sa` per spoke). Closes "did spoke-registration drift?" risk. Attempt 2's SA verification was exploratory (post-failure); attempt 3 makes it a structural pre-condition.
+
+---
+
+## Gap C — RESEARCH.md §Gap 3 Third Correction Block
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| (i) Add CORRECTION 2 block to §Gap 3 documenting attempt-2 falsification | Cumulative falsification record per attempt-1 pattern | ✓ |
+| (ii) Defer to verifier or leave 09-03-SUMMARY.md as the only record | Saves docs commit but loses cumulative correction trail | |
+
+**Selection rationale (auto-mode default):** Pattern established in attempt 1 (CORRECTION 1 already in RESEARCH.md). Cumulative falsification record helps future re-planners. Concrete shape pre-drafted in `09-03-SUMMARY.md NEW Falsification Candidate` section.
+
+---
+
+## Gap D — Atomic Rollback Contract Update
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| (i) Update plan's rollback step to "revert ALL plan commits to baseline" | Match contract to actually-executed pattern | ✓ |
+| (ii) Keep "revert HEAD" + Rule 3 deviation as the formal pattern | Smaller plan-text delta but accepts known deviation | |
+
+**Selection rationale (auto-mode default):** Attempt 2's rollback chain required 2 reverts (Rule 3 extension). Make rollback contract MATCH actual semantic ("revert all plan commits in reverse order until pre-Task-1 baseline restored") so executor doesn't need a Rule 3 deviation each time.
+
+---
+
+## Gap E — Hub-targeted K Coverage Scope
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| (i) Add `serviceAccountName` to ALL Ks defensively | Expands scope beyond falsified path; introduces risk on un-tested Ks | |
+| (ii) Add only to LOCAL-cluster-targeting Ks (no kubeConfig) | Doesn't fix the spoke falsification (cross-cluster) | |
+| (iii) Match attempt 2's scope (spoke-apps, spoke-ml, capsule.yaml, flux-system K) with SA-name fix | Stays focused on falsified path; verifier catches unforeseen regressions | ✓ |
+
+**Selection rationale (auto-mode default):** Scope discipline. capsule-spoke.yaml has `spec.kubeConfig` set but is NOT in attempt 1 or 2's failure path; defensively adding `serviceAccountName` could introduce a NEW failure mode. Wait for evidence (Plan 09-04 verifier task health-check) before expanding.
+
+---
+
+## Gap F — Pre-patch Live Experiment
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| (i) Pre-patch single-spoke experiment (`flux-reconciler` on spoke-apps only, observe Ready=True) | Adds a third checkpoint between baseline and regression | |
+| (ii) Plan-time research deep-dive into Flux v2.8.6 source for self-impersonation semantics | Already covered by RESEARCH.md attempt-1 correction | |
+| (iii) Skip — Gap B's pre-patch SA assertion is sufficient | KISS — three checkpoints (Gap B + Task 1 + Task 5) is sufficient | ✓ |
+
+**Selection rationale (auto-mode default):** Over-engineering. Gap B's SA-existence assertion + Task 1 pre-patch baseline + Task 5 post-patch regression already cover the failure surface. Adding a fourth checkpoint doesn't change rollback semantics.
+
+---
+
+## Plan 09-03 Attempt-3 Recommended Task Graph
+
+| Task | Description | Status vs attempt 2 |
+|------|-------------|---------------------|
+| 0.5 | Pre-patch SA assertion: `kubectl get sa flux-reconciler` on each spoke (Gap B) | NEW |
+| 1 | Pre-patch baseline `task health-check` exit 0 | preserved |
+| 2 | Spoke DiD: `serviceAccountName: flux-reconciler` on `spoke-{apps,ml}.yaml` (Gap A) | CHANGED — was `kustomize-controller` |
+| 3 | RESEARCH.md §Gap 3 + §Gap 11 — append CORRECTION 2 block (Gap C) | CHANGED — different content |
+| 4 | FLUX PATCH SURFACE patches block + capsule.yaml escape hatch (D-09-05/05a) | preserved |
+| 5 | Post-patch `task health-check` OR atomic-rollback chain (Gap D) | preserved (rollback contract sharpened) |
+
+---
+
+## Anti-patterns Surfaced (for the planner)
+
+1. **"Defense-in-depth across the board" is FALSE for cross-cluster reconciles** — each K's `serviceAccountName` MUST match an SA on its TARGET cluster (hub: `kustomize-controller`; spoke-{apps,ml}: `flux-reconciler`; spoke-capsule tenant ns: `gitops-reconciler`).
+2. **"Revert HEAD" as a literal contract is INSUFFICIENT** when a precondition task has been falsified — rollback must say "revert all plan commits to baseline" semantically.
+3. **Pre-patch `task health-check` baseline is necessary but NOT sufficient** — attempt 2 had clean baseline and still failed because the falsified premise wasn't checkable from health-check alone.
+
+---
+
 *Phase: 09-tenants-flux-multi-tenancy-lockdown*
-*Discussion completed: 2026-04-29*
+*Original discussion completed: 2026-04-29*
+*Attempt-3 gap-resolution discussion completed: 2026-04-30*
