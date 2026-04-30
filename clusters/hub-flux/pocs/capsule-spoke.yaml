@@ -1,0 +1,38 @@
+# clusters/hub-flux/pocs/capsule-spoke.yaml
+# Flux v1 Kustomization (SPOKE-TARGETED) — hub-flux's kustomize-controller reconciles
+# pocs/capsule/spoke/ into k3d-spoke-capsule via the spoke-capsule-kubeconfig Secret
+# (applied imperatively by scripts/register-poc-cluster.sh; never committed because it
+# contains a bearer token).
+#
+# D-08-12 (gap-close 2026-04-29) — Phase 7 P40/P18 invariant lives HERE (spoke-targeted K),
+# not on capsule.yaml (hub-targeted K). The split-path pattern is the load-bearing structure
+# for the hub-only-Flux pattern (ADR-004): hub-flux holds Flux CRDs + helm-controller; CRs
+# that need to land on the spoke (Phase 9 Tenant CRs and beyond) route through this K via
+# kubeConfig impersonation, while CRs that need to land on hub (Phase 8 HR + OCIRepo) route
+# through capsule.yaml without kubeConfig.
+#
+# Phase 9 forward-pointer: pocs/capsule/spoke/ currently contains only a Pitfall-7 placeholder
+# (resources: []). Phase 9 (TEN-01..06) populates it with the Tenant CRs (alpha + bravo)
+# + tenant inner Flux Kustomizations carrying P27 spec.serviceAccountName.
+#
+# REQ-CAPCLU-02 (key: value.yaml explicit — v0.18 P18 inheritance: silent-misroute fault is
+#   `spec.kubeConfig` ENTIRELY ABSENT, which would make kustomize-controller fall back to its
+#   in-cluster SA and reconcile to HUB. ALWAYS include the entire spec.kubeConfig block on
+#   SPOKE-TARGETED Kustomizations; explicit `key: value.yaml` is belt-and-suspenders against
+#   future Flux default-key changes.)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-capsule-spoke
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/capsule/spoke
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml

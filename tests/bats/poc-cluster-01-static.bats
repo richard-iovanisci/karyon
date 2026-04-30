@@ -8,6 +8,7 @@ setup() {
   CREATE_SCRIPT="${REPO_ROOT}/scripts/poc/capsule/create-cluster.sh"
   FIX_DNS_SCRIPT="${REPO_ROOT}/scripts/poc/capsule/fix-dns.sh"
   CAPSULE_KS="${REPO_ROOT}/clusters/hub-flux/pocs/capsule.yaml"
+  CAPSULE_SPOKE_KS="${REPO_ROOT}/clusters/hub-flux/pocs/capsule-spoke.yaml"
   TASKFILE="${REPO_ROOT}/Taskfile.yml"
   POC_DOC="${REPO_ROOT}/docs/poc-capsule.md"
 }
@@ -62,18 +63,38 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "CAPCLU-02 / D-11 / P40: clusters/hub-flux/pocs/capsule.yaml has secretRef.name=spoke-capsule-kubeconfig + key=value.yaml + path=./pocs/capsule" {
+@test "CAPCLU-02 / D-08-12: clusters/hub-flux/pocs/capsule.yaml is hub-targeted (path=./pocs/capsule, NO spec.kubeConfig)" {
+  # D-08-12 (gap-close 2026-04-29) evolved Phase 7 P40/P18 — see poc-mount-01-static.bats for
+  # the canonical dual-K split assertions. Hub-targeted K must NOT carry spec.kubeConfig
+  # (otherwise kustomize-controller routes HR/OCIRepo CRs to spoke, which has no Flux CRDs
+  # per ADR-004; verified by server-side dry-run in 08-VERIFICATION.md G-04).
   [ -f "$CAPSULE_KS" ]
-  run yq eval '.spec.kubeConfig.secretRef.name == "spoke-capsule-kubeconfig"' "$CAPSULE_KS"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-  run yq eval '.spec.kubeConfig.secretRef.key == "value.yaml"' "$CAPSULE_KS"
+  run yq eval '.spec.kubeConfig == null' "$CAPSULE_KS"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
   run yq eval '.spec.path == "./pocs/capsule"' "$CAPSULE_KS"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
   run yq eval '.metadata.name == "poc-capsule"' "$CAPSULE_KS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "CAPCLU-02 / D-11 / P40 / D-08-12: clusters/hub-flux/pocs/capsule-spoke.yaml is spoke-targeted (secretRef.name=spoke-capsule-kubeconfig + key=value.yaml + path=./pocs/capsule/spoke)" {
+  # D-08-12 split-path pattern: P40/P18 invariant lives on the spoke-targeted K
+  # (capsule-spoke.yaml), NOT on the hub-targeted K (capsule.yaml). The kustomize-controller
+  # impersonates spoke via spoke-capsule-kubeconfig to apply pocs/capsule/spoke/* (Phase 9 Tenants).
+  [ -f "$CAPSULE_SPOKE_KS" ]
+  run yq eval '.spec.kubeConfig.secretRef.name == "spoke-capsule-kubeconfig"' "$CAPSULE_SPOKE_KS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+  run yq eval '.spec.kubeConfig.secretRef.key == "value.yaml"' "$CAPSULE_SPOKE_KS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+  run yq eval '.spec.path == "./pocs/capsule/spoke"' "$CAPSULE_SPOKE_KS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+  run yq eval '.metadata.name == "poc-capsule-spoke"' "$CAPSULE_SPOKE_KS"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

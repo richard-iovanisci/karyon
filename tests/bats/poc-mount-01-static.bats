@@ -9,7 +9,9 @@ setup() {
   HUB_PEER_KUST="${REPO_ROOT}/clusters/hub-flux/kustomization.yaml"
   POCS_INDEX="${REPO_ROOT}/clusters/hub-flux/pocs/kustomization.yaml"
   POCS_CAPSULE="${REPO_ROOT}/clusters/hub-flux/pocs/capsule.yaml"
+  POCS_CAPSULE_SPOKE="${REPO_ROOT}/clusters/hub-flux/pocs/capsule-spoke.yaml"
   POCS_PLACEHOLDER="${REPO_ROOT}/pocs/capsule/kustomization.yaml"
+  POCS_SPOKE_PLACEHOLDER="${REPO_ROOT}/pocs/capsule/spoke/kustomization.yaml"
 }
 
 @test "POC-01 / D-09: # KARYON POC MOUNT sentinel exists in clusters/hub-flux/flux-system/kustomization.yaml" {
@@ -47,16 +49,38 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
-@test "POC-01 / D-06: clusters/hub-flux/pocs/kustomization.yaml is a kustomize aggregator referencing capsule.yaml" {
+@test "POC-01 / D-06 / D-08-12: clusters/hub-flux/pocs/kustomization.yaml is a kustomize aggregator referencing both capsule.yaml AND capsule-spoke.yaml" {
   [ -f "$POCS_INDEX" ]
-  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 1 and .resources[0] == "capsule.yaml"' "$POCS_INDEX"
+  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 2 and (.resources | contains(["capsule.yaml"])) and (.resources | contains(["capsule-spoke.yaml"]))' "$POCS_INDEX"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
 
-@test "POC-01 / D-11 / P40: clusters/hub-flux/pocs/capsule.yaml carries spec.kubeConfig.secretRef.name and key value.yaml" {
+@test "POC-01 / D-08-12: clusters/hub-flux/pocs/capsule.yaml is hub-targeted (path ./pocs/capsule, NO spec.kubeConfig — applies HR/OCIRepo to hub)" {
   [ -f "$POCS_CAPSULE" ]
-  run yq eval '.apiVersion == "kustomize.toolkit.fluxcd.io/v1" and .kind == "Kustomization" and .metadata.name == "poc-capsule" and .metadata.namespace == "flux-system" and .spec.path == "./pocs/capsule" and .spec.kubeConfig.secretRef.name == "spoke-capsule-kubeconfig" and .spec.kubeConfig.secretRef.key == "value.yaml" and .spec.prune == true' "$POCS_CAPSULE"
+  # D-08-12 architectural seam fix: hub-targeted K must NOT carry spec.kubeConfig (otherwise
+  # kustomize-controller would route HR/OCIRepo CRs to spoke, which has no Flux CRDs per ADR-004).
+  run yq eval '.apiVersion == "kustomize.toolkit.fluxcd.io/v1" and .kind == "Kustomization" and .metadata.name == "poc-capsule" and .metadata.namespace == "flux-system" and .spec.path == "./pocs/capsule" and .spec.prune == true and (.spec.kubeConfig == null)' "$POCS_CAPSULE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "POC-01 / D-11 / P40 / D-08-12: clusters/hub-flux/pocs/capsule-spoke.yaml is spoke-targeted (path ./pocs/capsule/spoke, full spec.kubeConfig.secretRef.name + key value.yaml)" {
+  [ -f "$POCS_CAPSULE_SPOKE" ]
+  # D-08-12 split-path pattern: spoke-targeted K MUST carry the full spec.kubeConfig block
+  # (P40/P18 silent-misroute defense). The kustomize-controller impersonates spoke via the
+  # spoke-capsule-kubeconfig Secret to apply pocs/capsule/spoke/* (Phase 9 Tenant CRs).
+  run yq eval '.apiVersion == "kustomize.toolkit.fluxcd.io/v1" and .kind == "Kustomization" and .metadata.name == "poc-capsule-spoke" and .metadata.namespace == "flux-system" and .spec.path == "./pocs/capsule/spoke" and .spec.kubeConfig.secretRef.name == "spoke-capsule-kubeconfig" and .spec.kubeConfig.secretRef.key == "value.yaml" and .spec.prune == true' "$POCS_CAPSULE_SPOKE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "POC-01 / Pitfall 7 / D-08-12: pocs/capsule/spoke/kustomization.yaml exists with valid Kustomize shape and resources is empty (Phase 9 placeholder)" {
+  [ -f "$POCS_SPOKE_PLACEHOLDER" ]
+  # D-08-12 / Pitfall 7: this placeholder prevents the spoke-targeted outer K from reporting
+  # Ready=False ("path not found") on first reconcile. Phase 9 (TEN-01..06) populates with
+  # Tenant CRs.
+  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 0' "$POCS_SPOKE_PLACEHOLDER"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

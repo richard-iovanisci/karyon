@@ -1,14 +1,23 @@
 # clusters/hub-flux/pocs/capsule.yaml
-# Flux v1 Kustomization — hub-flux's kustomize-controller reconciles
-# pocs/capsule/ into k3d-spoke-capsule via the spoke-capsule-kubeconfig Secret
-# (applied imperatively by scripts/register-poc-cluster.sh; never committed
-# because it contains a bearer token).
+# Flux v1 Kustomization (HUB-TARGETED) — hub-flux's kustomize-controller reconciles
+# pocs/capsule/ into hub-flux's own apiserver. HelmRelease + OCIRepository CRs land on
+# hub-flux where helm-controller can pick them up; each HR's own spec.kubeConfig
+# redirects helm-install actions to spoke-capsule (standard Flux remote-cluster pattern).
 #
-# REQ-CAPCLU-02 (this file's existence + secretRef shape).
-# REQ-CAPCLU-02 (key: value.yaml explicit — v0.18 P18 inheritance: silent-misroute fault is
-#   `spec.kubeConfig` ENTIRELY ABSENT, which would make kustomize-controller fall back to its
-#   in-cluster SA and reconcile to HUB. ALWAYS include the entire spec.kubeConfig block;
-#   explicit `key: value.yaml` is belt-and-suspenders against future Flux default-key changes.)
+# D-08-12 (gap-close 2026-04-29) — Architectural seam fix Option B (split paths). The prior
+# version of this file carried `spec.kubeConfig.secretRef: spoke-capsule-kubeconfig` (Phase 7
+# P40/P18 invariant), which redirected kustomize-controller's apply to spoke. But spoke-capsule
+# has zero Flux CRDs (ADR-004), so the HelmRelease + OCIRepository CRs would fail to apply with
+# `no matches for kind "HelmRelease" in version "helm.toolkit.fluxcd.io/v2"`. Verified by
+# server-side dry-run: kubectl --context=k3d-spoke-capsule apply --dry-run=server -f
+# pocs/capsule/operator/helmrelease.yaml. Option B (split paths) preserves P40/P18 for
+# spoke-targeted Kustomizations (see capsule-spoke.yaml below), drops it here for hub targets.
+#
+# Phase 7 invariant evolution (D-08-12): "Spoke-targeted Kustomizations MUST include the
+# entire spec.kubeConfig block (P40/P18 silent-misroute defense). Hub-targeted Kustomizations
+# MUST NOT include spec.kubeConfig (otherwise CRs land on the wrong cluster). The split-path
+# pattern is the load-bearing structure; absence of kubeConfig on a spoke-targeted K is the
+# silent-misroute fault, not absence of kubeConfig per se."
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -21,7 +30,3 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  kubeConfig:
-    secretRef:
-      name: spoke-capsule-kubeconfig
-      key: value.yaml
