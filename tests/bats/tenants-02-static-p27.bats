@@ -36,10 +36,11 @@ lint_kustomization_sa_dir() {
   shopt -s nullglob
   for f in "${dir}"/*.yaml "${dir}"/*.yml; do
     [ -f "$f" ] || continue
-    # Walk every doc in the file. yq's `select` against multi-doc input
-    # operates per document; `eval-all` applies the expression once across
-    # all docs. We use `eval` (per-doc) and capture per-doc kind/sa pairs
-    # so we can iterate without invoking yq twice per document.
+    # Walk every doc in the file. `yq eval` (per-doc) emits one TSV row per
+    # YAML document; this is the per-doc iteration we want. NOTE: `yq eval-all`
+    # would collapse all docs into a SINGLE flattened TSV row (tab-joining
+    # fields across docs), defeating the per-doc lint loop — Plan 09-02
+    # auto-fix [Rule 1 - Bug] flipped this from `eval-all` to `eval`.
     while IFS=$'\t' read -r kind apiv sa; do
       # Skip docs that aren't Flux v1 Kustomizations.
       [ "$kind" = "Kustomization" ] && [ "$apiv" = "kustomize.toolkit.fluxcd.io/v1" ] || continue
@@ -48,7 +49,7 @@ lint_kustomization_sa_dir() {
         echo "P27 violation in ${f}: spec.serviceAccountName is '${sa}' (must be non-null)"
         return 1
       fi
-    done < <(yq eval-all '[.kind // "", .apiVersion // "", .spec.serviceAccountName // ""] | @tsv' "$f" 2>/dev/null || true)
+    done < <(yq eval '[.kind // "", .apiVersion // "", .spec.serviceAccountName // ""] | @tsv' "$f" 2>/dev/null || true)
   done
   if [ "$found_any" -eq 0 ]; then
     echo "P27 lint found NO Flux Kustomization docs under ${dir} — cannot vacuously pass"

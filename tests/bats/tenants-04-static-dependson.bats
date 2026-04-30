@@ -30,6 +30,9 @@ assert_inner_k_dependson_poc_capsule() {
   shopt -s nullglob
   for f in "${dir}"/*.yaml "${dir}"/*.yml; do
     [ -f "$f" ] || continue
+    # `yq eval` (per-doc) emits one TSV row per YAML document — required for
+    # multi-doc files (alpha.yaml + bravo.yaml). `yq eval-all` would collapse
+    # all docs into a single flattened TSV row. Plan 09-02 [Rule 1 - Bug] fix.
     while IFS=$'\t' read -r kind apiv dep_name dep_ns; do
       [ "$kind" = "Kustomization" ] && [ "$apiv" = "kustomize.toolkit.fluxcd.io/v1" ] || continue
       found_any=1
@@ -37,7 +40,7 @@ assert_inner_k_dependson_poc_capsule() {
         echo "TEN-06 dependsOn violation in ${f}: dependsOn[0].name='${dep_name}' namespace='${dep_ns}' (expected name=poc-capsule namespace=flux-system)"
         return 1
       fi
-    done < <(yq eval-all '[.kind // "", .apiVersion // "", .spec.dependsOn[0].name // "", .spec.dependsOn[0].namespace // ""] | @tsv' "$f" 2>/dev/null || true)
+    done < <(yq eval '[.kind // "", .apiVersion // "", .spec.dependsOn[0].name // "", .spec.dependsOn[0].namespace // ""] | @tsv' "$f" 2>/dev/null || true)
   done
   if [ "$found_any" -eq 0 ]; then
     echo "TEN-06 dependsOn lint found NO Flux Kustomization docs under ${dir}"
@@ -52,6 +55,9 @@ assert_inner_k_wait_top_level() {
   shopt -s nullglob
   for f in "${dir}"/*.yaml "${dir}"/*.yml; do
     [ -f "$f" ] || continue
+    # `yq eval` (per-doc) emits one TSV row per YAML document — required for
+    # multi-doc files (alpha.yaml + bravo.yaml). `yq eval-all` would collapse
+    # all docs into a single flattened TSV row. Plan 09-02 [Rule 1 - Bug] fix.
     while IFS=$'\t' read -r kind apiv wait_field; do
       [ "$kind" = "Kustomization" ] && [ "$apiv" = "kustomize.toolkit.fluxcd.io/v1" ] || continue
       found_any=1
@@ -59,7 +65,7 @@ assert_inner_k_wait_top_level() {
         echo "TEN-06 wait violation in ${f}: spec.wait='${wait_field}' (expected true at TOP LEVEL — RESEARCH §Gap 9)"
         return 1
       fi
-    done < <(yq eval-all '[.kind // "", .apiVersion // "", .spec.wait // ""] | @tsv' "$f" 2>/dev/null || true)
+    done < <(yq eval '[.kind // "", .apiVersion // "", .spec.wait // ""] | @tsv' "$f" 2>/dev/null || true)
   done
   if [ "$found_any" -eq 0 ]; then
     echo "TEN-06 wait lint found NO Flux Kustomization docs under ${dir}"
