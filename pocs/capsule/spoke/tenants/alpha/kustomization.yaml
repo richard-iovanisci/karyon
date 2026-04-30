@@ -1,0 +1,11 @@
+# pocs/capsule/spoke/tenants/alpha/kustomization.yaml
+# Local Kustomize aggregator for tenant alpha's spoke-side resources.
+#
+# D-09-01 — alpha subdir under pocs/capsule/spoke/tenants/. Mirror exists at
+# pocs/capsule/spoke/tenants/bravo/.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - sa.yaml
+  - tenant.yaml

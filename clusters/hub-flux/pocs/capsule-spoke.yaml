@@ -11,9 +11,17 @@
 # kubeConfig impersonation, while CRs that need to land on hub (Phase 8 HR + OCIRepo) route
 # through capsule.yaml without kubeConfig.
 #
-# Phase 9 forward-pointer: pocs/capsule/spoke/ currently contains only a Pitfall-7 placeholder
-# (resources: []). Phase 9 (TEN-01..06) populates it with the Tenant CRs (alpha + bravo)
-# + tenant inner Flux Kustomizations carrying P27 spec.serviceAccountName.
+# Phase 9 update (D-09-06): adds dependsOn:[{name: poc-capsule}] + spec.wait: true (TOP-LEVEL
+# per RESEARCH Gap 9 correction — wait: true is NOT a sub-field of dependsOn entries) +
+# spec.timeout: 10m. P32 — Tenant CRs (under pocs/capsule/spoke/tenants/) cannot apply until
+# operator HelmRelease has reconciled and CRDs are registered on spoke. The poc-capsule outer
+# K's reconcile drives the operator HR → CRD registration; wait: true blocks this K's apply
+# until poc-capsule reaches Ready=True.
+#
+# Phase 9 update (D-09-05): adds spec.serviceAccountName: kustomize-controller. Spoke-targeted
+# K with kubeConfig set is exempt from --default-service-account flag scope (RESEARCH §Gap 3),
+# but explicit-set is forward-compat for any future refactor that pushes this onto a non-cluster-
+# admin spoke kubeconfig.
 #
 # REQ-CAPCLU-02 (key: value.yaml explicit — v0.18 P18 inheritance: silent-misroute fault is
 #   `spec.kubeConfig` ENTIRELY ABSENT, which would make kustomize-controller fall back to its
@@ -29,6 +37,11 @@ spec:
   interval: 5m
   path: ./pocs/capsule/spoke
   prune: true
+  serviceAccountName: kustomize-controller   # D-09-05 — explicit clarity (escape hatch forward-compat)
+  dependsOn:
+    - name: poc-capsule   # D-09-06 — P32 dependsOn chain (no namespace needed; same flux-system ns)
+  wait: true                # D-09-06 / RESEARCH Gap 9 — TOP-LEVEL spec.wait, NOT inside dependsOn entry
+  timeout: 10m
   sourceRef:
     kind: GitRepository
     name: flux-system

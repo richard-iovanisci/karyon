@@ -1,0 +1,11 @@
+# pocs/capsule/spoke/tenants/bravo/namespace.yaml
+# TEN-01 — the tenant home namespace on spoke-capsule. Holds the gitops-reconciler
+# SA that the Tenant CR registers as ServiceAccount owner.
+#
+# D-09-02 — tenant home namespace name pattern: tenant-<tenant-name>.
+# The tenant's auto-created child namespaces use prefix <tenant-name>- (e.g. bravo-app1)
+# enforced by spec.forceTenantPrefix in the Tenant CR.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-bravo

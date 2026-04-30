@@ -1,0 +1,11 @@
+# pocs/capsule/spoke/tenants/bravo/kustomization.yaml
+# Local Kustomize aggregator for tenant bravo's spoke-side resources.
+#
+# D-09-01 — bravo subdir under pocs/capsule/spoke/tenants/. Mirror exists at
+# pocs/capsule/spoke/tenants/alpha/.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - sa.yaml
+  - tenant.yaml
