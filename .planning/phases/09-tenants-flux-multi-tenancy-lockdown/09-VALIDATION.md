@@ -2,8 +2,8 @@
 phase: 9
 slug: tenants-flux-multi-tenancy-lockdown
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-29
 ---
 
@@ -66,19 +66,19 @@ created: 2026-04-29
 
 ## Wave 0 Requirements
 
-- [ ] `tests/bats/tenants-01-static-tenant-cr.bats` — TEN-01 Tenant CR yaml shape (forceTenantPrefix, owners[SA + User], two-Tenant disjoint owners)
-- [ ] `tests/bats/tenants-02-static-p27.bats` — TEN-04 P27 yq-based grep: `for f in pocs/capsule/tenants/{alpha,bravo}.yaml; do yq '.spec.serviceAccountName' "$f" | grep -qv '^null$'; done` + synthetic broken-fixture negative falsifier
-- [ ] `tests/bats/tenants-03-static-lockdown.bats` — TEN-05 patches block grep (3 flag literals + Kustomization-CR patch for `spec.serviceAccountName: kustomize-controller`); FLUX PATCH SURFACE comment block preserved verbatim
-- [ ] `tests/bats/tenants-04-static-dependson.bats` — TEN-06 capsule-spoke.yaml has `dependsOn: [{name: poc-capsule}] wait: true` (top-level spec.wait per RESEARCH Gap 9 correction); per-tenant inner Ks have dependsOn
-- [ ] `tests/bats/tenants-05-static-split-path.bats` — D-08-12 inheritance regression: `capsule.yaml` no kubeConfig; `capsule-spoke.yaml` full kubeConfig + `key: value.yaml`
-- [ ] `tests/bats/tenants-06-live-tenant-cr.bats` — TEN-01 live: `kubectl get tenants alpha bravo` reports both with `forceTenantPrefix=true` (top-level per RESEARCH Gap 4 correction); each gitops-reconciler SA exists in tenant-{alpha,bravo} ns
-- [ ] `tests/bats/tenants-07-live-impersonate.bats` — TEN-02 live: `kubectl --as=alpha create namespace alpha-app1` succeeds + label stamped (idempotent re-run safe); mirror for bravo
-- [ ] `tests/bats/tenants-08-live-quota-limit.bats` — TEN-03 live: ResourceQuota + LimitRange auto-materialize in alpha-app1 + bravo-app1 within 10s (poll loop)
-- [ ] `tests/bats/tenants-09-live-inner-k-ready.bats` — TEN-04 live reconcile: tenant inner Ks reach Ready=True against empty placeholder paths; `spoke-capsule-kubeconfig` Secret exists in tenant-{alpha,bravo} ns on hub (D-09-03a Secret-mirror per RESEARCH Gap 1 correction)
-- [ ] `tests/bats/tenants-10-live-lockdown.bats` — TEN-05 live: kustomize-controller Deployment args contain 3 flags; flux-system K Ready=True; poc-capsule + poc-capsule-spoke Ready=True post-lockdown
-- [ ] `tests/bats/tenants-11-live-dependson.bats` — TEN-06 live: poc-capsule-spoke dependsOn chain Ready=True; verifier observes Ready ordering (poc-capsule → poc-capsule-spoke → tenant inner Ks)
-- [ ] `tests/bats/tenants-12-live-health-check.bats` — v0.18 regression: `task health-check` exits 0 post-lockdown (full v0.18 suite covering hub-flux + spoke-apps + spoke-ml reconciles still green)
-- [ ] **Reuse verbatim** — `tests/bats/poc-isolation-01-static.bats` (Phase 7 P31 contract); `tests/bats/capsule-install-{06,07,08,09,10}-live-*.bats` (Phase 8 invariants)
+- [x] `tests/bats/tenants-01-static-tenant-cr.bats` — TEN-01 Tenant CR yaml shape (forceTenantPrefix, owners[SA + User], two-Tenant disjoint owners)
+- [x] `tests/bats/tenants-02-static-p27.bats` — TEN-04 P27 yq-based grep: `for f in pocs/capsule/tenants/{alpha,bravo}.yaml; do yq '.spec.serviceAccountName' "$f" | grep -qv '^null$'; done` + synthetic broken-fixture negative falsifier
+- [x] `tests/bats/tenants-03-static-lockdown.bats` — TEN-05 patches block grep (3 flag literals + Kustomization-CR patch for `spec.serviceAccountName: kustomize-controller`); FLUX PATCH SURFACE comment block preserved verbatim
+- [x] `tests/bats/tenants-04-static-dependson.bats` — TEN-06 capsule-spoke.yaml has `dependsOn: [{name: poc-capsule}] wait: true` (top-level spec.wait per RESEARCH Gap 9 correction); per-tenant inner Ks have dependsOn
+- [x] `tests/bats/tenants-05-static-split-path.bats` — D-08-12 inheritance regression: `capsule.yaml` no kubeConfig; `capsule-spoke.yaml` full kubeConfig + `key: value.yaml`
+- [x] `tests/bats/tenants-06-live-tenant-cr.bats` — TEN-01 live: `kubectl get tenants alpha bravo` reports both with `forceTenantPrefix=true` (top-level per RESEARCH Gap 4 correction); each gitops-reconciler SA exists in tenant-{alpha,bravo} ns
+- [x] `tests/bats/tenants-07-live-impersonate.bats` — TEN-02 live: `kubectl --as=alpha create namespace alpha-app1` succeeds + label stamped (idempotent re-run safe); mirror for bravo
+- [x] `tests/bats/tenants-08-live-quota-limit.bats` — TEN-03 live: ResourceQuota + LimitRange auto-materialize in alpha-app1 + bravo-app1 within 10s (poll loop)
+- [x] `tests/bats/tenants-09-live-inner-k-ready.bats` — TEN-04 live reconcile: tenant inner Ks reach Ready=True against empty placeholder paths; `spoke-capsule-kubeconfig` Secret exists in tenant-{alpha,bravo} ns on hub (D-09-03a Secret-mirror per RESEARCH Gap 1 correction)
+- [x] `tests/bats/tenants-10-live-lockdown.bats` — TEN-05 live: kustomize-controller Deployment args contain 3 flags; flux-system K Ready=True; poc-capsule + poc-capsule-spoke Ready=True post-lockdown
+- [x] `tests/bats/tenants-11-live-dependson.bats` — TEN-06 live: poc-capsule-spoke dependsOn chain Ready=True; verifier observes Ready ordering (poc-capsule → poc-capsule-spoke → tenant inner Ks)
+- [x] `tests/bats/tenants-12-live-health-check.bats` — v0.18 regression: `task health-check` exits 0 post-lockdown (full v0.18 suite covering hub-flux + spoke-apps + spoke-ml reconciles still green)
+- [x] **Reuse verbatim** — `tests/bats/poc-isolation-01-static.bats` (Phase 7 P31 contract); `tests/bats/capsule-install-{06,07,08,09,10}-live-*.bats` (Phase 8 invariants)
 
 *All 12 new bats files are RED at end of Plan 09-00 (Wave 0). Plans 01..04 make them GREEN by landing tenant content + lockdown patches.*
 
@@ -96,11 +96,11 @@ created: 2026-04-29
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies (12 new bats files in Wave 0)
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify (every plan has bats coverage)
-- [ ] Wave 0 covers all MISSING references (12 RED bats files at end of Plan 09-00)
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 90s
-- [ ] `nyquist_compliant: true` set in frontmatter (post-Wave-0 Plan 09-00 commit)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies (12 new bats files in Wave 0)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify (every plan has bats coverage)
+- [x] Wave 0 covers all MISSING references (12 RED bats files at end of Plan 09-00)
+- [x] No watch-mode flags
+- [x] Feedback latency < 90s
+- [x] `nyquist_compliant: true` set in frontmatter (post-Wave-0 Plan 09-00 commit)
 
-**Approval:** pending
+**Approval:** Wave 0 complete (Plan 09-00); 13 files committed locally; nyquist_compliant + wave_0_complete flipped to true; static bats RED (target manifests absent — Plans 09-01..09-03 own); live bats parse + auto-skip on cluster-info gate. NO push per D-08-13 (push-gate deferred to Phase 11 VAL-05).
