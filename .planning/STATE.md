@@ -4,8 +4,8 @@ milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
 status: executing
 stopped_at: Phase 9 context gathered
-last_updated: "2026-04-30T16:34:50.669Z"
-last_activity: 2026-04-30 -- Phase 09 planning complete
+last_updated: "2026-04-30T17:08:41.627Z"
+last_activity: 2026-04-30 -- Phase 09 execution started
 progress:
   total_phases: 6
   completed_phases: 2
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 09 — Tenants + Flux Multi-Tenancy Lockdown
+**Current focus:** Phase 09 — tenants-flux-multi-tenancy-lockdown
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
-Phase: 09 (Tenants + Flux Multi-Tenancy Lockdown) — EXECUTING
+Phase: 09 (tenants-flux-multi-tenancy-lockdown) — EXECUTING
 Plan: 1 of 5
-Status: Ready to execute
-Last activity: 2026-04-30 -- Phase 09 planning complete
+Status: Executing Phase 09
+Last activity: 2026-04-30 -- Phase 09 execution started
 
 ## Performance Metrics
 
