@@ -48,6 +48,9 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: --no-cross-namespace-refs=true
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --default-service-account=default
   - target:
       kind: Deployment
       name: notification-controller
