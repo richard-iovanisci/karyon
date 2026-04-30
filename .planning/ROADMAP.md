@@ -95,7 +95,7 @@
 **Plans**: 5 plans (Wave 0 RED bats scaffold + Waves 1-4 implementation + verifier)
 - [x] 09-00-PLAN.md — Wave 0 RED bats scaffold: 12 bats files (5 static + 7 live) + p27 negative falsifier fixture (TEN-01..06 contracts; D-09-08 Nyquist gate)
 - [x] 09-01-PLAN.md — Spoke-side: CapsuleConfiguration singleton + per-tenant namespaces + per-tenant SAs + Tenant CRs + capsule-spoke.yaml dependsOn chain (TEN-01/03/06; D-09-01/02/04/06; RESEARCH Gap 4/5/9 corrections)
-- [ ] 09-02-PLAN.md — Hub-side: per-tenant inner Kustomizations + per-tenant GitRepositories + register-poc-cluster.sh Secret-mirror extension (TEN-04 P27 + TEN-06; D-09-01/03; RESEARCH Gap 1 mitigation)
+- [x] 09-02-PLAN.md — Hub-side: per-tenant inner Kustomizations + per-tenant GitRepositories + register-poc-cluster.sh Secret-mirror extension (TEN-04 P27 + TEN-06; D-09-01/03; RESEARCH Gap 1 mitigation)
 - [ ] 09-03-PLAN.md — Hub Flux multi-tenancy lockdown patches + escape hatches (TEN-05; D-09-05/05a; HIGH regression risk; pre/post task health-check rerun)
 - [ ] 09-04-PLAN.md — Verifier: full Phase 9 bats + Phase 7 P31 + Phase 8 CAP-01..03 + ADR-004 + final task health-check; writes 09-VERIFICATION.md
 
