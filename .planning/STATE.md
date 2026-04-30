@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
-status: completed
-stopped_at: Phase 7 closed out [x]; Phase 8 verifier surfaced gaps_found (08-VERIFICATION.md untracked) — needs `/gsd-plan-phase 8 --gaps` to schedule G-03 + G-04 fix plans before phase advance
+status: executing
+stopped_at: Phase 8 closed out [x] post-gap-close — `08-VERIFICATION.md` reports `passed_with_overrides` (10/10 must-haves; 4 push-gate downstreams deferred-with-override to Phase 11 VAL-05 per D-08-13). Ready for Phase 9 discuss.
 last_updated: "2026-04-30T00:50:19.627Z"
 last_activity: 2026-04-30 -- Phase 08 marked complete
 progress:
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 08 — capsule-capsule-proxy-bare-minimum-install
+**Current focus:** Phase 9 — Tenants + Flux Multi-Tenancy Lockdown (next; Phase 8 closed `passed_with_overrides`)
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
-Phase: 08 — COMPLETE
-Plan: 1 of 5
-Status: Phase 08 complete
-Last activity: 2026-04-30 -- Phase 08 marked complete
+Phase: 08 — COMPLETE (5/5 plans; 10/10 must-haves passed_with_overrides per 08-VERIFICATION.md)
+Plan: 5 of 5
+Status: Phase 8 closed; Phase 9 ready to plan
+Last activity: 2026-04-30 -- Phase 08 closed (passed_with_overrides; 4 push-gate downstreams → Phase 11 VAL-05)
 
 ## Performance Metrics
 
