@@ -1,0 +1,10 @@
+# pocs/capsule/spoke/config/kustomization.yaml
+# Local Kustomize aggregator for the spoke-side config subdir. Resolved by parent
+# pocs/capsule/spoke/kustomization.yaml (Plan 09-01 rewrites to resources: [config/, tenants/]).
+#
+# D-09-01 / D-09-04 — config subdir under pocs/capsule/spoke/. Spoke-targeted
+# (CapsuleConfiguration applies to spoke-capsule via poc-capsule-spoke outer K's kubeConfig).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - capsuleconfig.yaml

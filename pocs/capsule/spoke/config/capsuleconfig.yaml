@@ -1,0 +1,42 @@
+# pocs/capsule/spoke/config/capsuleconfig.yaml
+# TEN-01 — CapsuleConfiguration "default" singleton (cluster-scoped policy CR
+# Capsule webhooks consult on every tenant op).
+#
+# CRD schema verification (v0.12.4):
+#   - apiVersion: capsule.clastix.io/v1beta2
+#   - REQUIRED field: spec.enableTLSReconciler (boolean) — RESEARCH §Gap 5 correction;
+#     CONTEXT.md D-09-04 omitted this. Set false because operator chart's
+#     tls.enableController: true (Phase 8 D-08-04) handles cert reconciliation
+#     via the operator chart's controller-less self-sign Job, not via this flag.
+#   - spec.forceTenantPrefix: top-level (line 80 of CRD)
+#   - spec.allowServiceAccountPromotion: top-level (line 67)
+#   - spec.userGroups: DEPRECATED in v1beta2 but kept for chart-default compatibility
+#
+# TEN-01 — forceTenantPrefix: true is REQUIRED for namespace prefix enforcement
+# (Tenant CR's spec.forceTenantPrefix overrides this, but since both are true,
+# behavior is consistent).
+apiVersion: capsule.clastix.io/v1beta2
+kind: CapsuleConfiguration
+metadata:
+  name: default
+spec:
+  # REQUIRED by CRD schema
+  enableTLSReconciler: false
+  # TEN-01 — global namespace prefix enforcement
+  forceTenantPrefix: true
+  # Canonical clastix default; allows SA → owner promotion via labels
+  # (allows gitops-reconciler SA to escalate identity inside its own tenant)
+  allowServiceAccountPromotion: true
+  # Owner-group filter (chart default; matches what capsule webhooks expect)
+  # NOTE: userGroups is DEPRECATED in v1beta2 (replaced by spec.users), but the
+  # capsule chart still uses this for default group-based owner detection.
+  # Keeping for compatibility; planner may switch to spec.users post-graduation.
+  userGroups:
+    - capsule.clastix.io
+  # Defense-in-depth: tenant cannot register kube-* namespace as a tenant ns.
+  # (Capsule's own webhooks already block this; explicit makes intent clear.)
+  protectedNamespaceRegex: ^kube-.*$
+  # POC keeps these empty — Phase 11 N7 negative-RBAC may exercise.
+  nodeMetadata:
+    forbiddenAnnotations: {}
+    forbiddenLabels: {}

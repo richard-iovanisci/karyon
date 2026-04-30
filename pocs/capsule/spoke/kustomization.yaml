@@ -1,13 +1,14 @@
 # pocs/capsule/spoke/kustomization.yaml
-# D-08-12 (gap-close 2026-04-29) — Pitfall-7 placeholder so the spoke-targeted outer Flux
-# Kustomization (clusters/hub-flux/pocs/capsule-spoke.yaml, spec.path: ./pocs/capsule/spoke)
-# reconciles successfully against an empty resource list. Without this file, the outer K
-# would report Ready=False with "path not found" against the GitRepository revision.
+# Phase 8 D-08-12 (gap-close 2026-04-29) — Pitfall-7 placeholder (resources: []) so the
+# spoke-targeted outer Flux Kustomization (clusters/hub-flux/pocs/capsule-spoke.yaml,
+# spec.path: ./pocs/capsule/spoke) reconciled successfully against an empty resource list.
 #
-# Phase 9 forward-pointer: this directory will hold spoke-targeted CRs starting with
-# Phase 9 (TEN-01..06): the two Tenant CRs (alpha + bravo) AND the tenant inner Flux
-# Kustomizations under tenants/<name>/ (which themselves carry the P27 invariant
-# spec.serviceAccountName explicit-set). Until Phase 9 lands, resources is empty.
+# Phase 9 update (D-09-01): rewrites resources from [] to [config/, tenants/]. The placeholder
+# is now obsolete. Spoke-targeted: parent capsule-spoke.yaml's spec.kubeConfig:
+# spoke-capsule-kubeconfig + spec.path: ./pocs/capsule/spoke routes these resources to
+# spoke-capsule via kustomize-controller's cross-cluster reconcile (D-08-12 split-path invariant).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources: []
+resources:
+  - config/
+  - tenants/

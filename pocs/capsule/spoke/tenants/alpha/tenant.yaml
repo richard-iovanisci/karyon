@@ -1,0 +1,57 @@
+# pocs/capsule/spoke/tenants/alpha/tenant.yaml
+# TEN-01 — Tenant CR alpha. Multi-owner (SA + User) per CONTEXT.md D-09-02.
+# - SA owner (system:serviceaccount:tenant-alpha:gitops-reconciler): drives Flux impersonation
+#   chain (TEN-04 P27 defense — every tenant inner K runs as the SA via Flux's
+#   spec.serviceAccountName impersonation on the target cluster).
+# - User owner (alpha): drives TEN-02 literal contract — `kubectl --as=alpha create namespace
+#   alpha-app1` works because the impersonated identity matches a Tenant owner.
+#
+# CRD schema verification (v0.12.4) — RESEARCH Gap 4 corrections to CONTEXT.md:
+#   - apiVersion: capsule.clastix.io/v1beta2 (storage version)
+#   - spec.forceTenantPrefix: TOP-LEVEL (NOT under namespaceOptions — RESEARCH §Gap 4 correction)
+#   - spec.owners[].kind: enum User|Group|ServiceAccount
+#   - spec.owners[].name: ServiceAccount uses system:serviceaccount:<ns>:<sa> combined format
+#   - spec.owners[].namespace: DOES NOT EXIST in v1beta2 schema
+apiVersion: capsule.clastix.io/v1beta2
+kind: Tenant
+metadata:
+  name: alpha
+spec:
+  # TEN-01 — namespace prefix enforcement (TOP-LEVEL field per v0.12.4 schema)
+  forceTenantPrefix: true
+  # TEN-01 — multi-owner array
+  owners:
+    # Flux impersonation chain (TEN-04 P27 defense)
+    - kind: ServiceAccount
+      name: system:serviceaccount:tenant-alpha:gitops-reconciler
+      # Default clusterRoles: [admin, capsule-namespace-deleter] auto-applied
+    # Human/CLI testing (TEN-02 `kubectl --as=alpha`)
+    - kind: User
+      name: alpha
+  # TEN-03 — ResourceQuota auto-materialization shape
+  # Capsule reconciles these into ResourceQuota objects in tenant namespaces
+  # named capsule-<tenant>-<index>. Phase 9 verifies SHAPE only; enforcement
+  # semantics (N6 quota violation) deferred to Phase 11.
+  resourceQuotas:
+    items:
+      - hard:
+          cpu: "4"
+          memory: 8Gi
+          pods: "20"
+  # TEN-03 — LimitRange auto-materialization shape
+  limitRanges:
+    items:
+      - limits:
+          - type: Container
+            default:
+              cpu: 100m
+              memory: 128Mi
+            defaultRequest:
+              cpu: 50m
+              memory: 64Mi
+  # NOTE: namespaceOptions intentionally OMITTED — TEN-01 only requires
+  # forceTenantPrefix (now top-level). namespaceOptions.quota (max namespace
+  # count) is omitted; tenant can create unlimited namespaces inside prefix.
+  # No additionalRoleBindings, storageClasses, ingressClasses, containerRegistries,
+  # nodeSelector, networkPolicies — Capsule defaults to allow-all (per CONTEXT.md
+  # Claude's Discretion).
