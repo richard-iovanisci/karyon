@@ -13,12 +13,20 @@ setup() {
   fi
 }
 
-@test "ADR-004 / domain-boundary-#4: spoke-capsule flux-system ns has zero controllers" {
-  run kubectl --context=k3d-spoke-capsule get pods -n flux-system 2>/dev/null
-  if [ "$status" -eq 0 ]; then
-    local pod_count
-    pod_count=$(kubectl --context=k3d-spoke-capsule get pods -n flux-system --no-headers 2>/dev/null | wc -l || true)
-    [[ "$pod_count" -eq 0 ]]
+@test "ADR-004 / domain-boundary-#4 (WR-04 fix): spoke-capsule flux-system ns has zero controllers (distinguishes NotFound from transient errors)" {
+  # WR-04 fix (08-REVIEW.md): the prior test silently passed on ANY non-zero kubectl exit
+  # (e.g., transient apiserver error, RBAC propagation lag, cert renewal, network blip),
+  # which is the wrong direction for a domain-boundary invariant. Distinguish the two:
+  #   - "(NotFound)" in stderr → namespace doesn't exist → ADR-004 invariant satisfied (PASS)
+  #   - any other non-zero exit → transient error → FAIL (re-run when stable)
+  local ns_check
+  ns_check=$(kubectl --context=k3d-spoke-capsule get ns flux-system -o jsonpath='{.status.phase}' 2>&1 || true)
+  if echo "$ns_check" | grep -qF 'NotFound'; then
+    # ADR-004 invariant: namespace doesn't exist on spoke at all
+    return 0
   fi
-  # If namespace doesn't exist (status non-zero, output mentions NotFound), that's fine — pass.
+  # Namespace exists; assert zero pods
+  local pod_count
+  pod_count=$(kubectl --context=k3d-spoke-capsule get pods -n flux-system --no-headers 2>/dev/null | wc -l)
+  [[ "$pod_count" -eq 0 ]]
 }
