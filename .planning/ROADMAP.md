@@ -74,11 +74,12 @@
   2. `capsule-proxy:0.12.0` (separate HelmRelease, NOT umbrella) is reachable from the WSL host — `curl -k https://127.0.0.1:30443/healthz` returns 200
   3. All 7 Capsule CRDs (`Tenant`, `CapsuleConfiguration`, `GlobalTenantResource`, `TenantResource`, `ResourcePool`, `ResourcePoolClaim`, `TenantOwner`) are installed and visible — `kubectl get crds | grep capsule.clastix.io` returns ≥7 entries
   4. ADR-004 invariant preserved — `kubectl --context=k3d-spoke-capsule get pods -n flux-system` returns no Flux controllers (hub-only Flux unchanged)
-**Plans**: 4 plans (Wave 0 Nyquist gate + Waves 1-3 implementation + verifier)
+**Plans**: 5 plans (Wave 0 Nyquist gate + Waves 1-3 implementation + verifier + Wave 4 gap-close)
 - [x] 08-00-PLAN.md — Wave 0 Nyquist gate: 10 bats files RED (5 static + 5 live, cluster-info gated) covering CAP-01/02/03 contracts + Pitfall 8 reframe + Pitfall 9 anti-pattern lint
 - [x] 08-01-PLAN.md — Operator HelmRelease + OCIRepository + local kustomize (pocs/capsule/operator/) — CAP-01, CAP-03
 - [x] 08-02-PLAN.md — Proxy HelmRelease + OCIRepository + local kustomize (pocs/capsule/proxy/) + atomic rewrite of pocs/capsule/kustomization.yaml to resources: [operator/, proxy/] — CAP-02, CAP-03
 - [x] 08-03-PLAN.md — Verifier — live HelmRelease Ready=True + CRDs + proxy reachable + ADR-004 invariant + FOLDED CARRYOVER (outer poc-capsule Kustomization Ready=True; Phase 7 verification 1b) + Phase 7 P31/P40/P18 regression rerun
+- [ ] 08-04-PLAN.md — Gap closure — D-08-11 cert flip (controller-less certgen Job) + D-08-12 architectural seam (split paths: hub-targeted + spoke-targeted Kustomizations) + WR-01..WR-04 bats hardening (yq path / kubectl jsonpath); D-08-13 push-gate deferred to Phase 11 VAL-05
 
 ### Phase 9: Tenants + Flux Multi-Tenancy Lockdown
 **Goal**: Two tenants with disjoint owners exist on spoke-capsule with auto-materialized resource isolation; hub Flux controllers run with multi-tenancy lockdown flags; tenant inner Kustomizations carry the load-bearing P27 defense (`spec.serviceAccountName`)
