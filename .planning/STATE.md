@@ -4,8 +4,8 @@ milestone: v0.19
 milestone_name: Capsule Multi-Tenancy POC
 status: executing
 stopped_at: Phase 7 closed out [x]; Phase 8 verifier surfaced gaps_found (08-VERIFICATION.md untracked) — needs `/gsd-plan-phase 8 --gaps` to schedule G-03 + G-04 fix plans before phase advance
-last_updated: "2026-04-30T00:21:07.303Z"
-last_activity: 2026-04-30 -- Phase 08 planning complete
+last_updated: "2026-04-30T00:22:27.246Z"
+last_activity: 2026-04-30 -- Phase 08 execution started
 progress:
   total_phases: 6
   completed_phases: 1
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 8 — capsule-capsule-proxy-bare-minimum-install (gap-close: G-03 cert source + G-04 architectural seam)
+**Current focus:** Phase 08 — capsule-capsule-proxy-bare-minimum-install
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
-Phase: 8 (capsule-capsule-proxy-bare-minimum-install) — GAPS_FOUND (verifier 6/10)
-Plan: 4/4 plan summaries exist, but verifier surfaced 2 BLOCKER gaps (G-03 cert source, G-04 architectural seam) + 1 deferrable gap (G-01/02 push gate)
-Status: Ready to execute
-Last activity: 2026-04-30 -- Phase 08 planning complete
+Phase: 08 (capsule-capsule-proxy-bare-minimum-install) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 08
+Last activity: 2026-04-30 -- Phase 08 execution started
 
 ## Performance Metrics
 

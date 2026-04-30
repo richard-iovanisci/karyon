@@ -79,7 +79,7 @@
 - [x] 08-01-PLAN.md — Operator HelmRelease + OCIRepository + local kustomize (pocs/capsule/operator/) — CAP-01, CAP-03
 - [x] 08-02-PLAN.md — Proxy HelmRelease + OCIRepository + local kustomize (pocs/capsule/proxy/) + atomic rewrite of pocs/capsule/kustomization.yaml to resources: [operator/, proxy/] — CAP-02, CAP-03
 - [x] 08-03-PLAN.md — Verifier — live HelmRelease Ready=True + CRDs + proxy reachable + ADR-004 invariant + FOLDED CARRYOVER (outer poc-capsule Kustomization Ready=True; Phase 7 verification 1b) + Phase 7 P31/P40/P18 regression rerun
-- [ ] 08-04-PLAN.md — Gap closure — D-08-11 cert flip (controller-less certgen Job) + D-08-12 architectural seam (split paths: hub-targeted + spoke-targeted Kustomizations) + WR-01..WR-04 bats hardening (yq path / kubectl jsonpath); D-08-13 push-gate deferred to Phase 11 VAL-05
+- [x] 08-04-PLAN.md — Gap closure — D-08-11 cert flip (controller-less certgen Job) + D-08-12 architectural seam (split paths: hub-targeted + spoke-targeted Kustomizations) + WR-01..WR-04 bats hardening (yq path / kubectl jsonpath); D-08-13 push-gate deferred to Phase 11 VAL-05
 
 ### Phase 9: Tenants + Flux Multi-Tenancy Lockdown
 **Goal**: Two tenants with disjoint owners exist on spoke-capsule with auto-materialized resource isolation; hub Flux controllers run with multi-tenancy lockdown flags; tenant inner Kustomizations carry the load-bearing P27 defense (`spec.serviceAccountName`)
