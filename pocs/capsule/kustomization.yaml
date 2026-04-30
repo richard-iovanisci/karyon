@@ -10,9 +10,15 @@
 # Phase 8 update (D-08-05): operator/ and proxy/ subdir refs added — the outer
 # poc-capsule Flux Kustomization now reconciles operator HelmRelease + proxy
 # HelmRelease + their per-chart OCIRepositories under capsule-system on
-# spoke-capsule via spoke-capsule-kubeconfig. Phase 9 will append config/ + tenants/.
+# spoke-capsule via spoke-capsule-kubeconfig.
+#
+# Phase 9 update (D-09-01): tenants/ subdir added — hub-targeted per-tenant
+# inner Flux Kustomization CRs + per-tenant Namespaces + per-tenant GitRepositories.
+# CapsuleConfiguration + Tenant CRs land via the spoke-targeted poc-capsule-spoke
+# outer K (path ./pocs/capsule/spoke).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - operator/
 - proxy/
+- tenants/
