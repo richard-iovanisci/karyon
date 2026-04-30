@@ -195,6 +195,41 @@ apply_hub_secret() {
     kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" apply -f -
 }
 
+# ---------- mirror_kubeconfig_to_tenant_namespaces: RESEARCH §Gap 1 ----------
+# Mirror spoke-capsule-kubeconfig Secret into per-tenant namespaces on hub-flux.
+# Required because Flux's kubeConfig.secretRef has UNCONDITIONAL same-namespace
+# constraint (RESEARCH §Gap 1 — Flux v2.8 docs + Go API source citation). The
+# tenant namespaces tenant-alpha + tenant-bravo host the per-tenant inner
+# Kustomization CRs (defined in pocs/capsule/tenants/<name>.yaml), which
+# reference this Secret. Without the mirror, those CRs reach Ready=False with
+# `secret "spoke-capsule-kubeconfig" not found`.
+#
+# Idempotent: re-run safe (kubectl apply + dry-run client + yq strip metadata).
+# yq strip is required: a Secret applied verbatim from another ns rejects with
+# "field is immutable" on resourceVersion / uid / creationTimestamp conflict.
+#
+# Operates only on tenant-{alpha,bravo} on k3d-hub-flux. Does NOT touch spoke
+# clusters. Phase 11 VAL-04 SLO regression is unaffected (this function is
+# only called by register-poc-cluster.sh, which is NEVER invoked by task rebuild
+# per P31 isolation contract — verified by tests/bats/poc-isolation-01-static.bats).
+mirror_kubeconfig_to_tenant_namespaces() {
+  local tenant
+  for tenant in alpha bravo; do
+    # Ensure the per-tenant namespace exists on hub-flux (Plan 09-02 commits
+    # this namespace as part of pocs/capsule/tenants/<name>.yaml, but Flux's
+    # reconcile of that file may not have happened yet at register-time).
+    kubectl --context="${HUB_CTX}" create namespace "tenant-${tenant}" \
+      --dry-run=client -o yaml | kubectl --context="${HUB_CTX}" apply -f -
+    # Mirror the spoke-capsule-kubeconfig Secret from flux-system into the
+    # per-tenant namespace. yq strip metadata fields that cause conflict on apply.
+    # shellcheck disable=SC2016 # yq expression intentionally uses single quotes
+    kubectl --context="${HUB_CTX}" -n "${FLUX_NS}" get secret spoke-capsule-kubeconfig -o yaml \
+      | yq eval '.metadata.namespace = "tenant-'"${tenant}"'"
+                 | del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp)' - \
+      | kubectl --context="${HUB_CTX}" apply -f -
+  done
+}
+
 # ---------- ensure_hub_pocs_mount: P30 INDEPENDENT sentinel insertion ----------
 # Distinct function from ensure_hub_spokes_mount() in register-spokes-for-flux.sh
 # (P30 sentinel-uniqueness contract requires DEDICATED functions for SPOKES vs
@@ -399,6 +434,14 @@ kubeconfig_yaml="$(build_kubeconfig "${POC_CLUSTER}" "${TOKEN_DECODED}" "${CA_B6
 # Apply hub Secret (D-11 token-safe path — never echoed, never tee'd, never argv'd)
 apply_hub_secret "${POC_CLUSTER}" "${kubeconfig_yaml}"
 pass "applied: ${POC_CLUSTER} hub Secret"
+
+# Mirror spoke-capsule-kubeconfig into per-tenant namespaces on hub-flux
+# (RESEARCH §Gap 1 — Flux's kubeConfig.secretRef has UNCONDITIONAL same-namespace
+# constraint). Without this mirror, Phase 9 per-tenant inner Kustomizations fail
+# with `secret "spoke-capsule-kubeconfig" not found`.
+section "Mirror spoke-capsule-kubeconfig to per-tenant namespaces (RESEARCH §Gap 1)"
+mirror_kubeconfig_to_tenant_namespaces
+pass "mirrored: spoke-capsule-kubeconfig → tenant-alpha + tenant-bravo on ${HUB_CTX}"
 
 # Patch FLUX PATCH SURFACE with # KARYON POC MOUNT sentinel + ../pocs (idempotent)
 section "Hub-side FLUX PATCH SURFACE patch"
