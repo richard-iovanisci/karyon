@@ -97,7 +97,12 @@ WRITE_TO=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    # WR-05: accept both space form (`--duration 24h`) and equals form (`--duration=24h`).
+    # `kubectl create token --duration=…` itself uses equals form (line 210 below); operators
+    # who copy that style onto this script's surface previously hit "unknown flag: --duration=24h".
+    --duration=*) DURATION="${1#--duration=}"; shift ;;
     --duration) DURATION="${2:?--duration requires a value}"; shift 2 ;;
+    --write-to=*) WRITE_TO="${1#--write-to=}"; shift ;;
     --write-to) WRITE_TO="${2:?--write-to requires a value}"; shift 2 ;;
     --help|-h)  usage 0 ;;
     --*)        fail "unknown flag: $1"; usage 1 ;;
