@@ -2,7 +2,7 @@
 status: Active
 audience: POC operators (WSL host)
 purpose: Runbook for the spoke-capsule POC -- host-restart recovery and troubleshooting.
-scope: Phase 7 ships only the Host restart recovery section. Phases 10/11 will add tenant kubeconfig delivery contract and ordered teardown procedure respectively.
+scope: Phase 7 ships the Host restart recovery section. Phase 10 added tenant kubeconfig delivery contract. Phase 11 will add ordered teardown procedure.
 ---
 
 # spoke-capsule POC Operator's Runbook
@@ -142,3 +142,48 @@ Future POCs adding more reserved ports should extend `scripts/preflight.sh` `che
 - `scripts/register-poc-cluster.sh` -- register spoke-capsule with hub-flux (POC-02)
 - `scripts/poc/capsule/fix-dns.sh` -- this runbook's underlying script (CAPCLU-03)
 - `scripts/fix-coredns.sh` -- v0.18 hub-flux equivalent (`task fix-dns`)
+
+## Tenant kubeconfig delivery contract
+
+> **Status:** Active. Phase 10 — PROXY-01..03.
+
+The `scripts/poc/capsule/issue-tenant-kubeconfig.sh` script mints a short-lived,
+tenant-owner kubeconfig that routes through capsule-proxy on NodePort 30443.
+
+### Quickstart
+
+```
+bash scripts/poc/capsule/issue-tenant-kubeconfig.sh alpha gitops-reconciler 2>/dev/null > /tmp/alpha.kubeconfig
+KUBECONFIG=/tmp/alpha.kubeconfig kubectl get namespaces
+# alpha-app1
+# tenant-alpha
+```
+
+### Contract
+
+| Property | Value |
+|---|---|
+| Output channel default | stdout (pure YAML kubeconfig); `preflight-lib` log lines on stderr (clean redirect contract) |
+| Optional file output | `--write-to <path>` — `<path>` MUST resolve under `${TMPDIR:-/tmp}/karyon-tenants/` (validated via `realpath -m` prefix check) |
+| Server URL | `https://127.0.0.1:30443` (capsule-proxy NodePort; k3d serverlb host-publish) |
+| Authentication | Bound SA token via `kubectl create token` (TokenRequest API); default `--duration=1h` |
+| TLS trust | `certificate-authority-data` embedded in cluster block (read live from `capsule-proxy` Secret on spoke-capsule) |
+| Default namespace in context | `tenant-<tenant>` (operator can override with `kubectl -n alpha-app1 ...`) |
+| Issued context name | `tenant-<tenant>-via-proxy` (unambiguous when multiple tenant kubeconfigs are merged) |
+
+### Mandatory invariants (P29 — leak defense)
+
+Tenant kubeconfigs MUST NEVER land in git. The script defends in depth:
+
+1. Default to stdout (no file ever written without operator's explicit `--write-to`).
+2. `--write-to` strictly rooted under `${TMPDIR:-/tmp}/karyon-tenants/` (validated via `realpath -m` prefix check; symlink escapes are rejected fail-fast).
+3. `.gitignore` excludes `karyon-tenants/`, `*.tenant.kubeconfig`, `tenants/**/access.yaml`, `tenants/**/admin.yaml` (Phase 7 D-14 globs).
+4. `.gitleaks.toml` `kubeconfig-bearer-token` rule (Phase 7 D-14) catches `kind: Config` + `users.token` shape pre-commit and on push (Phase 11 VAL-05 first-push gate).
+5. EKS-translation forward-pointer: in production, IRSA replaces TokenRequest cleanly (per [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Rough EKS install path"). The contract is unchanged — tokens never live in git.
+
+### Cross-references
+
+- Phase 7 D-14 leak defenses: `.gitignore` + `.gitleaks.toml` (the rule that fires)
+- Phase 8 CAP-02: capsule-proxy NodePort 30443 install
+- Phase 9 D-09-02: per-tenant `gitops-reconciler` SA + Tenant CR multi-owner array
+- [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Rough EKS install path": IRSA translation forward-pointer
