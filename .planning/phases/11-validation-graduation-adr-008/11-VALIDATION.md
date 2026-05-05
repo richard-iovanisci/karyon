@@ -55,7 +55,7 @@ created: 2026-05-05
 | `tests/bats/teardown-02-static-sentinel-preservation.bats` | 11-00 RED → 11-02 GREEN | 0 RED → 2 GREEN | VAL-03 | D-11-10 sentinel + mount preservation | bats static | `bats tests/bats/teardown-02-static-sentinel-preservation.bats` | ❌ W0 | ⬜ pending |
 | `tests/bats/teardown-03-live-ordered.bats` | 11-00 RED → 11-04 GREEN | 0 RED → 4 GREEN | VAL-03 | D-11-10 5-step canonical | bats live | `bats tests/bats/teardown-03-live-ordered.bats` | ❌ W0 | ⬜ pending |
 | `tests/bats/teardown-04-live-pvc-strand-mitigation.bats` | 11-00 RED → 11-04 GREEN | 0 RED → 4 GREEN | VAL-03 | D-11-11 auto force-delete | bats live | `bats tests/bats/teardown-04-live-pvc-strand-mitigation.bats` | ❌ W0 | ⬜ pending |
-| `tests/bats/slo-regression-live.bats` (4 @tests: rebuild < 230s, CID unchanged, health-check, P31 lint) | 11-00 RED → 11-04 GREEN | 0 RED → 4 GREEN | VAL-04 | D-11-13 + D-11-16 (P31 inheritance) | bats live | `bats tests/bats/slo-regression-live.bats` | ❌ W0 | ⬜ pending |
+| `tests/bats/slo-regression-live.bats` (3 @tests: rebuild < 230s [covers health-check via internal invocation], CID unchanged, P31 lint) | 11-00 RED → 11-04 GREEN | 0 RED → 3 GREEN | VAL-04 | D-11-13 + D-11-16 (P31 inheritance); RESEARCH.md Open Questions Q4 RESOLVED — @test c (`task health-check exit 0`) removed because `scripts/rebuild.sh` L78-79 invokes health-check internally | bats live | `bats tests/bats/slo-regression-live.bats` | ❌ W0 | ⬜ pending |
 
 > Plan IDs above use the recommended Plan 11-00..11-04 mapping from CONTEXT.md "Plan ordering" section. Planner reshapes if necessary; the bats file names + grouping (5 files for negative-rbac per D-11-06; one slo-regression-live; per-area static/live split for push-gate and teardown) are LOCKED.
 
@@ -80,7 +80,7 @@ Wave 0 (Plan 11-00) lands all bats files RED-by-design (live @tests skip cleanly
 - [ ] `tests/bats/teardown-02-static-sentinel-preservation.bats` — RED at landing (greps script for ABSENCE of clusters/hub-flux/flux-system/kustomization.yaml mutations; turns GREEN when Plan 11-02 lands script)
 - [ ] `tests/bats/teardown-03-live-ordered.bats` — RED at landing (live execution required; turns GREEN after Plan 11-04 verifier)
 - [ ] `tests/bats/teardown-04-live-pvc-strand-mitigation.bats` — RED at landing (synthetic PVC test; turns GREEN after Plan 11-04 verifier)
-- [ ] `tests/bats/slo-regression-live.bats` — RED at landing (4 @tests: rebuild timing + CID unchanged + health-check + P31 inheritance; turns GREEN after Plan 11-04 verifier)
+- [ ] `tests/bats/slo-regression-live.bats` — RED at landing (3 @tests: rebuild timing + CID unchanged + P31 inheritance; turns GREEN after Plan 11-04 verifier; @test c `task health-check exit 0` removed per RESEARCH.md Open Questions Q4 RESOLVED — health-check is internally invoked by `task rebuild` per scripts/rebuild.sh L78-79)
 
 **Wave 0 install pattern:** Bats v1.11.0 already installed (verified by RESEARCH.md). No framework install. tests/bats/test_helper exists from Phase 7. Phase 11 contributes 16 new bats files (5 negative-rbac + 1 anti-pattern-lint + 5 push-gate + 4 teardown + 1 slo-regression).
 

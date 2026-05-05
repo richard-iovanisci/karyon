@@ -704,8 +704,11 @@ for i in $(seq 1 90); do
   sleep 1
 done
 
-section "Step 4/5: suspend operator + config outer Ks"
-flux suspend kustomization poc-capsule poc-capsule-config -n flux-system || true
+section "Step 4/5: suspend operator outer K"
+# REVISION (2026-05-05): poc-capsule-config does NOT exist as a separate Kustomization on
+# hub-flux (verified via `kubectl --context=k3d-hub-flux get kustomization -n flux-system`).
+# Only poc-capsule + poc-capsule-spoke exist. Plan 11-02 destroy-poc.sh tracks this corrected shape.
+flux suspend kustomization poc-capsule -n flux-system || true
 pass "suspended"
 
 section "Step 5/5: ${FULL:+full} cluster lifecycle"
@@ -838,27 +841,35 @@ This rubric was matched against bats evidence: <cite specific bats results from
 
 **If this table is empty:** All claims in this research were verified or cited — no user confirmation needed.
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Where should the D-11-01 PostBuild patch actually live — hub-targeted or spoke-targeted outer K?**
+> **Revision (post-checker):** All 4 questions originally listed here have been dispositioned. Q1 + Q2 are duplicates of Assumptions Log A1/A2 (load-bearing) and have been reframed below as **Empirical Falsifiers** with explicit deferral to the bats that prove them. Q3 has a permissive-grep mitigation already in code. Q4 was empirically resolved by reading `scripts/rebuild.sh` (verified 2026-05-05).
+
+### Empirical Falsifiers (Deferred to Plan 11-04 push event)
+
+These are not unresolved questions — they are load-bearing assumptions tracked separately as A1/A2 in the Assumptions Log. They are deferred to the empirical falsifiers that fire in Plan 11-04, NOT to Plan 11-01 implementation choices.
+
+1. **Where should the D-11-01 PostBuild patch actually live — hub-targeted or spoke-targeted outer K?** (= Assumption A1)
    - What we know: CONTEXT.md D-11-01 locks `clusters/hub-flux/pocs/capsule.yaml` (HUB-TARGETED, no spec.kubeConfig per D-08-12 split-path).
    - What's unclear: PostBuild patches at the kustomize-controller layer apply to kustomize-build output (HelmRelease + OCIRepository CRs on hub), not to Helm-rendered manifests downstream (the actual Role on spoke). The patch target `kind: Role, name: capsule-proxy:capsule-proxy, namespace: capsule-system` will not match the kustomize-build output of the hub-targeted outer K.
-   - Recommendation: Plan 11-01 implements D-11-01 verbatim; Plan 11-04 verifier observes whether the patch fired correctly. If RED, Rule 3 deviation: move patch to `clusters/hub-flux/pocs/capsule-spoke.yaml` (SPOKE-TARGETED outer K) and re-test.
+   - **DEFERRED:** empirically resolved by `tests/bats/push-gate-04-live-tenant-ns-flux-apply.bats` in Plan 11-04 (post-push observation). If RED, Plan 11-04 SUMMARY records the Rule 3 escalation: relocate the patch to `clusters/hub-flux/pocs/capsule-spoke.yaml` (SPOKE-TARGETED outer K) in a follow-up plan. Plan 11-01 lands D-11-01 verbatim per CONTEXT.md.
 
-2. **Does the Flux `flux-reconciler` SA's cluster-admin role binding bypass Capsule's prefix-enforcement webhook?**
+2. **Does the Flux `flux-reconciler` SA's cluster-admin role binding bypass Capsule's prefix-enforcement webhook?** (= Assumption A2)
    - What we know: `system:masters` GROUP membership bypasses ALL admission webhooks (verified). cluster-admin ROLE binding does NOT add the SA to system:masters group.
    - What's unclear: Does Capsule's `namespaces.tenants.projectcapsule.dev` webhook have a matchConditions/namespaceSelector that excludes the `flux-reconciler` SA's identity?
-   - Recommendation: Plan 11-04 push event is the empirical falsifier (push-gate-04-live-tenant-ns-flux-apply.bats). If RED, document operator-runbook fallback per D-11-03's documented escalation.
+   - **DEFERRED:** empirically resolved by `tests/bats/push-gate-04-live-tenant-ns-flux-apply.bats` in Plan 11-04 (post-push observation; see also Pitfall 11-P2 falsifier). If RED, Plan 11-04 SUMMARY records the Rule 3 escalation: document operator-runbook fallback (`kubectl --as=alpha/bravo create namespace tenant-alpha/tenant-bravo`) per D-11-03's documented escalation.
+
+### Resolved Questions
 
 3. **What is the exact Capsule v0.12.4 webhook error string for namespace-quota violation?**
    - What we know: NamespaceOptions.Quota is `*int32` with `+kubebuilder:validation:Minimum=1`. The webhook DOES enforce.
-   - What's unclear: The exact format of the error message string emitted by Capsule's webhook when the count is exceeded.
-   - Recommendation: Bats N6 uses permissive grep `(quota|namespace.*(limit|max)|exceeded)`; if RED, widen further or assert exit-code only.
+   - What's unclear (was): The exact format of the error message string emitted by Capsule's webhook when the count is exceeded.
+   - **RESOLVED:** permissive grep `grep -qE "(quota|namespace.*(limit|max)|exceeded|namespaceOptions)"` covers known Capsule v0.10..v0.12 webhook string variations. Bats N6 (in `tests/bats/negative-rbac-03-webhook-policy.bats`) uses this pattern (referenced in CONTEXT.md D-11-05 N6 probe shape). If RED post-Plan-11-03 with a string outside this regex, widen further or assert exit-code only.
 
 4. **Does `task rebuild` include the v0.18 `task health-check` step at the end?**
    - What we know: `scripts/rebuild.sh` exists; verified by `cat`. The script calls preflight + destroy + create-clusters + bootstrap-flux + register-spokes + deploy-examples + health-check (per v0.18 Phase 5 contract).
-   - What's unclear: Does `task rebuild` itself wrap `health-check` or does the operator run them separately? D-11-13 has `task rebuild` AND `task health-check` as separate @tests.
-   - Recommendation: Verify by reading `scripts/rebuild.sh` more carefully during Plan 11-00 RED scaffold work; if rebuild includes health-check internally, @test c (`task health-check exit 0`) is redundant.
+   - What's unclear (was): Does `task rebuild` itself wrap `health-check` or does the operator run them separately? D-11-13 originally had `task rebuild` AND `task health-check` as separate @tests.
+   - **RESOLVED (verified 2026-05-05):** `task rebuild` already invokes `task health-check` internally. `scripts/rebuild.sh` line 78-79 contains `echo ">>> step health-check" | tee -a "$LOG_FILE"; bash "${SCRIPT_DIR}/health-check.sh" 2>&1 | tee -a "$LOG_FILE"` — health-check runs unconditionally as the final step before SLO assertion. Therefore Plan 11-00 Task 2 `slo-regression-live.bats @test c` (`task health-check exit 0`) is REDUNDANT — measuring the same effect twice. **Action: @test c is REMOVED from `slo-regression-live.bats`; the file now has 3 @tests (a/b/d) instead of 4.** VALIDATION.md per-task map updated accordingly.
 
 ## Environment Availability
 
