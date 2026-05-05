@@ -200,7 +200,29 @@ if [[ -n "$WRITE_TO" ]]; then
 fi
 
 # ---------- Section 6: Duration portability info-warn ----------
-DURATION_HOURS=$(echo "$DURATION" | sed -E 's/^([0-9]+)h.*$/\1/' | grep -E '^[0-9]+$' || echo "0")
+# WR-02: convert <int><unit> duration to hours. Supports kubectl's accepted units (s/m/h/d).
+# Compound forms (e.g. 1h30m) collapse to the leading numeric+unit segment, which is acceptable
+# for the >24h portability heuristic -- the leading segment dominates for the values operators
+# actually pass. Returns 0 for unparseable input (no false-positive warns).
+duration_to_hours() {
+  local d="$1"
+  # Strip any trailing compound (e.g. 1h30m -> 1h) by matching only the first <int><unit>.
+  local match
+  if [[ "$d" =~ ^([0-9]+)([smhd]) ]]; then
+    match="${BASH_REMATCH[0]}"
+    local n="${BASH_REMATCH[1]}"
+    local u="${BASH_REMATCH[2]}"
+    case "$u" in
+      s) echo $(( n / 3600 )) ;;
+      m) echo $(( n / 60 ))   ;;
+      h) echo "$n"             ;;
+      d) echo $(( n * 24 ))   ;;
+    esac
+  else
+    echo "0"
+  fi
+}
+DURATION_HOURS=$(duration_to_hours "$DURATION")
 if [[ "$DURATION_HOURS" -gt 24 ]]; then
   info "duration ${DURATION} is honored exactly on this k3s pin (no apiserver clamp). Other k8s distros may clamp at --service-account-max-token-expiration; verify before relying on durations >24h in production."
 fi
