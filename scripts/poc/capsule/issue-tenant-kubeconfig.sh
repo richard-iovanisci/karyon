@@ -156,6 +156,20 @@ pass "owner SA '${OWNER}' exists in tenant-${TENANT}"
 # ---------- Section 5: --write-to validation ----------
 if [[ -n "$WRITE_TO" ]]; then
   section "--write-to validation (T-10-02 mitigation)"
+  # BL-01: defeat symlink pre-placement attack on ${TENANT_TMPDIR}.
+  # If an attacker pre-places ${TENANT_TMPDIR} as a symlink to /etc (or any chosen dir),
+  # `realpath -m` on both sides resolves through the symlink and the prefix check
+  # passes -- but `> "$RESOLVED"` follows the symlink at write-time, landing the
+  # bearer-token kubeconfig in the attacker's chosen path. Refuse on -L; create the
+  # tmpdir owner-private (0700) if absent so subsequent prefix checks are meaningful.
+  if [[ -L "${TENANT_TMPDIR}" ]]; then
+    fail "${TENANT_TMPDIR} is a symlink -- refusing to write tenant kubeconfig.
+       Hint: an attacker may have pre-placed this symlink to redirect the bearer-token
+             kubeconfig to a chosen path. Inspect: ls -ld ${TENANT_TMPDIR}
+             Fix:     rm -f ${TENANT_TMPDIR} && bash $(basename "$0") ${TENANT} ${OWNER}"
+    exit 1
+  fi
+  install -d -m 0700 "${TENANT_TMPDIR}"
   RESOLVED=$(realpath -m "$WRITE_TO")
   TMPDIR_RESOLVED=$(realpath -m "${TENANT_TMPDIR}")
   if [[ "$RESOLVED" != "${TMPDIR_RESOLVED}/"* ]]; then
@@ -165,6 +179,15 @@ if [[ -n "$WRITE_TO" ]]; then
     exit 1
   fi
   mkdir -p "$(dirname "$RESOLVED")"
+  # BL-01 (defense in depth): after mkdir, verify the resolved parent dir is NOT a symlink.
+  # Catches the secondary TOCTOU where an attacker swaps a real component of RESOLVED
+  # for a symlink between the prefix check above and the redirect at end-of-script.
+  PARENT_REAL=$(realpath -e "$(dirname "$RESOLVED")")
+  if [[ "$PARENT_REAL" != "${TMPDIR_RESOLVED}"* ]]; then
+    fail "parent dir of '${RESOLVED}' resolves outside ${TENANT_TMPDIR}/ after canonicalization.
+       Hint: TOCTOU symlink swap detected. Inspect: ls -ld $(dirname "$RESOLVED")"
+    exit 1
+  fi
   pass "write target '${RESOLVED}' inside ${TENANT_TMPDIR}/"
 fi
 
