@@ -11,11 +11,12 @@
 # re-runs to refresh tokens; running twice produces two valid kubeconfigs (different iat claims).
 #
 # Stdout/stderr contract (Pitfall 10-P7): stdout = pure YAML kubeconfig; stderr = preflight-lib
-# log lines. Mechanism: preflight-lib helpers are intercepted at function-definition time via
-# local override functions (see overrides below). Every log line goes to stderr automatically.
-# This is the function-override mechanism endorsed by RESEARCH §Pitfall 10-P7; per-call-site
-# `>&2` redirect is equivalent and explicitly NOT used here. The chosen approach avoids ~50
-# per-call-site redirects throughout the script.
+# log lines. Mechanism: shadow each preflight-lib helper (section/pass/info/warn/fail) with a
+# printf-to-stderr equivalent defined below. Every subsequent call site emits to stderr without
+# per-call-site `>&2`. The original ANSI-colored helpers from preflight-lib are unused here --
+# this script does not emit stdout summary lines (stdout is reserved for the kubeconfig YAML
+# payload). Per RESEARCH §Pitfall 10-P7, per-call-site `>&2` is equivalent and explicitly NOT
+# used (it would require ~50 redirects throughout the script). The chosen approach avoids that.
 #
 # Pitfall 10-P1: capsule-proxy Secret has tls.crt + tls.key keys ONLY (no ca.crt). The chart's
 # kube-webhook-certgen Job runs with --cert-name=tls.crt --key-name=tls.key and self-signs;
@@ -33,19 +34,21 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck disable=SC1091
 source "${REPO_ROOT}/scripts/lib/preflight-lib.sh"
 
-# Pitfall 10-P7 stderr-redirect mechanism: function-override at definition time.
-# preflight-lib helpers write to stdout by default. Stdout in THIS script is the kubeconfig YAML
-# payload -- log lines on stdout would corrupt it. We override each helper with a local function
-# that internally redirects to >&2. Every subsequent call site emits to stderr automatically; no
-# per-call-site `>&2` annotation needed. This is the recommended approach per RESEARCH §Pitfall
-# 10-P7 (per-call-site `>&2` is equivalent and explicitly not used). Cleanest blast radius:
-# leave create-cluster.sh / fix-dns.sh untouched (they emit human-readable summaries on stdout,
-# which is the right behavior for those scripts -- they don't need this override).
-section() { command section "$@" >&2 2>/dev/null || printf '== %s ==\n' "$*" >&2; }
-pass() { command pass "$@" >&2 2>/dev/null || printf '  ok  %s\n' "$*" >&2; }
-info() { command info "$@" >&2 2>/dev/null || printf '  --  %s\n' "$*" >&2; }
-warn() { command warn "$@" >&2 2>/dev/null || printf '  !!  %s\n' "$*" >&2; }
-fail() { command fail "$@" >&2 2>/dev/null || printf '  xx  %s\n' "$*" >&2; }
+# Pitfall 10-P7 stderr-redirect: shadow preflight-lib helpers with printf-to-stderr equivalents.
+# preflight-lib helpers write to stdout by default; stdout in THIS script is the kubeconfig YAML
+# payload, so log lines on stdout would corrupt it. We replace each helper with a printf-to-stderr
+# function. Every subsequent call site emits to stderr without per-call-site `>&2`. The original
+# ANSI-colored helpers from preflight-lib (section/pass/info/warn/fail at lines 21-25 of
+# preflight-lib.sh) are intentionally NOT called here -- this script does not emit stdout summary
+# lines. The PASS/WARN/FAIL counters maintained by the originals are also unused; this script
+# fail-fasts via `exit 1` after a `fail` call and does not summarize counts at end-of-run.
+# Cleanest blast radius: leave create-cluster.sh / fix-dns.sh untouched (they emit human-readable
+# summaries on stdout, which is the right behavior for those scripts -- they don't need this).
+section() { printf '== %s ==\n' "$*" >&2; }
+pass()    { printf '  ok  %s\n' "$*" >&2; }
+info()    { printf '  --  %s\n' "$*" >&2; }
+warn()    { printf '  !!  %s\n' "$*" >&2; }
+fail()    { printf '  xx  %s\n' "$*" >&2; }
 
 # D-10 pins (LOCKED -- bats grep-asserts these literals):
 readonly POC_CTX="k3d-spoke-capsule"
