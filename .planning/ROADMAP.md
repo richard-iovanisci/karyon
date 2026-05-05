@@ -108,7 +108,10 @@
   2. Using the issued kubeconfig, `kubectl get namespaces` returns ONLY namespaces owned by the tenant (proxy LIST filtering working) — direct apiserver access on `:6446` with the same token returns the unfiltered list (proves proxy is doing the filtering, not RBAC alone)
   3. Kubeconfig delivery contract documented in `docs/poc-capsule.md`: stdout default, optional `--write-to`, mandatory tmpdir-not-repo location, gitleaks rule catches accidental commits (synthetic-fixture bats verifies)
   4. **P29 defense holds** — first push after this phase passes the gitleaks pre-commit + post-push scan with zero findings
-**Plans**: TBD
+**Plans**: 3 plans (Wave 0 RED bats + Wave 1 script + doc + Wave 2 verifier)
+- [ ] 10-00-PLAN.md — Wave 0 RED bats scaffold: 7 bats files (45 @tests; PROXY-01..03 contracts; Pitfall 10-P2/P3/P5 corrections applied)
+- [ ] 10-01-PLAN.md — `scripts/poc/capsule/issue-tenant-kubeconfig.sh` (TokenRequest mint + heredoc kubeconfig + tmpdir-rooted --write-to) + `docs/poc-capsule.md` "Tenant kubeconfig delivery contract" H2 append (Pitfall 10-P1/P2/P7 corrections applied)
+- [ ] 10-02-PLAN.md — Verifier (capsule-proxy live staging via direct helm template + kubectl apply per Pitfall 10-P6 + full Phase 10 + Phase 7+8+9 inheritance bats + task health-check; writes 10-VERIFICATION.md with `passed_with_overrides` disposition + D-08-13 push-gate forward to Phase 11 VAL-05)
 
 ### Phase 11: Validation + Graduation ADR-008
 **Goal**: Empirical bats evidence proves Capsule's tenant boundary holds (negative RBAC + webhook failure + clean teardown), the v0.18 `task rebuild` SLO is unchanged, and the closing graduation ADR-008 records the adopt/defer/reject/replaced decision backed by the bats evidence
