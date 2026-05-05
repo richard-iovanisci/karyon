@@ -80,10 +80,14 @@ setup() {
   rm -f "$ISSUED_KC"
 }
 
-@test "PROXY-01 live (D-10-09): --write-to inside \${TMPDIR:-/tmp}/karyon-tenants/ writes file" {
+@test "PROXY-01 live (D-10-09): --write-to inside \${TMPDIR:-/tmp}/karyon-tenants/ writes owner-private (mode 0600) file" {
   WRITE_PATH="${TMPDIR:-/tmp}/karyon-tenants/proxy-04-test.kubeconfig"
   bash "${REPO_ROOT}/scripts/poc/capsule/issue-tenant-kubeconfig.sh" alpha gitops-reconciler --write-to "$WRITE_PATH" >/dev/null 2>&1
   [ -f "$WRITE_PATH" ]
+  # BL-02 / WR-07: file must be owner-private (mode 0600), not world-readable (0644).
+  # Bearer-token kubeconfig must remain confidential to the issuing operator.
+  mode=$(stat -c '%a' "$WRITE_PATH")
+  [ "$mode" = "600" ]
   run yq eval '.kind' "$WRITE_PATH"
   [ "$status" -eq 0 ]
   [ "$output" = "Config" ]

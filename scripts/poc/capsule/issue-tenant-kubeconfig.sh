@@ -156,6 +156,11 @@ pass "owner SA '${OWNER}' exists in tenant-${TENANT}"
 # ---------- Section 5: --write-to validation ----------
 if [[ -n "$WRITE_TO" ]]; then
   section "--write-to validation (T-10-02 mitigation)"
+  # BL-02: tighten umask so the kubeconfig (containing a live bearer token) is
+  # owner-private on creation. Default umask 0022 produces mode 0644 (world-readable);
+  # 0077 produces mode 0600 (owner-only). Applied here so it covers both the
+  # subsequent install -d (tmpdir 0700) and the > "$RESOLVED" redirect later.
+  umask 0077
   # BL-01: defeat symlink pre-placement attack on ${TENANT_TMPDIR}.
   # If an attacker pre-places ${TENANT_TMPDIR} as a symlink to /etc (or any chosen dir),
   # `realpath -m` on both sides resolves through the symlink and the prefix check
@@ -248,7 +253,10 @@ KUBECONFIG_EOF
 
 if [[ -n "$WRITE_TO" ]]; then
   emit_kubeconfig > "$RESOLVED"
-  pass "kubeconfig written to ${RESOLVED}"
+  # BL-02: belt-and-braces -- if a future maintainer overrides umask before this
+  # block, chmod 0600 here ensures the file mode is owner-private regardless.
+  chmod 0600 "$RESOLVED"
+  pass "kubeconfig written to ${RESOLVED} (mode 0600)"
 else
   emit_kubeconfig
   pass "kubeconfig emitted to stdout (proxy: https://127.0.0.1:30443; default ns: tenant-${TENANT})"
