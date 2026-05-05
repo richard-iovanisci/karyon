@@ -4,14 +4,14 @@ milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
 status: executing
 stopped_at: Phase 10 context gathered
-last_updated: "2026-05-05T17:20:24.081Z"
-last_activity: 2026-05-05 -- Phase 10 planning complete
+last_updated: "2026-05-05T17:34:55.113Z"
+last_activity: 2026-05-05
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 19
-  completed_plans: 16
-  percent: 84
+  completed_plans: 17
+  percent: 89
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 10 — Tenant Owner Kubeconfigs + Capsule-Proxy Round-trip (PROXY-01..03)
+**Current focus:** Phase 10 — tenant-owner-kubeconfigs-capsule-proxy-round-trip
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
+Phase: 10 (tenant-owner-kubeconfigs-capsule-proxy-round-trip) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-05-05 -- Phase 10 planning complete
+Last activity: 2026-05-05
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Last activity: 2026-05-05 -- Phase 10 planning complete
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 10 P00 | 7m5s | 7 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Install Capsule + capsule-proxy as TWO separate HelmReleases (NOT umbrella `proxy.enabled=true`) — umbrella pins capsule-proxy at 0.10.0 (two minors stale); standalone tracks both lines independently
 - Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome — only run if Status is Accepted with outcome ∈ {adopt, defer}; if reject or replaced, Phase 12 is SKIPPED
 - EKSDOC-01 lands EARLY in Phase 7 (first or second plan) — milestone owner needs the rough-cut EKS doc for an immediate team presentation while later phases land
+- [Phase 10]: Phase 10 Plan 00 Wave 0 RED bats scaffold: 7 files (45 @tests) landed; Pitfall corrections (10-P1 tls.crt jsonpath, 10-P3 qualitative 403 falsifier, 10-P5 repo-relative paths) implemented verbatim; ZERO deviations — Mirrors Phase 7/8/9 Wave 0 D-09-08 inheritance — full PROXY-01/02/03 contract locked before Plan 10-01 lands script + doc. proxy-02 + proxy-06 GREEN-by-design (Phase 7 D-14 leak-defense regression-gate inheritance).
 
 ### Load-Bearing v0.19 Invariants (every plan must respect)
 
@@ -133,6 +135,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-05T16:02:10.231Z
+Last session: 2026-05-05T17:33:33.096Z
 Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-CONTEXT.md
+Resume file: None
