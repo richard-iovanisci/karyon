@@ -254,46 +254,47 @@ TOKEN=$(kubectl --context=k3d-spoke-capsule create token "${OWNER}" -n "tenant-$
 pass "token issued (duration ${DURATION})"
 
 # ---------- Section 8: Read CA cert (Pitfall 10-P1: tls.crt only, no ca.crt) ----------
-# WR-09: capture stderr + exit code separately so we can distinguish:
-#   (a) Secret exists but tls.crt key is empty (CA_OUT="", RC=0 -> retry path)
-#   (b) Secret NotFound (RC!=0, CA_OUT contains "NotFound" -> install hint)
-#   (c) apiserver unreachable (RC!=0, CA_OUT contains "connection refused"/"i/o timeout")
-# Old `2>/dev/null || true` collapsed all three into the same empty-string state.
+# WR-09: capture stderr to a tmpfile + exit code via direct subshell return so we can
+# distinguish three failure modes (was previously collapsed by `2>/dev/null || true`):
+#   (a) Secret exists but tls.crt key is empty (CA_B64="", RC=0 -> chart-rotation retry)
+#   (b) Secret NotFound (RC!=0, stderr contains "NotFound" -> install hint)
+#   (c) apiserver unreachable (RC!=0, stderr contains "connection refused"/"i/o timeout")
+# Note: the obvious printf '%s\0%s' helper trick fails here because bash command
+# substitution strips null bytes (warning: "ignored null byte in input"); use a tmpfile.
 section "Read proxy CA cert (D-10-06 / Pitfall 10-P1: tls.crt only)"
+CA_STDERR=$(mktemp -t karyon-ca-stderr-XXXX)
+trap 'rm -f "$CA_STDERR"' EXIT
 read_capsule_proxy_tls_crt() {
-  local out rc=0
-  out=$(kubectl --context=k3d-spoke-capsule -n capsule-system \
-      get secret capsule-proxy -o jsonpath='{.data.tls\.crt}' 2>&1) || rc=$?
-  printf '%s\0%s' "$rc" "$out"
+  : > "$CA_STDERR"
+  kubectl --context=k3d-spoke-capsule -n capsule-system \
+      get secret capsule-proxy -o jsonpath='{.data.tls\.crt}' 2>"$CA_STDERR"
 }
-CA_RAW=$(read_capsule_proxy_tls_crt)
-CA_RC="${CA_RAW%%$'\0'*}"
-CA_OUT="${CA_RAW#*$'\0'}"
+CA_RC=0
+CA_B64=$(read_capsule_proxy_tls_crt) || CA_RC=$?
 if [[ "$CA_RC" -ne 0 ]]; then
-  if echo "$CA_OUT" | grep -qF NotFound; then
+  CA_ERR=$(cat "$CA_STDERR" 2>/dev/null || true)
+  if echo "$CA_ERR" | grep -qF NotFound; then
     fail "capsule-proxy Secret not found in namespace capsule-system on ${POC_CTX}.
        Inspect: kubectl --context=${POC_CTX} -n capsule-system get secret
        Hint:    capsule-proxy may not yet be installed on spoke-capsule (Phase 8 D-08-13 push-gate deferred to Phase 11 VAL-05)."
     exit 1
   fi
-  warn "kubectl call failed (RC=${CA_RC}): ${CA_OUT}. Retrying once after 5s (likely transient apiserver/network)..."
+  warn "kubectl call failed (RC=${CA_RC}): ${CA_ERR}. Retrying once after 5s (likely transient apiserver/network)..."
   sleep 5
-  CA_RAW=$(read_capsule_proxy_tls_crt)
-  CA_RC="${CA_RAW%%$'\0'*}"
-  CA_OUT="${CA_RAW#*$'\0'}"
+  CA_RC=0
+  CA_B64=$(read_capsule_proxy_tls_crt) || CA_RC=$?
   if [[ "$CA_RC" -ne 0 ]]; then
-    fail "kubectl call failed after retry (RC=${CA_RC}): ${CA_OUT}.
+    CA_ERR=$(cat "$CA_STDERR" 2>/dev/null || true)
+    fail "kubectl call failed after retry (RC=${CA_RC}): ${CA_ERR}.
        Hint: apiserver may be unreachable. Inspect: kubectl --context=${POC_CTX} cluster-info"
     exit 1
   fi
 fi
-CA_B64="$CA_OUT"
 if [[ -z "$CA_B64" ]]; then
   warn "capsule-proxy Secret tls.crt key is empty (chart cert rotation in flight?). Retrying once after 5s..."
   sleep 5
-  CA_RAW=$(read_capsule_proxy_tls_crt)
-  CA_RC="${CA_RAW%%$'\0'*}"
-  CA_B64="${CA_RAW#*$'\0'}"
+  CA_RC=0
+  CA_B64=$(read_capsule_proxy_tls_crt) || CA_RC=$?
   [[ "$CA_RC" -eq 0 ]] || CA_B64=""
 fi
 if [[ -z "$CA_B64" ]]; then
