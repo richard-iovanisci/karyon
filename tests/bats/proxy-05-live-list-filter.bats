@@ -22,7 +22,13 @@ setup() {
   # Extract the bearer token from the issued kubeconfig
   TOKEN=$(yq eval '.users[0].user.token' "$ISSUED_KC")
 
-  # Construct a direct-apiserver kubeconfig (same token, different cluster URL)
+  # Construct a direct-apiserver kubeconfig (same token, different cluster URL).
+  # WR-08 / nolint(insecure-skip-tls-verify): per CONTEXT D-10-08 the falsifier explicitly
+  # uses `insecure-skip-tls-verify: true` because the spoke-capsule apiserver cert does
+  # not have 127.0.0.1:6446 in its SAN list (only NodePort 30443 is in scope for the
+  # proxy's cert). This is bats-internal, ephemeral (tmpfile, removed in test), and the
+  # apiserver returns 403 Forbidden BEFORE TLS state matters here. The Phase 8 WR-01..04
+  # anti-pattern lint (proxy-01-static-script.bats:100) only scans the script, not bats.
   DIRECT_KC=$(mktemp -p "${TMPDIR:-/tmp}" karyon-proxy-05-direct-XXXX.kubeconfig)
   cat > "$DIRECT_KC" <<EOF
 apiVersion: v1
