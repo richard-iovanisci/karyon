@@ -32,7 +32,12 @@ setup() {
 }
 
 @test "PROXY-03 leak defense: gitleaks fires on tenant-shaped fixture NOT in allowlist" {
-  TEMP_FIXTURE=$(mktemp -p "${REPO_ROOT}/tests/fixtures/gitleaks" temp-tenant-fixture-XXXX.yaml)
+  # WR-03: use BATS_TEST_TMPDIR (auto-cleaned by bats on test exit, including crashes).
+  # gitleaks --no-git --source accepts any path; fixture does NOT need to be in-repo.
+  # This avoids leaving an orphan token-shaped file inside tests/fixtures/gitleaks/ if
+  # the test crashes mid-run (the path would NOT be in the gitleaks allowlist, so a
+  # subsequent commit attempt would be blocked by the pre-commit gitleaks hook).
+  TEMP_FIXTURE="${BATS_TEST_TMPDIR}/temp-tenant-fixture.yaml"
   cat > "$TEMP_FIXTURE" <<EOF
 apiVersion: v1
 kind: Config
@@ -53,10 +58,13 @@ current-context: tenant-alpha-via-proxy
 EOF
 
   run gitleaks detect --no-banner --no-git --source "$TEMP_FIXTURE" --config "$GITLEAKS_TOML" --redact --verbose
-  rm -f "$TEMP_FIXTURE"
   [ "$status" -ne 0 ]
 }
 
 teardown() {
   rm -rf "${REPO_ROOT}/karyon-tenants" 2>/dev/null || true
+  # WR-03: defensive cleanup of any pre-fix-era orphan fixtures left behind by older
+  # test runs that crashed before the inline `rm -f`. New runs use BATS_TEST_TMPDIR.
+  rm -f "${REPO_ROOT}/tests/fixtures/gitleaks/"temp-tenant-fixture-*.yaml 2>/dev/null || true
+  rm -f "${REPO_ROOT}/tests/fixtures/gitleaks/temp-tenant-fixture.yaml" 2>/dev/null || true
 }
