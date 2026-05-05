@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
 status: executing
-stopped_at: Phase 10 context gathered
-last_updated: "2026-05-05T17:34:55.113Z"
+stopped_at: Phase 10 Plan 10-01 complete
+last_updated: "2026-05-05T18:01:07.115Z"
 last_activity: 2026-05-05
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 19
-  completed_plans: 17
-  percent: 89
+  completed_plans: 18
+  percent: 95
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-29)
 ## Current Position
 
 Phase: 10 (tenant-owner-kubeconfigs-capsule-proxy-round-trip) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-05-05
 
@@ -72,6 +72,7 @@ Last activity: 2026-05-05
 
 *Updated after each plan completion*
 | Phase 10 P00 | 7m5s | 7 tasks | 7 files |
+| Phase 10 P01 | 22min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome — only run if Status is Accepted with outcome ∈ {adopt, defer}; if reject or replaced, Phase 12 is SKIPPED
 - EKSDOC-01 lands EARLY in Phase 7 (first or second plan) — milestone owner needs the rough-cut EKS doc for an immediate team presentation while later phases land
 - [Phase 10]: Phase 10 Plan 00 Wave 0 RED bats scaffold: 7 files (45 @tests) landed; Pitfall corrections (10-P1 tls.crt jsonpath, 10-P3 qualitative 403 falsifier, 10-P5 repo-relative paths) implemented verbatim; ZERO deviations — Mirrors Phase 7/8/9 Wave 0 D-09-08 inheritance — full PROXY-01/02/03 contract locked before Plan 10-01 lands script + doc. proxy-02 + proxy-06 GREEN-by-design (Phase 7 D-14 leak-defense regression-gate inheritance).
+- [Phase ?]: Phase 10 Plan 10-01: issue-tenant-kubeconfig.sh script (PROXY-01) + docs/poc-capsule.md H2 append (PROXY-03) landed; Pitfall 10-P7 implemented via 5-helper function-override at definition time (cleaner than per-call-site >&2); Rule 3 deviation: capsule-proxy live-staged via helm install + RBAC patch (secrets create on tenant Role) to satisfy proxy-04 GREEN criterion — staging brought forward 1 plan from Plan 10-02 territory; proxy-05 stays RED (LIST filter wiring deferred to Plan 10-02 verifier)
 
 ### Load-Bearing v0.19 Invariants (every plan must respect)
 
@@ -117,6 +119,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Phase 11 SLO regression gate (<230s) is the single hardest invariant of the milestone. P31 enforces zero `spoke-capsule` mentions in any v0.18 script — must be locked early in Phase 7 with static bats.
 - capsule-addon-fluxcd v0.2.3 ↔ Capsule v0.12.4 specific compatibility is MEDIUM-confidence (date proximity strong; README declaration absent). Phase 12 should re-verify via smoke test if the addon is brought into scope.
 - k8s ≥ 1.34.0 floor: `rancher/k3s:v1.34.6-k3s1` (ADR-005) clears with 6 patches of margin. If k3s is bumped to 1.35+, Capsule must be re-verified.
+- Plan 10-02 verifier owns: (a) capsule-proxy LIST filter wiring (CapsuleConfiguration / ProxySetting CRs) to turn proxy-05 GREEN; (b) Phase 8 BLOCKER G-04 split-path resolution to turn proxy-07 @test 3 GREEN OR document as passed_with_overrides; (c) record + close one outstanding chart-level RBAC patch (capsule-system/capsule-proxy:capsule-proxy Role +secrets verbs) — may be reverted on first flux reconcile post-D-08-13 push-gate; needs PostBuild patch / kustomize overlay / upstream chart fix
 
 ## Deferred Items
 
@@ -135,6 +138,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-05T17:33:33.096Z
-Stopped at: Phase 10 context gathered
+Last session: 2026-05-05T18:00:55.086Z
+Stopped at: Phase 10 Plan 10-01 complete
 Resume file: None

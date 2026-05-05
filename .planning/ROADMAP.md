@@ -110,7 +110,7 @@
   4. **P29 defense holds** — first push after this phase passes the gitleaks pre-commit + post-push scan with zero findings
 **Plans**: 3 plans (Wave 0 RED bats + Wave 1 script + doc + Wave 2 verifier)
 - [x] 10-00-PLAN.md — Wave 0 RED bats scaffold: 7 bats files (45 @tests; PROXY-01..03 contracts; Pitfall 10-P2/P3/P5 corrections applied)
-- [ ] 10-01-PLAN.md — `scripts/poc/capsule/issue-tenant-kubeconfig.sh` (TokenRequest mint + heredoc kubeconfig + tmpdir-rooted --write-to) + `docs/poc-capsule.md` "Tenant kubeconfig delivery contract" H2 append (Pitfall 10-P1/P2/P7 corrections applied)
+- [x] 10-01-PLAN.md — `scripts/poc/capsule/issue-tenant-kubeconfig.sh` (TokenRequest mint + heredoc kubeconfig + tmpdir-rooted --write-to) + `docs/poc-capsule.md` "Tenant kubeconfig delivery contract" H2 append (Pitfall 10-P1/P2/P7 corrections applied)
 - [ ] 10-02-PLAN.md — Verifier (capsule-proxy live staging via direct helm template + kubectl apply per Pitfall 10-P6 + full Phase 10 + Phase 7+8+9 inheritance bats + task health-check; writes 10-VERIFICATION.md with `passed_with_overrides` disposition + D-08-13 push-gate forward to Phase 11 VAL-05)
 
 ### Phase 11: Validation + Graduation ADR-008
@@ -149,7 +149,7 @@
 | 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 0/6 | Planned | — |
 | 8. Capsule + capsule-proxy Install | v0.19 | 4/4 | Complete   | 2026-04-29 |
 | 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/5 | Planned | — |
-| 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 1/3 | In Progress|  |
+| 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 2/3 | In Progress|  |
 | 11. Validation + Graduation ADR-008 | v0.19 | 0/0 | Not Started | — |
 | 12. capsule-addon-fluxcd Trial (optional) | v0.19 | 0/0 | Not Started (gated) | — |
 
