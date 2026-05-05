@@ -111,6 +111,22 @@ done
 [[ -z "$TENANT" ]] && { fail "missing positional <tenant>"; usage 1; }
 [[ -z "$OWNER"  ]] && { fail "missing positional <owner>"; usage 1; }
 
+# WR-04: strict-format validator -- TENANT and OWNER must be valid RFC 1123 labels
+# (lowercase alphanumeric + dashes, max 63 chars). Matches Tenant CR / SA / Namespace
+# name validity in apiserver. Without this gate, whitespace/tab/shell-special chars
+# (e.g. backticks, `$()`) flow into kubectl invocations + the unquoted KUBECONFIG_EOF
+# heredoc, enabling YAML-injection if a future automation wrapper takes user-supplied
+# input into TENANT/OWNER.
+K8S_NAME_RE='^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+[[ "$TENANT" =~ $K8S_NAME_RE ]] || {
+  fail "<tenant> '${TENANT}' is not a valid RFC 1123 label (lowercase a-z, 0-9, -; max 63 chars; must start and end alphanumeric)"
+  exit 1
+}
+[[ "$OWNER" =~ $K8S_NAME_RE ]] || {
+  fail "<owner> '${OWNER}' is not a valid RFC 1123 label (lowercase a-z, 0-9, -; max 63 chars; must start and end alphanumeric)"
+  exit 1
+}
+
 # ---------- Section 1: Tool gate ----------
 section "Tool gate"
 for cmd in kubectl jq realpath; do
