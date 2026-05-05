@@ -44,13 +44,27 @@ setup() {
   ISSUED_KC=$(mktemp -p "${TMPDIR:-/tmp}" karyon-proxy-04-jwt-XXXX.kubeconfig)
   bash "${REPO_ROOT}/scripts/poc/capsule/issue-tenant-kubeconfig.sh" alpha gitops-reconciler 2>/dev/null > "$ISSUED_KC"
 
+  # WR-06: validate JWT shape with clear diagnostics before arithmetic.
+  # Without these guards, a malformed token would cause base64 -d / jq to silently
+  # produce empty strings; arithmetic on empty values yields 0, and the test would
+  # red-fail with "expected 0 >= 3540" -- much less useful than "token is not a JWT".
   TOKEN=$(yq eval '.users[0].user.token' "$ISSUED_KC")
+  [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] || { echo "no token in kubeconfig"; rm -f "$ISSUED_KC"; return 1; }
+  # Real JWT has exactly 3 dot-separated segments
+  dot_count=$(echo "$TOKEN" | tr -cd '.' | wc -c)
+  [ "$dot_count" = "2" ] || { echo "token is not a JWT (got ${dot_count} dots, want 2)"; rm -f "$ISSUED_KC"; return 1; }
+
   PAYLOAD=$(echo "$TOKEN" | cut -d. -f2)
+  # All four padding cases:
   case $((${#PAYLOAD} % 4)) in
+    0) ;;
     2) PAYLOAD="${PAYLOAD}==" ;;
     3) PAYLOAD="${PAYLOAD}=" ;;
+    *) echo "invalid base64 payload length"; rm -f "$ISSUED_KC"; return 1 ;;
   esac
-  DECODED=$(echo "$PAYLOAD" | tr '_-' '/+' | base64 -d 2>/dev/null)
+  DECODED=$(printf '%s' "$PAYLOAD" | tr '_-' '/+' | base64 -d) || { echo "base64 decode failed"; rm -f "$ISSUED_KC"; return 1; }
+  echo "$DECODED" | jq empty || { echo "decoded payload is not JSON"; rm -f "$ISSUED_KC"; return 1; }
+
   EXP=$(echo "$DECODED" | jq -r '.exp')
   IAT=$(echo "$DECODED" | jq -r '.iat')
 
