@@ -67,7 +67,7 @@ Two tenants with disjoint owners on isolated namespaces. Hub Flux controllers pa
 Imperative kubeconfig minting for tenant owners. The kubeconfigs MUST point at the proxy, MUST be excluded from git, and MUST give each owner LIST visibility ONLY into their own tenant's namespaces.
 
 - [x] **PROXY-01** — `scripts/poc/capsule/issue-tenant-kubeconfig.sh <tenant> <owner>` mints a tenant kubeconfig with `server: https://127.0.0.1:30443` (capsule-proxy NodePort), prints to stdout by default, optional `--write-to <path>` for a tmpdir-rooted destination (default `${TMPDIR:-/tmp}/karyon-tenants/`)
-- [ ] **PROXY-02** — Using the issued kubeconfig, `kubectl get namespaces` returns ONLY namespaces owned by the tenant (proxy LIST filtering working). Direct apiserver access (`https://...:6446`) with the same token returns the unfiltered list (proves proxy is doing the filtering)
+- [x] **PROXY-02** — Using the issued kubeconfig, `kubectl get namespaces` returns ONLY namespaces owned by the tenant (proxy LIST filtering working). Direct apiserver access (`https://...:6446`) with the same token returns 403 Forbidden + 'cannot list resource "namespaces"' (Pitfall 10-P3 corrected falsifier — the SA's RBAC is namespace-scoped, NOT a wider list comparison; proves filtering happens at proxy)
 - [x] **PROXY-03** — Documented kubeconfig delivery contract in `docs/poc-capsule.md` covers: stdout default; optional `--write-to`; mandatory tmpdir-not-repo location; gitleaks rule catches accidental commits (synthetic-fixture bats)
 
 ### Validation + Graduation ADR (Phase 11)
@@ -163,9 +163,9 @@ Validated by `/gsd-new-milestone` roadmapper (2026-04-29); each REQ-ID is mapped
 | TEN-04 | Phase 9 | TBD |
 | TEN-05 | Phase 9 | TBD |
 | TEN-06 | Phase 9 | TBD |
-| PROXY-01 | Phase 10 | TBD |
-| PROXY-02 | Phase 10 | TBD |
-| PROXY-03 | Phase 10 | TBD |
+| PROXY-01 | Phase 10 | 10-00, 10-01, 10-02 |
+| PROXY-02 | Phase 10 | 10-00, 10-02 |
+| PROXY-03 | Phase 10 | 10-00, 10-01, 10-02 |
 | VAL-01 | Phase 11 | TBD |
 | VAL-02 | Phase 11 | TBD |
 | VAL-03 | Phase 11 | TBD |
