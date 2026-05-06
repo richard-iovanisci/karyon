@@ -10,7 +10,25 @@ regexes = [
   '''ghp_REPLACE_WITH_PAT_WITH_repo_SCOPE''',  # .env.example placeholder (D-09 Phase 1)
 ]
 paths = [
-  '''^\.env\.example$''',                       # whole-file allow (Phase 1 D-11 contract)
+  '''^\.env\.example$''',                                                                                        # whole-file allow (Phase 1 D-11 contract)
+  # D-11-04-revised (Phase 11; reviewer HIGH #3) -- file-specific allowlist for the verified
+  # Phase 7 + Phase 10 fixture-bearing markdown files. The original broad whole-tree
+  # planning-markdown regex was rejected by reviewer because it would hide the exact
+  # accidental-leak class VAL-05 is meant to catch. Each entry below corresponds to a
+  # markdown file that PROVABLY quotes the synthetic-kubeconfig fixture content (verified
+  # 2026-05-05 via `grep -l 'kind: Config' .planning/phases/{07,10}-*/*.md`). NEW phases
+  # that quote fixtures MUST add a new path entry (intentional friction; prevents
+  # broad-allowlist class of leak).
+  # Anti-regression sentinel (push-gate-05 @test 2): the broad regex literal must NOT
+  # appear anywhere in this file -- the bats check uses `grep -F` which would match
+  # the literal in a comment as much as in a paths entry.
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-00-PLAN\.md$''',         # D-11-04-revised
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-RESEARCH\.md$''',        # D-11-04-revised
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-REVIEW\.md$''',          # D-11-04-revised
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-PATTERNS\.md$''',        # D-11-04-revised
+  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',                 # D-11-04-revised
+  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',                  # D-11-04-revised
+  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',                # D-11-04-revised
 ]
 # Add per-finding entries during the one-shot scan if needed.
 # Format: regexes = [ '''<exact-literal>''' ]

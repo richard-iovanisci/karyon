@@ -37,3 +37,28 @@ spec:
     kind: GitRepository
     name: flux-system
   serviceAccountName: kustomize-controller
+  # D-11-01 -- PostBuild patch extends chart-rendered Role capsule-proxy:capsule-proxy in
+  # capsule-system with secrets {get,create,update,patch} so kube-webhook-certgen Job can
+  # write its output Secret on initial Flux reconcile (closes Phase 10 D-08-13 chart RBAC gap;
+  # Plan 10-01 staged the equivalent rule via `kubectl patch role` -- this carries it into
+  # the Flux-managed reconcile path).
+  #
+  # Pitfall 11-P1: Flux PostBuild patches apply to kustomize-build output. The Role is rendered
+  # by helm-controller LATER on the spoke. Empirical propagation HARD-GATED at Plan 11-04 Task 3
+  # via `kubectl get role capsule-proxy:capsule-proxy -o json | jq -e '.rules[] | select(.resources contains ["secrets"]) | select(.verbs contains ["create"])'`
+  # (reviewer HIGH #2). If RED post-push, Plan 11-04 SUMMARY records the Rule 3 escalation:
+  # relocate this patch onto clusters/hub-flux/pocs/capsule-spoke.yaml (the SPOKE-TARGETED
+  # outer K with spec.kubeConfig). Disposition is downgraded to passed_with_overrides at best
+  # if the empirical check fails.
+  patches:
+    - target:
+        kind: Role
+        name: capsule-proxy:capsule-proxy
+        namespace: capsule-system
+      patch: |
+        - op: add
+          path: /rules/-
+          value:
+            apiGroups: [""]
+            resources: ["secrets"]
+            verbs: ["get", "create", "update", "patch"]
