@@ -124,7 +124,7 @@
   4. **`task rebuild` SLO regression test PASSES** — total time < 230s; spoke-capsule's container ID is unchanged across rebuild; zero `spoke-capsule` mentions in `scripts/{create-clusters,register-spokes-for-flux,health-check,destroy,delete-clusters,rebuild}.sh` (P31 enforcement)
   5. One-shot history gitleaks scan post-Phase-10 first push returns 0 findings — proves no tenant kubeconfig leaked
   6. **ADR-008 graduation written** with `Status: Accepted` and one of {adopt, defer, reject, replaced by ADR-N}, sectioned per Nygard 4-section template, with explicit "What we proved / What we did not prove / Trade-offs" sub-sections backed by bats references; ADR-008 also rolls forward `docs/capsule-on-eks.md` (EKSDOC-01) from `Status: Draft` to `Status: Reviewed` with corrections informed by the bats evidence
-**Plans**: 7 plans (Wave 0 RED scaffold + Waves 1-4 implementation + verifier + ADR write + G-04 gap closure)
+**Plans**: 8 plans (Wave 0 RED scaffold + Waves 1-4 implementation + verifier + ADR write + G-04 gap closure + G-06 + CI carryovers gap closure)
 - [x] 11-00-PLAN.md — Wave 0 RED bats scaffold: 16 bats files (5 negative-rbac + 1 anti-pattern lint + 5 push-gate + 4 teardown + 1 slo-regression-live) covering D-11-05..16 contracts
 - [x] 11-01-PLAN.md — Push-gate persistent fixes: D-11-01 PostBuild patch on capsule.yaml + D-11-02 CapsuleConfiguration 3-group userGroups + D-11-03 tenant namespace labels + D-11-04 .gitleaks.toml .planning/*.md allowlist (resolves Phase 10 carryover items + Phase 7 gitleaks-planning-doc-todo)
 - [x] 11-02-PLAN.md — POC scripts + Taskfile: scripts/poc/capsule/destroy-poc.sh (D-11-10 5-step + D-11-11 PVC strand mitigation) + scripts/poc/capsule/fail-capsule-webhook.sh (D-11-09 scale 0/1) + Taskfile.yml entries (D-11-12)
@@ -132,6 +132,7 @@
 - [x] 11-04-PLAN.md — Verifier: imperative helm install cleanup + first push event (operator checkpoint per CLAUDE.md) + post-push Flux reconcile observation + full 16-bats live re-run + VAL-04 SLO regression + post-push gitleaks history scan; writes 11-VERIFICATION.md
 - [x] 11-05-PLAN.md — ADR-008 + EKSDOC-01 rollforward: docs/adr/0008-capsule-multi-tenancy-graduation.md per D-11-14 evidence-bound rubric (operator-confirmed outcome) + docs/capsule-on-eks.md Status Draft -> Reviewed with 4 D-11-15 revision blocks + tests/bats/docs-adr-template.bats lint extension for ADR-008
 - [ ] 11-06-PLAN.md — G-04 gap closure: capsule-system Namespace on hub + D-11-01 PostBuild patch relocated from Kustomization spec.patches to HelmRelease spec.postRenderers (Pitfall 11-P1 fix) + push-gate-01 bats updated + Flux reconcile verification
+- [ ] 11-07-PLAN.md — G-06 + CI carryovers gap closure: helm-controller SA on spoke (spec.serviceAccountName impersonation fix; closes flux reconcile context-deadline-exceeded) + markdownlint pre-existing 31 errors + gitleaks file-specific allowlist for proxy-06-live-fixture.bats + slo-regression-live KARYON_REBUILD_APPROVED export + Plan 11-06 Task 3 finalization
 
 ### Phase 12: capsule-addon-fluxcd Trial (OPTIONAL — gated)
 **Goal**: Trial the upstream `capsule-addon-fluxcd v0.2.3` for tenant SA + kubeconfig automation as a comparison against the hand-managed Phase 9/10 approach, and record the comparison decision for v0.20+ adoption
@@ -157,7 +158,7 @@
 | 8. Capsule + capsule-proxy Install | v0.19 | 4/4 | Complete   | 2026-04-29 |
 | 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/5 | Planned | — |
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete    | 2026-05-05 |
-| 11. Validation + Graduation ADR-008 | v0.19 | 6/7 | In Progress | — |
+| 11. Validation + Graduation ADR-008 | v0.19 | 6/8 | In Progress | — |
 | 12. capsule-addon-fluxcd Trial (optional) | v0.19 | 0/0 | Not Started (gated) | — |
 
 ---
