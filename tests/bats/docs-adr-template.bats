@@ -14,6 +14,7 @@ setup() {
     "0003-flux-over-argocd.md"
     "0004-hub-only-flux-control-plane.md"
     "0005-kubernetes-version-pin.md"
+    "0008-capsule-multi-tenancy-graduation.md"
   )
 }
 
@@ -115,6 +116,20 @@ setup() {
     'current line'
   do
     run grep -iF -- "$literal" "$f"
+    [ "$status" -eq 0 ]
+  done
+}
+
+@test "VAL-06 (D-11-14): ADR-008 captures Capsule graduation with ADR-004 cross-reference" {
+  f="${ADR_DIR}/0008-capsule-multi-tenancy-graduation.md"
+  [ -f "$f" ]
+  for keyword in \
+    'Capsule' \
+    'tenant' \
+    'graduation' \
+    'ADR-004' \
+    'D-11-14' ; do
+    run grep -iF -- "$keyword" "$f"
     [ "$status" -eq 0 ]
   done
 }
