@@ -1,14 +1,16 @@
 ---
-Status: Draft
+Status: Reviewed
 audience: Mixed Engineering + Cloud Ops
 purpose: Team-presentation primer for the Karyon v0.19 Capsule POC translated to an EKS target.
 source-of-truth: .planning/research/SUMMARY.md (topology), .planning/research/FEATURES.md (CRDs), .planning/research/STACK.md (chart pins).
-status-rollover: Phase 11 graduation ADR-008 rolls Status from Draft to Reviewed with corrections informed by bats evidence.
+reviewed: 2026-05-06
+reviewed_against: ADR-008 (Capsule Multi-Tenancy POC Graduation)
+reviewed_by: karyon milestone owner
 ---
 
 # Capsule on EKS — Rough-Cut Design (v0.19)
 
-> **Status:** Draft — see frontmatter for status-rollover policy.
+> **Status:** Reviewed (rolled forward by ADR-008 in Plan 11-05).
 > **Audience:** Mixed Engineering + Cloud Ops. Brief, biased toward admin-required steps (CRD install, IRSA, ECR pull permissions). YAML appears only on important items.
 
 ## What Capsule is
@@ -219,6 +221,40 @@ The karyon v0.19 POC validates baseline tenant isolation on a single spoke. The 
 3. **Multi-spoke federation** — Capsule has no native cross-cluster Tenant. Tenants spanning multiple spokes are unverified.
 
 These three items mirror the eventual ADR-008 graduation framing so the EKS-target audience and the karyon graduation ADR speak the same vocabulary.
+
+## Phase 11 Evidence (ADR-008 cross-references)
+
+The four blockquotes below capture targeted revisions informed by the Phase 11 bats evidence (see `.planning/phases/11-validation-graduation-adr-008/11-VERIFICATION.md`) and ADR-008's `What we proved` / `Trade-offs` sections. Each block ties an EKS-translation question to the empirical karyon POC observation.
+
+> **Phase 11 evidence (ADR-008 cross-reference) -- Cert source:** capsule-proxy chart's
+> `kube-webhook-certgen` Job emits `tls.crt` only; the chart self-signs the root with
+> `tls.crt` doubling as CA; **NO `ca.crt` key is generated** (Pitfall 10-P1, verified
+> empirically). EKS translation requires cert-manager (controller-managed) or AWS
+> Certificate Manager (ALB-side termination); the controller-less certgen Job pattern
+> doesn't translate cleanly to EKS without operational state-tracking.
+
+> **Phase 11 evidence (ADR-008 cross-reference) -- IRSA:** The POC's TokenRequest pattern
+> translates cleanly to IRSA on EKS (both are short-lived bearer tokens via apiserver-side
+> lifecycle). The `--service-account-max-token-expiration` clamp behavior differs across
+> distros: k3s does NOT clamp (Phase 10 D-10-02 verified live up to 720h); EKS clamps at
+> 24h default. Production translation must adapt the duration logic.
+
+> **Phase 11 evidence (ADR-008 cross-reference) -- Proxy LIST scope:** Negative RBAC bats
+> N1-N9 empirically verified the proxy-edge LIST filter scope:
+> - capsule-proxy filters: namespace LIST (verified by N1, N2, N3 with cross-tenant kubeconfigs).
+> - Cluster-scoped resources (ClusterRole, ClusterRoleBinding, nodes) are filtered by
+>   upstream RBAC NOT proxy (verified by N4 -- ClusterRoleBinding escalation denied at
+>   apiserver auth, not at proxy edge).
+
+> **Phase 11 evidence (ADR-008 cross-reference) -- Push-gate translation (EKS analogues
+> for v0.19 push-gate fixes):**
+> - **Flux PostBuild patch (D-11-01)** maps to Argo CD's post-render kustomization patches
+>   (or `argocd-application-controller` JSON patches via `argocd.argoproj.io/sync-options`).
+> - **CapsuleConfiguration repo-side update (D-11-02)** is portable as-is -- single
+>   declarative source-of-truth.
+> - **Tenant home namespace label (D-11-03)** requires Argo CD's
+>   `argocd.argoproj.io/sync-options: ServerSideApply` to handle the cluster-admin-bypass-webhook
+>   semantics (system:masters bypass is identical across distros -- verified Pitfall 11-P2).
 
 ---
 
