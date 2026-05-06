@@ -89,3 +89,23 @@ spec:
     webhooks:
       enabled: false
     replicaCount: 1
+  # G-04 gap-close (2026-05-06): D-11-01 RBAC patch RELOCATED from
+  # clusters/hub-flux/pocs/capsule.yaml spec.patches (Pitfall 11-P1 fix).
+  # postRenderers applies Kustomize-style patches to helm-rendered chart output,
+  # which is the correct mechanism for extending chart-rendered Role objects.
+  # Extends Role capsule-proxy:capsule-proxy with secrets {get,create,update,patch}
+  # so kube-webhook-certgen Job can write its output Secret on initial Flux reconcile.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Role
+              name: capsule-proxy:capsule-proxy
+              namespace: capsule-system
+            patch: |
+              - op: add
+                path: /rules/-
+                value:
+                  apiGroups: [""]
+                  resources: ["secrets"]
+                  verbs: ["get", "create", "update", "patch"]

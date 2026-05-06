@@ -16,9 +16,13 @@
 # inner Flux Kustomization CRs + per-tenant Namespaces + per-tenant GitRepositories.
 # CapsuleConfiguration + Tenant CRs land via the spoke-targeted poc-capsule-spoke
 # outer K (path ./pocs/capsule/spoke).
+#
+# G-04 gap-close (2026-05-06): namespace.yaml added first so capsule-system
+# Namespace exists on hub before HelmRelease/OCIRepository CRs are applied.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- namespace.yaml
 - operator/
 - proxy/
 - tenants/
