@@ -27,12 +27,17 @@ spec:
   # Canonical clastix default; allows SA → owner promotion via labels
   # (allows gitops-reconciler SA to escalate identity inside its own tenant)
   allowServiceAccountPromotion: true
-  # Owner-group filter (chart default; matches what capsule webhooks expect)
-  # NOTE: userGroups is DEPRECATED in v1beta2 (replaced by spec.users), but the
-  # capsule chart still uses this for default group-based owner detection.
-  # Keeping for compatibility; planner may switch to spec.users post-graduation.
+  # Owner-group filter (chart default + Phase 11 D-11-02 extension to recognize
+  # SA-token-authenticated identities as Capsule-owned for proxy LIST behavior).
+  # Phase 10 Plan 10-02 patched the live CapsuleConfiguration with these 3 groups; this
+  # repo edit makes the GitOps source canonical (single source of truth -- reads exactly
+  # like the live cluster state). NOTE: userGroups is DEPRECATED in v1beta2 (replaced
+  # by spec.users), but the capsule chart still uses this for default group-based owner
+  # detection. Keeping for compatibility; planner may switch to spec.users post-graduation.
   userGroups:
     - capsule.clastix.io
+    - system:serviceaccounts
+    - system:authenticated
   # Defense-in-depth: tenant cannot register kube-* namespace as a tenant ns.
   # (Capsule's own webhooks already block this; explicit makes intent clear.)
   protectedNamespaceRegex: ^kube-.*$
