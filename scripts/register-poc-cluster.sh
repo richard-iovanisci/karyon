@@ -230,6 +230,31 @@ mirror_kubeconfig_to_tenant_namespaces() {
   done
 }
 
+# ---------- mirror_kubeconfig_to_capsule_system_namespace: G-05 (Phase 11) ----------
+# Mirror spoke-capsule-kubeconfig into the capsule-system namespace on hub-flux.
+# Required because the Phase 8 split-path (D-08-12) places the capsule operator HR
+# and capsule-proxy HR in capsule-system (NOT flux-system), and Flux's
+# kubeConfig.secretRef has UNCONDITIONAL same-namespace constraint (RESEARCH §Gap 1
+# — Flux v2.8 docs + Go API source citation; secretRef has no namespace field).
+#
+# Without this mirror, both HRs reach Ready=False with
+# `could not get KubeConfig secret 'capsule-system/spoke-capsule-kubeconfig': not found`
+# once their parent poc-capsule Kustomization is Ready (G-04 #1 namespace fix
+# in Plan 11-06 unblocked the CR apply path; this mirror unblocks the helm install).
+#
+# The capsule-system namespace itself is reconciled onto hub by
+# pocs/capsule/namespace.yaml (Plan 11-06 Task 1), but Flux may not have applied it
+# yet at register-time, so create it imperatively first (idempotent).
+mirror_kubeconfig_to_capsule_system_namespace() {
+  kubectl --context="${HUB_CTX}" create namespace capsule-system \
+    --dry-run=client -o yaml | kubectl --context="${HUB_CTX}" apply -f -
+  # shellcheck disable=SC2016 # yq expression intentionally uses single quotes
+  kubectl --context="${HUB_CTX}" -n "${FLUX_NS}" get secret spoke-capsule-kubeconfig -o yaml \
+    | yq eval '.metadata.namespace = "capsule-system"
+               | del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp)' - \
+    | kubectl --context="${HUB_CTX}" apply -f -
+}
+
 # ---------- ensure_hub_pocs_mount: P30 INDEPENDENT sentinel insertion ----------
 # Distinct function from ensure_hub_spokes_mount() in register-spokes-for-flux.sh
 # (P30 sentinel-uniqueness contract requires DEDICATED functions for SPOKES vs
@@ -442,6 +467,16 @@ pass "applied: ${POC_CLUSTER} hub Secret"
 section "Mirror spoke-capsule-kubeconfig to per-tenant namespaces (RESEARCH §Gap 1)"
 mirror_kubeconfig_to_tenant_namespaces
 pass "mirrored: spoke-capsule-kubeconfig → tenant-alpha + tenant-bravo on ${HUB_CTX}"
+
+# Mirror spoke-capsule-kubeconfig into capsule-system on hub-flux (G-05 fix).
+# Capsule operator + capsule-proxy HRs are in capsule-system per D-08-12 split-path;
+# their helm install on spoke requires the kubeconfig secret in the HR's own namespace
+# (Flux secretRef has no namespace field). G-04 #1 (Plan 11-06) created the namespace;
+# this mirror creates the secret. Without both, capsule operator HR fails with
+# `secrets "spoke-capsule-kubeconfig" not found` and capsule-proxy is blocked by dependsOn.
+section "Mirror spoke-capsule-kubeconfig to capsule-system namespace (G-05)"
+mirror_kubeconfig_to_capsule_system_namespace
+pass "mirrored: spoke-capsule-kubeconfig → capsule-system on ${HUB_CTX}"
 
 # Patch FLUX PATCH SURFACE with # KARYON POC MOUNT sentinel + ../pocs (idempotent)
 section "Hub-side FLUX PATCH SURFACE patch"
