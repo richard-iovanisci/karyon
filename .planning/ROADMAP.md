@@ -40,7 +40,7 @@
 - [x] **Phase 8: Capsule + capsule-proxy Bare-Minimum Install** — Two upstream HelmReleases reconciled hub-only into spoke-capsule; operator alive + proxy reachable + CRDs visible (plans 0-4 executed 2026-04-29..2026-04-30; verifier `08-VERIFICATION.md` reports `passed_with_overrides` 10/10 must-haves; G-03 cert source + G-04 architectural seam closed by plan 08-04 [D-08-11/12]; G-01/02 push gate deferred-with-override to Phase 11 VAL-05 per D-08-13. Phase 7 P40/P18 invariant evolved: split-path Kustomization pattern — spoke-targeted Ks include kubeConfig; hub-targeted Ks exclude it.)
 - [x] **Phase 9: Tenants + Flux Multi-Tenancy Lockdown** — Two Tenants with disjoint owners, hub Flux controllers patched with lockdown flags, P27 defense in tenant inner Kustomizations (completed 2026-04-30; 5/5 plans, 8/8 must-haves; verifier `09-VERIFICATION.md` reports `passed_with_overrides` — 4 live PASS + 4 D-08-13 push-gate-deferred to Phase 11 VAL-05; Plan 09-03 lockdown landed on **attempt 3** after two atomic rollbacks — Gap A spoke SA name corrected from `kustomize-controller` to `flux-reconciler` per `register-spokes-for-flux.sh:286`; attempt-1+2 archives preserved at `09-03-SUMMARY.attempt-{1,2}-rollback.md`; RESEARCH.md §Gap 3 + §Gap 11 carry CORRECTION + CORRECTION 2 cumulative falsification record; Plan 09-04 verifier added `--default-service-account=default` to helm-controller per RESEARCH §Gap 2 [Rule 2 deviation, defense-in-depth]; v0.18 task health-check exit 0 across 3 cluster states.)
 - [x] **Phase 10: Tenant Owner Kubeconfigs + Capsule-Proxy Round-trip** — Imperative kubeconfig minting routed via proxy (Plan 10-01 issue-tenant-kubeconfig.sh), tenant-scoped LIST verified live (Plan 10-02 render+apply staging — Pitfall 10-P6 mitigated; helm template + kubectl apply -f, NOT flux-suspend; spoke-capsule has no Flux CRDs per ADR-004), kubeconfig delivery contract documented (PROXY-03 H2 in docs/poc-capsule.md). Plan 10-00 RED bats scaffold (45 @tests) + Plan 10-01 script + doc + Plan 10-02 verifier. Disposition: `passed_with_overrides` (D-08-13 push-gate stays deferred to Phase 11 VAL-05). (completed 2026-05-05)
-- [ ] **Phase 11: Validation + Graduation ADR-008** — Negative RBAC suite (N1-N12), webhook failure recovery, clean teardown, rebuild SLO regression gate, graduation ADR
+- [x] **Phase 11: Validation + Graduation ADR-008** — Negative RBAC suite (N1-N12), webhook failure recovery, clean teardown, rebuild SLO regression gate, graduation ADR (completed 2026-05-06)
 - [ ] **Phase 12 (OPTIONAL): capsule-addon-fluxcd Trial** — Trial upstream addon for tenant SA + kubeconfig automation; gated on Phase 11 outcome ∈ {adopt, defer}
 
 ## Phase Details
@@ -130,7 +130,7 @@
 - [x] 11-02-PLAN.md — POC scripts + Taskfile: scripts/poc/capsule/destroy-poc.sh (D-11-10 5-step + D-11-11 PVC strand mitigation) + scripts/poc/capsule/fail-capsule-webhook.sh (D-11-09 scale 0/1) + Taskfile.yml entries (D-11-12)
 - [x] 11-03-PLAN.md — Negative RBAC bats GREEN: Tenant CR fixture extensions (N6 quota: 3, N7 containerRegistries.allowed: [registry.example.io]) + live negative-rbac-*.bats run; targets 12/12 N1-N12 GREEN
 - [x] 11-04-PLAN.md — Verifier: imperative helm install cleanup + first push event (operator checkpoint per CLAUDE.md) + post-push Flux reconcile observation + full 16-bats live re-run + VAL-04 SLO regression + post-push gitleaks history scan; writes 11-VERIFICATION.md
-- [ ] 11-05-PLAN.md — ADR-008 + EKSDOC-01 rollforward: docs/adr/0008-capsule-multi-tenancy-graduation.md per D-11-14 evidence-bound rubric (operator-confirmed outcome) + docs/capsule-on-eks.md Status Draft -> Reviewed with 4 D-11-15 revision blocks + tests/bats/docs-adr-template.bats lint extension for ADR-008
+- [x] 11-05-PLAN.md — ADR-008 + EKSDOC-01 rollforward: docs/adr/0008-capsule-multi-tenancy-graduation.md per D-11-14 evidence-bound rubric (operator-confirmed outcome) + docs/capsule-on-eks.md Status Draft -> Reviewed with 4 D-11-15 revision blocks + tests/bats/docs-adr-template.bats lint extension for ADR-008
 
 ### Phase 12: capsule-addon-fluxcd Trial (OPTIONAL — gated)
 **Goal**: Trial the upstream `capsule-addon-fluxcd v0.2.3` for tenant SA + kubeconfig automation as a comparison against the hand-managed Phase 9/10 approach, and record the comparison decision for v0.20+ adoption
@@ -156,7 +156,7 @@
 | 8. Capsule + capsule-proxy Install | v0.19 | 4/4 | Complete   | 2026-04-29 |
 | 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/5 | Planned | — |
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete    | 2026-05-05 |
-| 11. Validation + Graduation ADR-008 | v0.19 | 5/6 | In Progress|  |
+| 11. Validation + Graduation ADR-008 | v0.19 | 6/6 | Complete   | 2026-05-06 |
 | 12. capsule-addon-fluxcd Trial (optional) | v0.19 | 0/0 | Not Started (gated) | — |
 
 ---
