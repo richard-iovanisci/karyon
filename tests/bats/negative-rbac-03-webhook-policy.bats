@@ -81,6 +81,19 @@ setup() {
   # 3rd namespace (within quota) -- should succeed
   run kubectl --kubeconfig="$ALPHA_KUBECONFIG" create namespace alpha-app2
   [ "$status" -eq 0 ]
+  # REVISED 2026-05-06 (Plan 11-03 Rule 1 auto-fix): Capsule's namespaces.projectcapsule.dev
+  # webhook reads from tenant.status.size which is updated asynchronously by the controller.
+  # Without a poll, rapid back-to-back CREATEs both succeed because the controller hasn't
+  # reconciled status.size from 2 -> 3 yet (race condition observed in Plan 11-03 live run:
+  # both alpha-app2 AND alpha-app3 created with quota=3). Poll up to 30s for status.size to
+  # reflect the new namespace before attempting the 4th create.
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    SIZE=$(kubectl --context=k3d-spoke-capsule get tenant alpha -o jsonpath='{.status.size}' 2>/dev/null || echo "0")
+    if [ "$SIZE" = "3" ]; then
+      break
+    fi
+    [ "$i" -lt 15 ] && sleep 2
+  done
   # 4th namespace (exceeds quota) -- should be rejected by Capsule webhook
   run kubectl --kubeconfig="$ALPHA_KUBECONFIG" create namespace alpha-app3
   [ "$status" -ne 0 ]

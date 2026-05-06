@@ -49,9 +49,18 @@ spec:
             defaultRequest:
               cpu: 50m
               memory: 64Mi
-  # NOTE: namespaceOptions intentionally OMITTED — TEN-01 only requires
-  # forceTenantPrefix (now top-level). namespaceOptions.quota (max namespace
-  # count) is omitted; tenant can create unlimited namespaces inside prefix.
-  # No additionalRoleBindings, storageClasses, ingressClasses, containerRegistries,
-  # nodeSelector, networkPolicies — Capsule defaults to allow-all (per CONTEXT.md
-  # Claude's Discretion).
+  # N6 fixture (Phase 11 -- VAL-01 N6 quota falsifier; Claude's Discretion per CONTEXT.md):
+  # tenant-bravo (home) + bravo-app1 (Phase 9 TEN-02) = 2; symmetric with alpha for N6 falsifier.
+  # Schema: NamespaceOptions struct: Quota *int32 (kubebuilder:Minimum=1) -- verified RESEARCH.md.
+  namespaceOptions:
+    quota: 3
+  # N7 fixture (Phase 11 -- VAL-01 N7 registry-violation falsifier; Claude's Discretion per CONTEXT.md):
+  # Symmetric with alpha so cross-tenant registry-allowlist parity holds for negative-rbac suite.
+  # Schema: AllowedListSpec struct: { allowed: []string, allowedRegex: string } -- verified RESEARCH.md.
+  # NOTE: ContainerRegistries field is marked deprecated in v0.12.4 (use Enforcement.Registries)
+  # but the deprecated form still works for POC purposes.
+  containerRegistries:
+    allowed:
+      - registry.example.io
+  # No additionalRoleBindings, storageClasses, ingressClasses, nodeSelector, networkPolicies --
+  # Capsule defaults to allow-all (per CONTEXT.md Claude's Discretion).
