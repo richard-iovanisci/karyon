@@ -60,3 +60,13 @@ tasks:
     desc: Full destructive rebuild ending in health-check under 20 minutes with warm cache
     cmds:
       - bash scripts/rebuild.sh
+
+  fail-capsule-webhook:
+    desc: (POC) Scale capsule-controller-manager to N replicas (test-only failure simulation; usage `task fail-capsule-webhook -- 0|1`)
+    cmds:
+      - bash scripts/poc/capsule/fail-capsule-webhook.sh {{.CLI_ARGS}}
+
+  destroy-poc:
+    desc: (POC) Ordered teardown for a named POC (usage `task destroy-poc -- capsule [--full]`)
+    cmds:
+      - bash scripts/poc/capsule/destroy-poc.sh {{.CLI_ARGS}}
