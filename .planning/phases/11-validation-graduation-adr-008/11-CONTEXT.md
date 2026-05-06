@@ -24,7 +24,7 @@ Phase 11 succeeds when:
    - N11: workload create rejected when capsule-controller is down
    - N12: workload create succeeds again after operator recovers
 2. **VAL-02** — Capsule webhook failure mode observed and recoverable. `task fail-capsule-webhook -- 0` rejects tenant pod create; `task fail-capsule-webhook -- 1` recovers; both halves bats-asserted.
-3. **VAL-03** — `task destroy-poc capsule` performs ordered teardown; `# KARYON POC MOUNT` sentinel + `clusters/hub-flux/pocs/` mount remain verbatim post-teardown; no `capsule.clastix.io/tenant=<name>` labeled objects remain.
+3. **VAL-03** — `task destroy-poc -- capsule` performs ordered teardown; `# KARYON POC MOUNT` sentinel + `clusters/hub-flux/pocs/` mount remain verbatim post-teardown; no `capsule.clastix.io/tenant=<name>` labeled objects remain.
 4. **VAL-04** — `task rebuild` SLO regression test PASSES: total time < 230s; `k3d-spoke-capsule-server-0` container ID unchanged across rebuild; zero `spoke-capsule` mentions in v0.18 script set (P31 inheritance verbatim).
 5. **VAL-05** — One-shot history gitleaks scan post-Phase-10 first-push event returns 0 findings. **Phase 8 D-08-13 + Phase 9 + Phase 10 push-gate-deferral resolves HERE.**
 6. **VAL-06** — ADR-008 graduation written with `Status: Accepted` and outcome ∈ {adopt, defer, reject, replaced by ADR-009}, sectioned per Nygard 4-section template plus explicit "What we proved / What we did not prove / Trade-offs" sub-sections backed by bats references; rolls `docs/capsule-on-eks.md` (EKSDOC-01) from `Status: Draft` to `Status: Reviewed` with corrections informed by the bats evidence.
@@ -182,7 +182,7 @@ Phase 11 succeeds when:
     - `@test "N12 — workload create succeeds again after operator recovers"`: invoke `task fail-capsule-webhook -- 1`; poll until Deployment Ready=1 (rollout-status timeout 90s); retry the apply (idempotent — different probe pod name); assert exit 0 + pod scheduled.
     - `teardown_file()`: ensure capsule-controller-manager Ready=1 (cleanup safety net).
 
-#### `task destroy-poc capsule` ordered teardown — strict 5-step canonical (D-11-10)
+#### `task destroy-poc -- capsule` ordered teardown — strict 5-step canonical (D-11-10)
 
 - **D-11-10:** **`scripts/poc/capsule/destroy-poc.sh`** runs the canonical 5-step sequence:
   1. `flux suspend kustomization tenant-alpha tenant-bravo poc-capsule-spoke -n flux-system` (suspend tenant inner Ks + the spoke-targeted outer K)
@@ -369,6 +369,121 @@ The following gray areas are intentionally NOT specified — planner/researcher 
 - **ADR-008 file naming.** Recommended: `docs/adr/0008-capsule-multi-tenancy-graduation.md` (zero-padded number per existing 0001-0005 pattern; descriptive slug).
 - **Verifier script wrapper:** bats-only (no `scripts/poc/capsule/verify-validation.sh` wrapper). Mirrors Phase 8/9/10 pattern.
 - **Reconcile loop noise tolerance:** ≤2 reconcile cycles for any live observation depending on prior-plan reconcile; live-bats retry budget: 3 attempts × 30s sleep (Phase 8/9/10 inheritance).
+
+### Review-Driven Revisions (2026-05-05)
+
+The 6 PLAN.md files were reviewed by codex (`gpt-5.5`, xhigh reasoning). Cross-AI feedback in `11-REVIEWS.md`. Targeted revisions below address HIGH/MEDIUM concerns. **Original D-11-XX decisions remain locked except as explicitly REVISED below.**
+
+#### D-11-04-revised — Tightened gitleaks planning-doc allowlist (REVISED 2026-05-05)
+
+- **Revision rationale:** Reviewer HIGH concern #3. The original `^\.planning/.*\.md$` pattern allowlists EVERY markdown file under `.planning/`, hiding the exact accidental-leak class VAL-05 is meant to catch.
+- **Revised D-11-04 patterns** — replace the broad regex with the specific known-fixture-bearing files (verified 2026-05-05 via `grep -l 'kind: Config' .planning/phases/{07,10}-*/*.md`):
+  ```toml
+  paths = [
+    '''^\.env\.example$''',                                                                                        # whole-file allow (Phase 1 D-11 contract)
+    '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-00-PLAN\.md$''',         # Phase 7 D-14 synthetic-fixture content (D-11-04)
+    '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-RESEARCH\.md$''',        # Phase 7 D-14 synthetic-fixture content (D-11-04)
+    '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-REVIEW\.md$''',          # Phase 7 D-14 synthetic-fixture content (D-11-04)
+    '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-PATTERNS\.md$''',        # Phase 7 D-14 synthetic-fixture content (D-11-04)
+    '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',                 # Phase 10 fixture-quoting docs (D-11-04)
+    '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',                  # Phase 10 fixture-quoting docs (D-11-04)
+    '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',                # Phase 10 fixture-quoting docs (D-11-04)
+  ]
+  ```
+- **Trade-off resolved:** Each entry is a specific file path under `.planning/phases/{07,10}-*/` that PROVABLY quotes the synthetic-kubeconfig fixture content (verified 2026-05-05 via `grep -l "token: [A-Za-z0-9._-]\{32,\}"`). NEW phases that quote fixtures must add a new path entry (intentional friction; prevents the broad-allowlist class of leak).
+- **Plan impact:** Plan 11-01 Task 2 File 4 lands the tightened entries (NOT the broad regex). Plan 11-00 Task 2 File 5 (`push-gate-05-static-gitleaks-allowlist.bats`) static @test 1 greps for at least 4 distinct allowlist entries (the 4 Phase 7 files) and verifies the broad `^\.planning/.*\.md$` regex is ABSENT.
+
+#### Pitfall 11-P6 — Live-evidence skip equals graduation risk (NEW 2026-05-05)
+
+- **Concern:** Reviewer HIGH concern #1 + MEDIUM concern. If `negative-rbac-*.bats` setup_file SKIPs (cluster unreachable / kubeconfig minting fails), the @test exits with status SKIP, NOT FAIL. Plan 11-04 Task 3's verifier RC matrix would then record "skipped" as if it were neutral, but for a graduation-deciding ADR, "skipped live tests" is NOT positive evidence.
+- **Mitigation 1 — Strict-mode env var:** `KARYON_PHASE11_STRICT_LIVE=1` (set by CI / operator-driven graduation runs) flips bats `skip` calls in negative-rbac, push-gate-04-live, teardown-03-live-ordered, and slo-regression-live to `return 1` (FAIL). Implementation: each `skip "..."` becomes `if [[ "${KARYON_PHASE11_STRICT_LIVE:-}" == "1" ]]; then echo "STRICT_LIVE: $skip_msg"; return 1; else skip "$skip_msg"; fi`.
+- **Mitigation 2 — Plan 11-04 disposition gating:** the verifier cannot record disposition `passed` if any live test SKIPPED (counts as missing evidence — degrades to `passed_with_overrides` at best). The 11-VERIFICATION.md "Live evidence collected vs skipped" table makes this auditable.
+- **Mitigation 3 — ADR-008 acknowledgment:** the `Trade-offs` section names `KARYON_PHASE11_STRICT_LIVE` as the documented mitigation; `What we did not prove` cites any live tests that skipped during the graduation run.
+- **Plan impact:** Plan 11-00 wraps every `skip` call in negative-rbac-*, push-gate-04-live, teardown-03-live-ordered, and slo-regression-live in the strict-mode conditional. Plan 11-04 Task 3+4 enforces disposition gating. Plan 11-05 ADR-008 cites the env var.
+
+#### D-11-01 hard-gate at Plan 11-04 Task 3 (REVISION 2026-05-05)
+
+- **Concern:** Reviewer HIGH concern #2. The static `push-gate-01-static-rbac-postbuild.bats` greps for the patch literal in `clusters/hub-flux/pocs/capsule.yaml` and turns GREEN as soon as Plan 11-01 lands the patch — but the empirical falsifier (whether the patch actually propagates to the spoke-rendered Role) is informational only.
+- **Mitigation:** Plan 11-04 Task 3's discriminating jq check on the live chart-rendered Role becomes a HARD GATE (not informational). Specifically:
+  ```bash
+  kubectl --context=k3d-spoke-capsule get role capsule-proxy:capsule-proxy -n capsule-system -o json \
+    | jq -e '.rules[] | select((.resources // []) | contains(["secrets"])) | select((.verbs // []) | contains(["create"]))' >/dev/null 2>&1
+  ```
+  - If exit 0: D-11-01 propagated; disposition contribution is `passed`.
+  - If exit non-zero: Pitfall 11-P1 fired; disposition is downgraded to `passed_with_overrides` AT BEST (never `passed`); 11-VERIFICATION.md `## Notable Observations` MUST contain explicit "Recommend relocating D-11-01 patch to capsule-spoke.yaml in a follow-up plan" entry.
+- **D-11-01 itself remains LOCKED** — plan 11-01 still lands the patch on `clusters/hub-flux/pocs/capsule.yaml` per CONTEXT.md original. The Rule 3 escalation is a Plan 11-04 verifier-time response, not a preemptive replanning.
+
+#### Teardown bats merge — teardown-03 + teardown-04 → single teardown-03-live-ordered.bats (REVISION 2026-05-05)
+
+- **Concern:** Reviewer HIGH concern #6. The original two bats (teardown-03 destroys + teardown-04 PVC strand) are NOT independent — if teardown-03 runs first, alpha-app1 is gone and teardown-04 has no namespace to seed the synthetic PVC.
+- **Mitigation:** Plan 11-00 Task 2 merges into a single `teardown-03-live-ordered.bats` with @tests in this exact order:
+  1. **@test 1 (precondition):** seed synthetic Pod-bound PVC labeled `capsule.clastix.io/tenant=alpha` in alpha-app1 (skip if alpha-app1 absent).
+  2. **@test 2 (action + invariants):** run `task destroy-poc -- capsule`; assert exit 0; poll labeled namespaces empty + PVC absent within 90s; sentinel + `../pocs` mount lines preserved verbatim in `clusters/hub-flux/flux-system/kustomization.yaml`.
+- **File impact:** `tests/bats/teardown-04-live-pvc-strand-mitigation.bats` is REMOVED from `files_modified`. Total bats count: 16 → 15 (then `+1` for new p27 static lint per Suggestion 14 → back to 16).
+
+#### P27 static lint — new bats (per suggestion #14, NEW 2026-05-05)
+
+- **Concern:** Reviewer LOW Suggestion #14. P27 ("every tenant Flux Kustomization MUST set `spec.serviceAccountName`") is currently load-bearing but only enforced dynamically (Phase 9 D-09-08 grep-loop on tenant inner Ks).
+- **Mitigation:** Plan 11-00 Task 2 adds `tests/bats/p27-tenant-kustomization-sa-static.bats` that walks `clusters/hub-flux/pocs/` and asserts every Flux Kustomization (kind: Kustomization) declares a non-empty `spec.serviceAccountName`. Static lint; GREEN-at-landing if Phase 9 P27 contract still holds.
+- **Impact:** Restores total bats count to 16. Plan 11-00 Task 2 file count remains 10 (the merged teardown-03-live-ordered.bats replaces both teardown-03 + teardown-04 files; the new p27 lint adds back to 10).
+
+#### destroy-poc.sh shell semantics (REVISION 2026-05-05)
+
+- **Concern:** Reviewer HIGH concern #5 + MEDIUM concern #9. (a) `flux suspend kustomization a b c` may need one object per invocation; (b) `|| true` hides legitimate failures; (c) Step 3 must explicitly `--context=k3d-spoke-capsule` everywhere; (d) PVCs may not carry the `capsule.clastix.io/tenant` label.
+- **Mitigation (Plan 11-02 destroy-poc.sh revisions):**
+  - **Step 1 — per-Kustomization suspend with verify:** loop over `tenant-alpha tenant-bravo poc-capsule-spoke` ONE PER `flux suspend kustomization NAME -n flux-system`; collect each non-zero RC and emit `warn` (NOT `|| true` swallow). Verify each via `kubectl --context=k3d-hub-flux get kustomization NAME -n flux-system -o jsonpath='{.spec.suspend}'` returns `true`.
+  - **Step 3 — every kubectl call uses `--context=k3d-spoke-capsule`:** auditable via grep.
+  - **Step 3 PVC enumeration via NS_LIST loop:** drop the `-l capsule.clastix.io/tenant` label selector when enumerating PVCs; instead enumerate PVCs in the surviving labeled namespaces:
+    ```bash
+    NS_LIST=$(kubectl --context=k3d-spoke-capsule get ns -l capsule.clastix.io/tenant -o name 2>/dev/null | sed 's|namespace/||')
+    for ns in $NS_LIST; do
+      kubectl --context=k3d-spoke-capsule get pvc -n "$ns" -o name 2>/dev/null | while read pvc; do
+        kubectl --context=k3d-spoke-capsule patch "$pvc" -n "$ns" -p '{"metadata":{"finalizers":null}}' --type=merge 2>/dev/null || true
+      done
+    done
+    ```
+  - **Step 4 — same single-object suspend pattern:** `flux suspend kustomization poc-capsule -n flux-system` (single object).
+
+#### helm uninstall race-with-Flux (REVISION 2026-05-05)
+
+- **Concern:** Reviewer MEDIUM concern #10. If hub-flux reconciles between `helm uninstall capsule-proxy` and the push, the chart can be reinstalled in an inconsistent state.
+- **Mitigation (Plan 11-04 Task 1 sequence):** suspend the relevant Kustomizations first:
+  ```bash
+  flux suspend kustomization poc-capsule -n flux-system
+  flux suspend kustomization poc-capsule-spoke -n flux-system
+  helm --kube-context=k3d-spoke-capsule uninstall capsule-proxy -n capsule-system
+  for i in 1 2 3; do
+    if ! kubectl --context=k3d-spoke-capsule get deploy capsule-proxy -n capsule-system >/dev/null 2>&1; then break; fi
+    sleep 10
+  done
+  flux resume kustomization poc-capsule-spoke -n flux-system
+  flux resume kustomization poc-capsule -n flux-system
+  ```
+
+#### N9 / N10 falsifier validity (REVISION 2026-05-05)
+
+- **Concern:** Reviewer HIGH concern #4. N9 must use a real, valid cross-tenant sourceRef (NOT an absent source); N10's `(forbidden|Forbidden|cannot|not found)` permissive grep accepts "not found" which doesn't prove missing-SA fallthrough.
+- **Mitigation (Plan 11-00 Task 1 File 4 revisions):**
+  - **N9:** the probe Kustomization MUST reference a GitRepository that ACTUALLY EXISTS in `tenant-bravo` namespace (or a valid cross-tenant target — NOT `flux-system` which Flux itself owns; NOT an absent source name). Drop the `not allowed` substring as too permissive; require the explicit `cross-namespace` keyword in the Ready message.
+  - **N10:** drop `(forbidden|Forbidden|cannot|not found)` permissive grep. The probe Kustomization MUST point at a VALID sourceRef (e.g., `tenant-alpha-source` GitRepository which exists per Phase 9 TEN-04). The only failing variable is the missing `serviceAccountName`. Replace with positive assertion that Flux falls through to the `default` SA in `tenant-alpha` (zero permissions) AND the failure message references RBAC (e.g., `system:serviceaccount:tenant-alpha:default` + `forbidden`), NOT "source not found".
+
+#### N6 / N8 / N11 stability hardening (REVISION 2026-05-05)
+
+- **Concern:** Reviewer MEDIUM concerns #7, #8, #12.
+- **Mitigation:**
+  - **N6 (Plan 11-00 Task 1 File 3) idempotent precondition:** `setup_file` deletes all `tenant-alpha`-prefixed namespaces EXCEPT `tenant-alpha` and `alpha-app1` BEFORE running the quota probe. Skip if `alpha-app1` absent. Wait for cleanup to complete before counting.
+  - **N8 (Plan 11-00 Task 1 File 4) network/TLS pre-check:** TCP probe via `nc -z 127.0.0.1 6446`; if unreachable, SKIP with explanatory message (NOT pass for the wrong reason). Negative TLS-failure assertion: output MUST NOT contain `x509`, `tls:`, `connection refused`, `i/o timeout` (would indicate network/TLS failure not RBAC denial). Existing literal asserts on `Forbidden` AND `cannot list resource "namespaces"` retained.
+  - **N11 (Plan 11-00 Task 1 File 5) deterministic wait:** replace `sleep 5` after scaling with a poll loop checking `kubectl get deploy capsule-controller-manager -n capsule-system -o jsonpath='{.status.readyReplicas}'` until `0`, then poll for Service endpoints empty (or for the validating webhook lookup to start failing) within a 30s budget.
+
+#### Command syntax standardization (REVISION 2026-05-05)
+
+- **Concern:** Reviewer MEDIUM concern #11. `task destroy-poc capsule` vs `task destroy-poc -- capsule` is inconsistent. Taskfile `{{.CLI_ARGS}}` requires the `--` separator.
+- **Mitigation:** Standardize on `task destroy-poc -- capsule` everywhere. Audit:
+  - 11-02 Task 1 destroy-poc.sh head comment + usage strings
+  - 11-02 Task 2 Taskfile desc strings (both `(POC)` entries should be consistent)
+  - 11-04 Task 3 + Task 4 (11-VERIFICATION.md template) — use `task destroy-poc -- capsule`
+  - 11-05 Task 2 ADR-008 template — use `task destroy-poc -- capsule [--full]`
+  - 11-VALIDATION.md Per-Task Verification Map and Manual-Only Verifications — use `task destroy-poc -- capsule [--full]`
 
 </decisions>
 
