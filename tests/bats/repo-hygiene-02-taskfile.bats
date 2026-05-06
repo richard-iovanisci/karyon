@@ -35,7 +35,12 @@ setup() {
   # Allow flat (scripts/foo.sh) and nested POC paths (scripts/poc/capsule/fix-dns.sh)
   # per D-12 / P31 isolation. Thin-wrapper invariant preserved: still only
   # `bash <path>.sh` is permitted; no inline kubectl/docker/k3d/flux.
-  run bash -c "awk '/^[[:space:]]+cmds:/{flag=1; next} /^  [a-z]/{flag=0} flag && /^[[:space:]]*-/' '$TASKFILE' | grep -vE '^[[:space:]]*-[[:space:]]+bash scripts/[a-z0-9/-]+\\.sh\$'"
+  # Phase 11 D-11-12: also accept the Taskfile v3 `{{.CLI_ARGS}}` variadic pass-through
+  # idiom as a trailing token (e.g. `bash scripts/poc/capsule/destroy-poc.sh {{.CLI_ARGS}}`).
+  # The trailing token is a literal Taskfile substitution marker, not an inline command,
+  # so the thin-wrapper invariant is preserved (test 3 below still rejects inline
+  # kubectl|docker|k3d|flux invocations everywhere).
+  run bash -c "awk '/^[[:space:]]+cmds:/{flag=1; next} /^  [a-z]/{flag=0} flag && /^[[:space:]]*-/' '$TASKFILE' | grep -vE '^[[:space:]]*-[[:space:]]+bash scripts/[a-z0-9/-]+\\.sh([[:space:]]+\\{\\{\\.CLI_ARGS\\}\\})?\$'"
   [ "$status" -ne 0 ]
 }
 
