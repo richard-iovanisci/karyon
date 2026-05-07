@@ -18,6 +18,7 @@ load 'test_helper'
 
 setup() {
   RBAC_K="${REPO_ROOT}/clusters/hub-flux/pocs/capsule-spoke-rbac.yaml"
+  TENANT_CRS_OUTER_K="${REPO_ROOT}/clusters/hub-flux/pocs/capsule-spoke-tenants.yaml"
   POCS_K="${REPO_ROOT}/clusters/hub-flux/pocs/kustomization.yaml"
 }
 
@@ -74,4 +75,12 @@ setup() {
   run yq eval '.resources[]' "$POCS_K"
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx 'capsule-spoke-rbac.yaml'
+}
+
+@test "spoke-tenant-crs-K: included in clusters/hub-flux/pocs/kustomization.yaml resources" {
+  [ -f "$TENANT_CRS_OUTER_K" ]
+  [ -f "$POCS_K" ]
+  run yq eval '.resources[]' "$POCS_K"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx 'capsule-spoke-tenants.yaml'
 }

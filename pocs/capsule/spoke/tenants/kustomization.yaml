@@ -6,8 +6,9 @@
 # poc-capsule-spoke outer K's kubeConfig (apply to spoke-capsule via D-08-12
 # split-path).
 #
-# D-11-07 live repair: preserve per-tenant FIFO order so Tenant CRs render before
-# labeled home namespaces.
+# D-11-07 live repair: this path now contains tenant home Namespaces + SAs only.
+# Tenant CRs land first via pocs/capsule/spoke/tenant-crs/ and the separate
+# poc-capsule-spoke-tenants outer K.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 sortOptions:

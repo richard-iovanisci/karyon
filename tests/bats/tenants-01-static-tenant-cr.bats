@@ -17,8 +17,8 @@
 load 'test_helper'
 
 setup() {
-  ALPHA_TENANT="${REPO_ROOT}/pocs/capsule/spoke/tenants/alpha/tenant.yaml"
-  BRAVO_TENANT="${REPO_ROOT}/pocs/capsule/spoke/tenants/bravo/tenant.yaml"
+  ALPHA_TENANT="${REPO_ROOT}/pocs/capsule/spoke/tenant-crs/alpha.yaml"
+  BRAVO_TENANT="${REPO_ROOT}/pocs/capsule/spoke/tenant-crs/bravo.yaml"
 }
 
 # ---- alpha ----

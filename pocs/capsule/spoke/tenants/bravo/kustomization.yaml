@@ -4,14 +4,13 @@
 # D-09-01 — bravo subdir under pocs/capsule/spoke/tenants/. Mirror exists at
 # pocs/capsule/spoke/tenants/alpha/.
 #
-# D-11-07 live repair — tenant.yaml MUST precede namespace.yaml. The tenant home
-# namespace carries capsule.clastix.io/tenant=bravo, and Capsule's namespace
-# webhook rejects that label until Tenant/bravo exists.
+# D-11-07 live repair — Tenant/bravo moved to pocs/capsule/spoke/tenant-crs/.
+# This K applies only the labeled home namespace and its owner SA after the
+# separate poc-capsule-spoke-tenants K has made Tenant/bravo live.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 sortOptions:
   order: fifo
 resources:
-  - tenant.yaml
   - namespace.yaml
   - sa.yaml

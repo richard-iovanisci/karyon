@@ -36,6 +36,12 @@
 # failure, OR reconciles failed intermittently and were masked by Flux retries.
 # Either way, this is now corrected.
 #
+# Phase 11 correction (D-11-07 live repair):
+# poc-capsule-spoke now depends on poc-capsule-spoke-tenants as well. Tenant CRs
+# must be live before this K applies tenant home Namespaces labeled
+# capsule.clastix.io/tenant=<name>; Flux dry-runs a whole Kustomization batch
+# before applying, so same-batch ordering is insufficient.
+#
 # REQ-CAPCLU-02 (key: value.yaml explicit — v0.18 P18 inheritance: silent-misroute fault is
 #   `spec.kubeConfig` ENTIRELY ABSENT, which would make kustomize-controller fall back to its
 #   in-cluster SA and reconcile to HUB. ALWAYS include the entire spec.kubeConfig block on
@@ -54,6 +60,7 @@ spec:
   dependsOn:
     - name: poc-capsule-spoke-rbac   # G-06 gap-close (2026-05-06): inter-K ordering -- spoke rbac (NS + helm-controller SA) lands BEFORE any tenant or config CR (codex §2 MEDIUM #3 closure)
     - name: poc-capsule   # D-09-06 — P32 dependsOn chain (no namespace needed; same flux-system ns)
+    - name: poc-capsule-spoke-tenants   # D-11-07: Tenant CRs must exist before labeled tenant Namespaces dry-run/apply
   wait: true                # D-09-06 / RESEARCH Gap 9 — TOP-LEVEL spec.wait, NOT inside dependsOn entry
   timeout: 10m
   sourceRef:

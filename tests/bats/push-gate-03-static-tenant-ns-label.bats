@@ -11,6 +11,9 @@ setup() {
   NS_BRAVO="${REPO_ROOT}/pocs/capsule/spoke/tenants/bravo/namespace.yaml"
   K_ALPHA="${REPO_ROOT}/pocs/capsule/spoke/tenants/alpha/kustomization.yaml"
   K_BRAVO="${REPO_ROOT}/pocs/capsule/spoke/tenants/bravo/kustomization.yaml"
+  TENANT_CRS_K="${REPO_ROOT}/pocs/capsule/spoke/tenant-crs/kustomization.yaml"
+  SPOKE_OUTER_K="${REPO_ROOT}/clusters/hub-flux/pocs/capsule-spoke.yaml"
+  TENANT_CRS_OUTER_K="${REPO_ROOT}/clusters/hub-flux/pocs/capsule-spoke-tenants.yaml"
 }
 
 @test "D-11-03: alpha/namespace.yaml has metadata.labels.capsule.clastix.io/tenant=alpha" {
@@ -27,34 +30,31 @@ setup() {
   [ "$output" = "true" ]
 }
 
-@test "D-11-07: tenant kustomizations list tenant.yaml before labeled namespace.yaml" {
+@test "D-11-07: tenant home kustomizations contain only labeled namespace then owner SA" {
   [ -f "$K_ALPHA" ]
   [ -f "$K_BRAVO" ]
-  run yq eval '.resources[0] == "tenant.yaml" and .resources[1] == "namespace.yaml" and .resources[2] == "sa.yaml"' "$K_ALPHA"
+  run yq eval '(.resources | length) == 2 and .resources[0] == "namespace.yaml" and .resources[1] == "sa.yaml"' "$K_ALPHA"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
-  run yq eval '.resources[0] == "tenant.yaml" and .resources[1] == "namespace.yaml" and .resources[2] == "sa.yaml"' "$K_BRAVO"
+  run yq eval '(.resources | length) == 2 and .resources[0] == "namespace.yaml" and .resources[1] == "sa.yaml"' "$K_BRAVO"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
 
-@test "D-11-07: rendered spoke kustomization emits Tenant CRs before labeled Namespaces" {
-  run bash -c '
-    set -euo pipefail
-    if command -v kustomize >/dev/null 2>&1; then
-      kustomize build "$1"
-    else
-      kubectl kustomize "$1"
-    fi \
-      | yq eval ".kind + \"/\" + .metadata.name" - \
-      | sed "/^---$/d" \
-      | awk "
-          \$0 == \"Tenant/alpha\" { alpha_tenant = NR }
-          \$0 == \"Namespace/tenant-alpha\" { alpha_ns = NR }
-          \$0 == \"Tenant/bravo\" { bravo_tenant = NR }
-          \$0 == \"Namespace/tenant-bravo\" { bravo_ns = NR }
-          END { exit !(alpha_tenant && alpha_ns && bravo_tenant && bravo_ns && alpha_tenant < alpha_ns && bravo_tenant < bravo_ns) }
-        "
-  ' _ "${REPO_ROOT}/pocs/capsule/spoke"
+@test "D-11-07: Tenant CRs have their own spoke-targeted bootstrap K" {
+  [ -f "$TENANT_CRS_K" ]
+  [ -f "$TENANT_CRS_OUTER_K" ]
+  run yq eval '(.resources | length) == 2 and .resources[0] == "alpha.yaml" and .resources[1] == "bravo.yaml"' "$TENANT_CRS_K"
   [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+  run yq eval '.metadata.name == "poc-capsule-spoke-tenants" and .spec.path == "./pocs/capsule/spoke/tenant-crs" and .spec.serviceAccountName == "flux-reconciler" and .spec.kubeConfig.secretRef.name == "spoke-capsule-kubeconfig"' "$TENANT_CRS_OUTER_K"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "D-11-07: poc-capsule-spoke depends on Tenant CR bootstrap before home namespace apply" {
+  [ -f "$SPOKE_OUTER_K" ]
+  run yq eval '.spec.dependsOn[].name' "$SPOKE_OUTER_K"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx 'poc-capsule-spoke-tenants'
 }

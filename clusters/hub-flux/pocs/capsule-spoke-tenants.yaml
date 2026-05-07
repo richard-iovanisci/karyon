@@ -1,0 +1,28 @@
+# clusters/hub-flux/pocs/capsule-spoke-tenants.yaml
+# Spoke-targeted Flux Kustomization for Capsule Tenant CR bootstrap.
+#
+# D-11-07 live repair: this K applies Tenant CRs before poc-capsule-spoke applies
+# tenant home Namespaces. That split is required because kustomize-controller
+# dry-runs every object in a batch before applying any object, and Capsule rejects
+# labeled tenant Namespaces unless the referenced Tenant already exists live.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-capsule-spoke-tenants
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/capsule/spoke/tenant-crs
+  prune: true
+  serviceAccountName: flux-reconciler
+  dependsOn:
+    - name: poc-capsule-spoke-rbac
+    - name: poc-capsule
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml

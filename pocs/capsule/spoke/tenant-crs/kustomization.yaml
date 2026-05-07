@@ -1,0 +1,13 @@
+# pocs/capsule/spoke/tenant-crs/kustomization.yaml
+# Tenant CR bootstrap path for spoke-capsule.
+#
+# D-11-07 live repair: Capsule's namespace webhook rejects a namespace carrying
+# capsule.clastix.io/tenant=<name> until the matching Tenant CR already exists.
+# Flux dry-runs all resources in a Kustomization before applying them, so Tenant
+# CRs must live in a separate earlier Flux Kustomization instead of the same
+# batch as tenant home namespaces.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - alpha.yaml
+  - bravo.yaml

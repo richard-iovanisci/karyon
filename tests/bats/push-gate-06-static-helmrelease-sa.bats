@@ -105,9 +105,10 @@ setup() {
 
 @test "G-06: capsule-spoke.yaml outer K dependsOn includes poc-capsule-spoke-rbac (codex MEDIUM #3 fix)" {
   [ -f "$SPOKE_OUTER_K" ]
-  # dependsOn must contain BOTH poc-capsule-spoke-rbac AND poc-capsule.
+  # dependsOn must contain rbac, capsule, and tenant CR bootstrap.
   run yq eval '.spec.dependsOn[].name' "$SPOKE_OUTER_K"
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx 'poc-capsule-spoke-rbac'
   echo "$output" | grep -qx 'poc-capsule'
+  echo "$output" | grep -qx 'poc-capsule-spoke-tenants'
 }
