@@ -37,7 +37,11 @@ spec:
   # ordering -- see codex review §2 MEDIUM #3 closure).
   serviceAccountName: helm-controller
   install:
-    createNamespace: true
+    # D-11-07 live repair: capsule-system is bootstrapped by
+    # poc-capsule-spoke-rbac. Leaving Helm namespace creation enabled causes Helm
+    # to patch the existing namespace after Capsule's namespace webhook is active,
+    # which Capsule rejects for this non-tenant system namespace.
+    createNamespace: false
     remediation:
       retries: 3
   upgrade:

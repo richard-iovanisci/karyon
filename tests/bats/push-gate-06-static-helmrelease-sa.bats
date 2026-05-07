@@ -42,6 +42,13 @@ setup() {
   [ "$output" = "helm-controller" ]
 }
 
+@test "G-06: proxy HelmRelease does not ask Helm to patch capsule-system namespace" {
+  [ -f "$PROXY_HR" ]
+  run yq eval '.spec.install.createNamespace' "$PROXY_HR"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
 @test "G-06: spoke rbac/namespace.yaml provisions capsule-system Namespace (codex HIGH #1 fix)" {
   [ -f "$SPOKE_NS" ]
   run yq eval '.kind' "$SPOKE_NS"
