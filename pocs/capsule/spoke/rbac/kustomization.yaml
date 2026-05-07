@@ -16,3 +16,4 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - helm-controller-sa.yaml
+  - platform-owner.yaml

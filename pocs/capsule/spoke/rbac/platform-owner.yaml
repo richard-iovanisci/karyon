@@ -1,0 +1,80 @@
+# pocs/capsule/spoke/rbac/platform-owner.yaml
+# Capsule platform-owner RBAC spike (2026-05-07).
+#
+# Intent: model a non-cluster-admin platform role that can inspect Capsule's
+# cluster-scoped control-plane resources and create/manage lower-level Tenant
+# CRs, while preserving tenant workload isolation. This is deliberately normal
+# Kubernetes RBAC rather than Capsule Tenant ownership:
+#   - Platform owners manage Tenant CRs.
+#   - Tenant owners listed in spec.owners[] manage namespaces/workloads inside
+#     their assigned tenant.
+#
+# Local POC usage:
+#   kubectl --context=k3d-spoke-capsule \
+#     --as=capsule-platform-owner \
+#     --as-group=capsule-platform-owners \
+#     get tenants.capsule.clastix.io
+#
+# Production translation: bind the capsule-platform-owners group to the IdP
+# group used by platform operators. Do not bind this role to tenant workload SAs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: capsule-platform-owner
+  labels:
+    karyon.io/poc: capsule
+    karyon.io/role: capsule-platform-owner
+rules:
+  # See all Capsule API resources, including future v0.12.x CRDs/subresources.
+  - apiGroups:
+      - capsule.clastix.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
+  # Manage the lower-level tenant definitions. Status updates remain controller-owned.
+  - apiGroups:
+      - capsule.clastix.io
+    resources:
+      - tenants
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  # Inspect tenant namespace inventory without granting workload/Secret access.
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  # Inspect Capsule CRD installation shape for operator troubleshooting.
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: capsule-platform-owner
+  labels:
+    karyon.io/poc: capsule
+    karyon.io/role: capsule-platform-owner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: capsule-platform-owner
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: capsule-platform-owners

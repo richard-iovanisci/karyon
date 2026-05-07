@@ -187,3 +187,46 @@ Tenant kubeconfigs MUST NEVER land in git. The script defends in depth:
 - Phase 8 CAP-02: capsule-proxy NodePort 30443 install
 - Phase 9 D-09-02: per-tenant `gitops-reconciler` SA + Tenant CR multi-owner array
 - [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Rough EKS install path": IRSA translation forward-pointer
+
+## Capsule platform owner role
+
+> **Status:** Spike. The role is intentionally narrower than `cluster-admin`.
+
+The `capsule-platform-owner` ClusterRole is a spoke-side POC role for operators
+who define and manage lower-level Capsule `Tenant` CRs. It is bound to the
+`capsule-platform-owners` group.
+
+### Platform owner smoke test
+
+```bash
+kubectl --context=k3d-spoke-capsule \
+  --as=capsule-platform-owner \
+  --as-group=capsule-platform-owners \
+  get tenants.capsule.clastix.io
+```
+
+### Contract
+
+| Capability | Granted |
+|---|---|
+| Read Capsule API resources | Yes: `get`, `list`, `watch` on `capsule.clastix.io/*` |
+| Manage lower-level Tenant CRs | Yes: `create`, `update`, `patch`, `delete` on `tenants.capsule.clastix.io` |
+| Inspect tenant namespace inventory | Yes: `get`, `list`, `watch` on core `namespaces` |
+| Read tenant Secrets or workloads | No |
+| Create ClusterRoleBindings | No |
+| Act as tenant workload admin by default | No; tenant-local access still comes from each Tenant's `spec.owners[]` |
+
+The intended delegation flow is:
+
+1. A platform owner creates a Tenant CR and lists the lower-level tenant owner in
+   `spec.owners[]`.
+2. Capsule reconciles that lower-level owner.
+3. The lower-level owner creates namespaces and manages workload resources inside
+   that tenant through Capsule's normal admission and RBAC path.
+
+For local POC testing, the live Bats suite exercises this with an impersonated
+group:
+
+```bash
+bats tests/bats/capsule-platform-owner-02-live-rbac.bats
+```
