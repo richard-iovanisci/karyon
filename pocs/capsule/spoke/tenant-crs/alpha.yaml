@@ -21,6 +21,12 @@ spec:
   forceTenantPrefix: true
   # TEN-01 — multi-owner array
   owners:
+    # Bootstrap Flux path (D-11-07): poc-capsule-spoke applies tenant-alpha
+    # Namespace as flux-system/flux-reconciler. Capsule requires namespace
+    # assignment to be performed by a Tenant owner, even when Kubernetes RBAC is
+    # cluster-admin.
+    - kind: ServiceAccount
+      name: system:serviceaccount:flux-system:flux-reconciler
     # Flux impersonation chain (TEN-04 P27 defense)
     - kind: ServiceAccount
       name: system:serviceaccount:tenant-alpha:gitops-reconciler

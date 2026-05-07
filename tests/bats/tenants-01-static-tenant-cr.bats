@@ -37,6 +37,13 @@ setup() {
   [ "$output" = "true" ]
 }
 
+@test "TEN-01 / D-11-07 (alpha): owners[] contains bootstrap flux-reconciler SA" {
+  [ -f "$ALPHA_TENANT" ]
+  run yq eval '.spec.owners | map(select(.kind == "ServiceAccount" and .name == "system:serviceaccount:flux-system:flux-reconciler")) | length == 1' "$ALPHA_TENANT"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
 @test "TEN-01 / D-09-02 (alpha): owners[] contains kind=User + name=alpha (TEN-02 contract)" {
   [ -f "$ALPHA_TENANT" ]
   run yq eval '.spec.owners | map(select(.kind == "User" and .name == "alpha")) | length == 1' "$ALPHA_TENANT"
@@ -63,6 +70,13 @@ setup() {
 @test "TEN-01 / RESEARCH Gap 4 (bravo): owners[] contains kind=ServiceAccount + name=system:serviceaccount:tenant-bravo:gitops-reconciler (combined-name format)" {
   [ -f "$BRAVO_TENANT" ]
   run yq eval '.spec.owners | map(select(.kind == "ServiceAccount" and .name == "system:serviceaccount:tenant-bravo:gitops-reconciler")) | length == 1' "$BRAVO_TENANT"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "TEN-01 / D-11-07 (bravo): owners[] contains bootstrap flux-reconciler SA" {
+  [ -f "$BRAVO_TENANT" ]
+  run yq eval '.spec.owners | map(select(.kind == "ServiceAccount" and .name == "system:serviceaccount:flux-system:flux-reconciler")) | length == 1' "$BRAVO_TENANT"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

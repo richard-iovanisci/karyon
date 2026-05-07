@@ -9,8 +9,6 @@ load 'test_helper'
 setup() {
   NS_ALPHA="${REPO_ROOT}/pocs/capsule/spoke/tenants/alpha/namespace.yaml"
   NS_BRAVO="${REPO_ROOT}/pocs/capsule/spoke/tenants/bravo/namespace.yaml"
-  CLAIM_ALPHA="${REPO_ROOT}/pocs/capsule/spoke/tenant-claims/alpha/namespace.yaml"
-  CLAIM_BRAVO="${REPO_ROOT}/pocs/capsule/spoke/tenant-claims/bravo/namespace.yaml"
   K_ALPHA="${REPO_ROOT}/pocs/capsule/spoke/tenants/alpha/kustomization.yaml"
   K_BRAVO="${REPO_ROOT}/pocs/capsule/spoke/tenants/bravo/kustomization.yaml"
   TENANT_CRS_K="${REPO_ROOT}/pocs/capsule/spoke/tenant-crs/kustomization.yaml"
@@ -18,24 +16,13 @@ setup() {
   TENANT_CRS_OUTER_K="${REPO_ROOT}/clusters/hub-flux/pocs/capsule-spoke-tenants.yaml"
 }
 
-@test "D-11-07: bootstrap tenant namespaces are unlabelled before owner claim" {
+@test "D-11-03: tenant home namespaces carry capsule.clastix.io/tenant labels" {
   [ -f "$NS_ALPHA" ]
   [ -f "$NS_BRAVO" ]
-  run yq eval '.metadata.labels."capsule.clastix.io/tenant" == null' "$NS_ALPHA"
+  run yq eval '.metadata.labels."capsule.clastix.io/tenant" == "alpha"' "$NS_ALPHA"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
-  run yq eval '.metadata.labels."capsule.clastix.io/tenant" == null' "$NS_BRAVO"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-}
-
-@test "D-11-03: tenant claim namespaces carry capsule.clastix.io/tenant labels" {
-  [ -f "$CLAIM_ALPHA" ]
-  [ -f "$CLAIM_BRAVO" ]
-  run yq eval '.metadata.labels."capsule.clastix.io/tenant" == "alpha"' "$CLAIM_ALPHA"
-  [ "$status" -eq 0 ]
-  [ "$output" = "true" ]
-  run yq eval '.metadata.labels."capsule.clastix.io/tenant" == "bravo"' "$CLAIM_BRAVO"
+  run yq eval '.metadata.labels."capsule.clastix.io/tenant" == "bravo"' "$NS_BRAVO"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

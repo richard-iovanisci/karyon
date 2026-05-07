@@ -35,34 +35,6 @@ spec:
   ref:
     branch: main
 ---
-# D-11-07 live repair — per-tenant home namespace claim. This K runs as
-# system:serviceaccount:tenant-alpha:gitops-reconciler on spoke-capsule, so
-# Capsule accepts the tenant-alpha Namespace label assignment as a Tenant-owner
-# operation. The bootstrap poc-capsule-spoke K creates the unlabelled Namespace
-# and owner SA first.
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: tenant-alpha-home
-  namespace: tenant-alpha
-spec:
-  interval: 5m
-  path: ./pocs/capsule/spoke/tenant-claims/alpha
-  prune: true
-  wait: true
-  timeout: 5m
-  sourceRef:
-    kind: GitRepository
-    name: tenant-alpha-source
-  kubeConfig:
-    secretRef:
-      name: spoke-capsule-kubeconfig
-      key: value.yaml
-  serviceAccountName: gitops-reconciler
-  dependsOn:
-    - name: poc-capsule-spoke
-      namespace: flux-system
----
 # TEN-04 — per-tenant inner Kustomization. CARRIES THE LOAD-BEARING P27 DEFENSE.
 #
 # P27 LOAD-BEARING DEFENSE — every tenant Flux Kustomization MUST set
@@ -91,4 +63,5 @@ spec:
       key: value.yaml
   serviceAccountName: gitops-reconciler  # P27 LOAD-BEARING DEFENSE
   dependsOn:
-    - name: tenant-alpha-home
+    - name: poc-capsule
+      namespace: flux-system
