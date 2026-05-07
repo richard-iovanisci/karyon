@@ -16,7 +16,7 @@ provides:
   - "clusters/hub-flux/pocs/capsule.yaml: spec.patches block REMOVED (Pitfall 11-P1 fix); ADR-004 invariant (no spec.kubeConfig structure) + Phase 9 lockdown (serviceAccountName: kustomize-controller) preserved"
   - "pocs/capsule/proxy/helmrelease.yaml: spec.postRenderers block ADDED extending Role capsule-proxy:capsule-proxy with secrets {get,create,update,patch} via Kustomize-style patches on helm-rendered chart output (correct Flux mechanism)"
   - "tests/bats/push-gate-01-static-rbac-postbuild.bats: rewritten to assert postRenderers in proxy/helmrelease.yaml (was: spec.patches in capsule.yaml); 2/2 @tests GREEN"
-  - "Pending human verification of post-push Flux reconcile (Task 3 = checkpoint:human-verify gate=blocking) — owner runs the 6 verification checks (poc-capsule Ready=True, poc-capsule-spoke Ready=True, capsule-proxy HR Ready=True, proxy pod Running on spoke, D-11-01 propagation jq GREEN, capsule-proxy reachable)"
+  - "Post-push Flux reconcile verification passed via Plan 11-07 Task 6 — poc-capsule, poc-capsule-spoke, poc-capsule-spoke-rbac, poc-capsule-spoke-tenants, capsule, and capsule-proxy are Ready=True; spoke RBAC and capsule-proxy health checks are green"
 affects: [12-capsule-addon-fluxcd]
 
 # Tech tracking
@@ -38,29 +38,29 @@ key-files:
 key-decisions:
   - "Two root causes of the Phase 8 G-04 BLOCKER were fixed atomically in Task 1: (1) missing capsule-system namespace on hub-flux, (2) D-11-01 PostBuild patch misplaced on Kustomization spec.patches instead of HelmRelease spec.postRenderers (Pitfall 11-P1). Each fix on its own would not unblock reconcile; together they restore the chain."
   - "spec.postRenderers placed under spec: as a sibling of spec.values (after the values block at end of file). Indentation matches values/chartRef/kubeConfig/dependsOn/install/upgrade siblings (children of spec)."
-  - "Task 3 (checkpoint:human-verify, gate=blocking) intentionally NOT executed by the worktree agent — verification requires git push to origin/main and 2-3 minutes of Flux reconcile against live k3d-hub-flux + k3d-spoke-capsule clusters, which is outside the worktree's scope. Plan disposition is pending-human-verify."
+  - "Task 3 human verification was completed via Plan 11-07 Task 6 on 2026-05-07. The original G-06 impersonation/RBAC hypothesis was confirmed, residual capsule-proxy namespace patching was fixed, and live Flux/Helm checks are green."
 
 patterns-established:
   - "G-04 architectural mitigation pattern: explicit Namespace resource for hub-side CR application + spec.postRenderers for spoke-side helm-rendered patches; the split-path Kustomization layout (D-08-12) plus this pair completes the hub-only-Flux + spoke-rendered-chart pattern under ADR-004"
   - "Pitfall 11-P1 fix shape: when a Kustomization spec.patches block targets a resource rendered by helm-controller LATER on a different cluster, the patch never reaches its target. The correct location is HelmRelease spec.postRenderers, which applies after helm-renders the chart."
 
-requirements-completed: []  # VAL-01 + VAL-05 are referenced in the plan but full empirical confirmation requires Task 3 human-verify checkpoint; mark complete only after operator runs the 6 verification checks and pushes the plan over
+requirements-completed: [VAL-01, VAL-05]
 
 # Metrics
-duration: ~4min (Tasks 1+2 only; Task 3 pending human verification)
-completed: 2026-05-06 (Tasks 1+2; Task 3 pending-human-verify)
+duration: ~4min implementation + Plan 11-07 Task 6 live verification
+completed: 2026-05-07
 ---
 
 # Phase 11 Plan 06: G-04 Gap Closure (capsule-system Namespace + postRenderers Relocation) Summary
 
-**Two file edits + one bats rewrite resolve the Phase 8 G-04 BLOCKER active since 2026-04-29: (1) added pocs/capsule/namespace.yaml so hub-flux kustomize-controller has the capsule-system namespace before HR/OCIRepo CRs are applied (was: "namespaces capsule-system not found"); (2) relocated the D-11-01 RBAC patch from Kustomization spec.patches in clusters/hub-flux/pocs/capsule.yaml to HelmRelease spec.postRenderers in pocs/capsule/proxy/helmrelease.yaml (Pitfall 11-P1 fix — Kustomization spec.patches only modifies kustomize-build output; helm-rendered Roles need postRenderers). Both fixes are static landings; empirical Flux reconcile verification is gated on Task 3 human-verify checkpoint (push + 2-3 min Flux poll + 6 live checks).**
+**Two file edits + one bats rewrite resolve the Phase 8 G-04 BLOCKER active since 2026-04-29: (1) added pocs/capsule/namespace.yaml so hub-flux kustomize-controller has the capsule-system namespace before HR/OCIRepo CRs are applied (was: "namespaces capsule-system not found"); (2) relocated the D-11-01 RBAC patch from Kustomization spec.patches in clusters/hub-flux/pocs/capsule.yaml to HelmRelease spec.postRenderers in pocs/capsule/proxy/helmrelease.yaml (Pitfall 11-P1 fix — Kustomization spec.patches only modifies kustomize-build output; helm-rendered Roles need postRenderers). Plan 11-07 Task 6 completed the post-push empirical verification and closed the Task 3 gate as passed.**
 
 ## Performance
 
-- **Duration:** ~4 min (Task 1 + Task 2 active execution; Task 3 pending-human-verify)
+- **Duration:** ~4 min implementation + Plan 11-07 Task 6 live verification
 - **Started:** 2026-05-06T15:34:28Z
 - **Completed (Tasks 1+2):** 2026-05-06T15:38:09Z
-- **Task 3 status:** Pending human verification (checkpoint:human-verify, gate=blocking)
+- **Task 3 status:** Passed via Plan 11-07 Task 6 on 2026-05-07
 - **Tasks committed atomically:** 2 (Task 1, Task 2)
 - **Files created:** 1 (pocs/capsule/namespace.yaml)
 - **Files modified:** 4 (pocs/capsule/kustomization.yaml, clusters/hub-flux/pocs/capsule.yaml, pocs/capsule/proxy/helmrelease.yaml, tests/bats/push-gate-01-static-rbac-postbuild.bats)
@@ -90,7 +90,7 @@ Each task was committed atomically (worktree mode, --no-verify per parallel exec
 
 1. **Task 1: G-04 gap-close — capsule-system Namespace + D-11-01 patch relocation** — `21c05dd` (fix)
 2. **Task 2: push-gate-01 bats rewrite for postRenderers location** — `c6c7282` (test)
-3. **Task 3: Verify Flux reconciliation after push** — pending-human-verify (checkpoint:human-verify, gate=blocking)
+3. **Task 3: Verify Flux reconciliation after push** — passed via Plan 11-07 Task 6 evidence capture
 
 **Plan metadata commit:** to be created after this SUMMARY is written (worktree commits SUMMARY.md only; STATE.md and ROADMAP.md updated by orchestrator)
 
@@ -106,7 +106,7 @@ Each task was committed atomically (worktree mode, --no-verify per parallel exec
 
 - **Patch relocation strategy:** Move D-11-01 from outer Kustomization to HelmRelease postRenderers verbatim — the JSON-patch target spec (kind/name/namespace + op/path/value/verbs) is unchanged; only the wrapper changes. This minimizes review surface and keeps the patch semantics identical.
 - **Comment block authorship:** Plan-mandated comment text was used verbatim except where it created a verify-block conflict (see Deviations). All G-04-relocation comments cross-reference 2026-05-06 (the gap-close date) so future readers can grep the relocation event.
-- **Task 3 deferral:** Worktree agent does NOT run Task 3 — push to origin/main + 2-3 min Flux reconcile + 6 live cluster checks are outside the worktree's scope. Disposition is `pending-human-verify` until the operator runs the verification.
+- **Task 3 closure:** Plan 11-07 Task 6 ran the post-push Flux/Helm verification, captured G-06 diagnostics, confirmed the impersonation/RBAC root cause, and closed this plan's verification gate as `passed`.
 
 ## Deviations from Plan
 
@@ -137,7 +137,7 @@ Each task was committed atomically (worktree mode, --no-verify per parallel exec
 
 ## Issues Encountered
 
-- None during static landing. Empirical Flux reconcile is gated on Task 3 human-verify checkpoint and is outside the worktree's execution scope.
+- Static landing completed cleanly. Live verification later exposed the separate G-06 helm-controller impersonation failure, then a capsule-proxy namespace patch admission failure; both were fixed and verified in Plan 11-07 before this Task 3 gate was closed.
 
 ## TDD Gate Compliance
 
@@ -175,24 +175,53 @@ Verified at SUMMARY landing time (worktree mode, before metadata commit):
 ## Next Phase Readiness
 
 - **Plan 11-06 Tasks 1+2:** COMPLETE (static landings committed atomically as `21c05dd` + `c6c7282`)
-- **Plan 11-06 Task 3:** PENDING-HUMAN-VERIFY (checkpoint:human-verify, gate=blocking — operator runs the 6 verification checks against live clusters after pushing the worktree merge)
-- **Phase 12 capsule-addon-fluxcd Trial readiness:** Once Task 3 is approved, the Phase 8 G-04 BLOCKER carryover is empirically closed and Phase 12 can proceed with confidence that the hub-only-Flux + spoke-rendered-chart pattern under ADR-004 is operational on the v0.19 lab. If Task 3 fails the verification, Plan 11-07 (or a Plan 11-06 follow-up) will be needed to address the residual failure mode.
+- **Plan 11-06 Task 3:** PASSED via Plan 11-07 Task 6 live verification on 2026-05-07
+- **Phase 12 capsule-addon-fluxcd Trial readiness:** The Phase 8 G-04 BLOCKER carryover is empirically closed. The hub-only-Flux + spoke-rendered-chart pattern under ADR-004 is operational on the v0.19 lab for Capsule install/proxy/tenant-control-plane resources.
 
-## Awaiting (Task 3 Resume Signal)
+## Task 3 Verification Evidence (Plan 11-07 closure)
 
-Operator must:
-1. Push the worktree-merged commits (Task 1 + Task 2) to origin/main
-2. Wait 2-3 minutes for Flux reconcile against k3d-hub-flux + k3d-spoke-capsule
-3. Run the 6 live verification checks documented in plan 11-06 Task 3 `<how-to-verify>`:
-   - `flux get kustomization poc-capsule --context=k3d-hub-flux` shows Ready=True
-   - `flux get kustomization poc-capsule-spoke --context=k3d-hub-flux` shows Ready=True
-   - `flux get helmrelease -n capsule-system --context=k3d-hub-flux` shows both `capsule` and `capsule-proxy` Ready=True
-   - `kubectl --context=k3d-spoke-capsule get pods -n capsule-system` shows capsule-proxy pod Running
-   - `kubectl --context=k3d-spoke-capsule -n capsule-system get role capsule-proxy:capsule-proxy -o json | jq -e '.rules[] | select(.resources | contains(["secrets"])) | select(.verbs | contains(["create"]))'` returns the secrets rule
-   - `curl -sk https://127.0.0.1:30443/healthz` returns 200
-4. Respond "approved" if all 6 checks pass, OR describe which checks failed and with what output
+Verified on 2026-05-07 after Plan 11-07 and the G-06 follow-up fixes were pushed and reconciled.
+
+```text
+$ flux get kustomizations -n flux-system --context=k3d-hub-flux | rg 'poc-capsule|NAME'
+NAME                     	REVISION          	SUSPENDED	READY	MESSAGE
+poc-capsule              	main@sha1:8415ab66	False    	True 	Applied revision: main@sha1:8415ab66
+poc-capsule-spoke        	main@sha1:8415ab66	False    	True 	Applied revision: main@sha1:8415ab66
+poc-capsule-spoke-rbac   	main@sha1:8415ab66	False    	True 	Applied revision: main@sha1:8415ab66
+poc-capsule-spoke-tenants	main@sha1:8415ab66	False    	True 	Applied revision: main@sha1:8415ab66
+
+$ flux get hr -n capsule-system --context=k3d-hub-flux
+NAME         	REVISION           	SUSPENDED	READY	MESSAGE
+capsule      	0.12.4+56638ab8bf45	False    	True 	Helm upgrade succeeded for release capsule-system/capsule.v2 with chart capsule@0.12.4+56638ab8bf45
+capsule-proxy	0.12.0+0b8c6ef4a744	False    	True 	Helm install succeeded for release capsule-system/capsule-proxy.v1 with chart capsule-proxy@0.12.0+0b8c6ef4a744
+
+$ kubectl --context=k3d-spoke-capsule -n capsule-system get role capsule-proxy:capsule-proxy -o json \
+  | jq -e '.rules[] | select(.resources | contains(["secrets"])) | select(.verbs | contains(["create"]))'
+{
+  "apiGroups": [
+    ""
+  ],
+  "resources": [
+    "secrets"
+  ],
+  "verbs": [
+    "get",
+    "create",
+    "update",
+    "patch"
+  ]
+}
+
+$ curl -sk -o /tmp/karyon-healthz.out -w '%{http_code}\n' https://127.0.0.1:30443/healthz
+200
+
+$ gh run list --workflow=ci.yml --limit=1 --json databaseId,headSha,status,conclusion,url
+[{"conclusion":"success","databaseId":25500973716,"headSha":"8415ab6655faba324ee1809fdb22b08380f42a38","status":"completed","url":"https://github.com/richard-iovanisci/karyon/actions/runs/25500973716"}]
+```
+
+The G-06 root-cause evidence is recorded in `11-07-G06-DIAGNOSTICS.md`.
 
 ---
 *Phase: 11-validation-graduation-adr-008*
 *Plan: 06*
-*Completed (Tasks 1+2): 2026-05-06 — Task 3 pending-human-verify*
+*Completed: 2026-05-07 — Task 3 passed via Plan 11-07 Task 6*
