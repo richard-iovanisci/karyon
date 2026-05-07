@@ -6,13 +6,11 @@
 # The tenant's auto-created child namespaces use prefix <tenant-name>- (e.g. alpha-app1)
 # enforced by spec.forceTenantPrefix in the Tenant CR.
 #
-# D-11-03 (Phase 11) -- capsule.clastix.io/tenant=alpha label inline. Trust that the
-# cluster-admin Flux apply path bypasses Capsule's webhook prefix-violation check
-# (Pitfall 11-P2: empirical verification at Plan 11-04 first-push event; if rejected,
-# escalate to operator-runbook --as=alpha fallback).
+# D-11-07 live repair -- this bootstrap namespace is intentionally unlabelled.
+# The tenant claim label lands later from pocs/capsule/spoke/tenant-claims/alpha/
+# through tenant-alpha-home, which impersonates the Tenant owner SA. Capsule rejects
+# tenant assignment by the non-owner flux-reconciler bootstrap identity.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: tenant-alpha
-  labels:
-    capsule.clastix.io/tenant: alpha

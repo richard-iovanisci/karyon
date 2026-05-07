@@ -1,0 +1,6 @@
+# pocs/capsule/spoke/tenant-claims/alpha/kustomization.yaml
+# Applied by tenant-alpha-home as system:serviceaccount:tenant-alpha:gitops-reconciler.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml

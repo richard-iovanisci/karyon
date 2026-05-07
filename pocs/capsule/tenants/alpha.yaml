@@ -35,30 +35,39 @@ spec:
   ref:
     branch: main
 ---
+# D-11-07 live repair — per-tenant home namespace claim. This K runs as
+# system:serviceaccount:tenant-alpha:gitops-reconciler on spoke-capsule, so
+# Capsule accepts the tenant-alpha Namespace label assignment as a Tenant-owner
+# operation. The bootstrap poc-capsule-spoke K creates the unlabelled Namespace
+# and owner SA first.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tenant-alpha-home
+  namespace: tenant-alpha
+spec:
+  interval: 5m
+  path: ./pocs/capsule/spoke/tenant-claims/alpha
+  prune: true
+  wait: true
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: tenant-alpha-source
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  serviceAccountName: gitops-reconciler
+  dependsOn:
+    - name: poc-capsule-spoke
+      namespace: flux-system
+---
 # TEN-04 — per-tenant inner Kustomization. CARRIES THE LOAD-BEARING P27 DEFENSE.
 #
 # P27 LOAD-BEARING DEFENSE — every tenant Flux Kustomization MUST set
-# spec.serviceAccountName explicitly. Per Flux v2.8 kustomize-controller v1 API
-# (api/v1/kustomization_types.go KubeConfig field comment): when spec.kubeConfig
-# is set AND spec.serviceAccountName is empty, kustomize-controller falls through
-# to the --default-service-account flag's value (default=`default`). For cross-
-# cluster reconciles, this means impersonating system:serviceaccount:<ns>:default
-# on the target cluster — a no-permission SA that fails closed BUT only if the
-# kubeConfig Secret's principal isn't already cluster-admin. With karyon's
-# spoke-capsule-kubeconfig (Phase 7 Pattern 3 — embedded cluster-admin token),
-# if BOTH serviceAccountName is empty AND the kubeConfig principal is used,
-# kustomize-controller applies as cluster-admin on spoke, bypassing Capsule's
-# webhooks (which deliberately exempt cluster-admin / kube-system identities).
-# Hence: explicit serviceAccountName is the primary structural defense; the
-# --default-service-account flag is belt-and-suspenders.
-#
-# spec.kubeConfig.secretRef.key: "value.yaml" — P40/P18 inheritance (silent-misroute
-# defense from Phase 7; mirrored from spoke-{apps,ml} pattern).
-#
-# spec.dependsOn: [{name: poc-capsule, namespace: flux-system}] — TEN-06 P32:
-# blocks until Capsule operator HelmRelease is Ready=True (CRDs registered).
-#
-# spec.wait: true is TOP-LEVEL per RESEARCH Gap 9 correction (NOT inside dependsOn entry).
+# spec.serviceAccountName explicitly so cross-cluster reconciles impersonate the
+# tenant owner SA instead of falling through to the kubeConfig principal.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -82,5 +91,4 @@ spec:
       key: value.yaml
   serviceAccountName: gitops-reconciler  # P27 LOAD-BEARING DEFENSE
   dependsOn:
-    - name: poc-capsule
-      namespace: flux-system
+    - name: tenant-alpha-home
