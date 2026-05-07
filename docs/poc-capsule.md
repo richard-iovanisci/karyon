@@ -159,7 +159,7 @@ KUBECONFIG=/tmp/alpha.kubeconfig kubectl get namespaces
 # tenant-alpha
 ```
 
-### Contract
+### Tenant kubeconfig contract
 
 | Property | Value |
 |---|---|
@@ -205,7 +205,7 @@ kubectl --context=k3d-spoke-capsule \
   get tenants.capsule.clastix.io
 ```
 
-### Contract
+### Platform owner contract
 
 | Capability | Granted |
 |---|---|
