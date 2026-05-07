@@ -19,6 +19,16 @@ paths = [
   # 2026-05-05 via `grep -l 'kind: Config' .planning/phases/{07,10}-*/*.md`). NEW phases
   # that quote fixtures MUST add a new path entry (intentional friction; prevents
   # broad-allowlist class of leak).
+  # G-06 (Plan 11-07; 2026-05-06; codex review §2 MEDIUM #8) -- tests/bats/proxy-06-
+  # live-fixture.bats added below as a 9th entry; the file's @test 3 deliberately uses
+  # a kubeconfig-shaped heredoc IN BATS_TEST_TMPDIR (never written in-repo) to verify
+  # gitleaks fires on the unallowlisted shape. The fixture file ITSELF (its source code)
+  # carries the heredoc literal, which gitleaks --no-git --source detects when scanning
+  # the bats source directly. Path-specific allow keeps the leak-defense @test 3 GREEN
+  # while letting the fixture source live in the repo. Codex review §2 MEDIUM #8 also
+  # required that we re-run `bats tests/bats/proxy-06-live-fixture.bats` AFTER the
+  # allowlist change to prove the temp fixture still triggers gitleaks; the verify block
+  # of this task does that.
   # Anti-regression sentinel (push-gate-05 @test 2): the broad regex literal must NOT
   # appear anywhere in this file -- the bats check uses `grep -F` which would match
   # the literal in a comment as much as in a paths entry.
@@ -29,6 +39,7 @@ paths = [
   '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',                 # D-11-04-revised
   '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',                  # D-11-04-revised
   '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',                # D-11-04-revised
+  '''^tests/bats/proxy-06-live-fixture\.bats$''',                                                                # G-06 (Plan 11-07): synthetic kubeconfig fixture (Phase 10 PROXY-03 falsifier; commit d9734486 inheritance)
 ]
 # Add per-finding entries during the one-shot scan if needed.
 # Format: regexes = [ '''<exact-literal>''' ]
