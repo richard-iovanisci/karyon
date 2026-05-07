@@ -50,6 +50,9 @@ setup() {
   run yq eval '.metadata.name' "$SPOKE_NS"
   [ "$status" -eq 0 ]
   [ "$output" = "capsule-system" ]
+  run yq eval '.metadata.annotations."kustomize.toolkit.fluxcd.io/ssa"' "$SPOKE_NS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "IfNotPresent" ]
 }
 
 @test "G-06: spoke rbac/helm-controller-sa.yaml provisions ServiceAccount + ClusterRoleBinding (cluster-admin)" {

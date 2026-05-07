@@ -12,14 +12,20 @@
 #
 # Ordering: This Namespace is listed FIRST in pocs/capsule/spoke/rbac/kustomization.yaml
 # resources list, so the namespace lands BEFORE helm-controller-sa.yaml within the same
-# kustomize-build output. Defense in depth: the entire rbac/ subdir lands as a separate
-# Flux Kustomization (clusters/hub-flux/pocs/capsule-spoke-rbac.yaml) with NO dependsOn
-# on poc-capsule, ensuring this Namespace + the helm-controller SA reach spoke BEFORE
-# the HelmReleases are picked up by helm-controller. (codex §2 MEDIUM #3 fix)
+# kustomize-build output on a clean spoke. The Flux SSA policy is intentionally
+# IfNotPresent: when capsule-system already exists, Flux must NOT patch it because the
+# Capsule namespaces webhook rejects non-tenant namespace patches. This preserves the
+# clean-spoke bootstrap guard without fighting Capsule-owned admission on existing
+# clusters. Defense in depth: the entire rbac/ subdir lands as a separate Flux
+# Kustomization (clusters/hub-flux/pocs/capsule-spoke-rbac.yaml) with NO dependsOn on
+# poc-capsule, ensuring this Namespace + the helm-controller SA reach spoke BEFORE the
+# HelmReleases are picked up by helm-controller. (codex §2 MEDIUM #3 fix)
 apiVersion: v1
 kind: Namespace
 metadata:
   name: capsule-system
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
   labels:
     karyon.io/managed-by: flux
     karyon.io/poc: capsule
