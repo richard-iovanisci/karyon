@@ -1,0 +1,18 @@
+# pocs/capsule/spoke/rbac/kustomization.yaml
+# Local Kustomize aggregator for the spoke-side rbac subdir. Resolved by parent
+# pocs/capsule/spoke/kustomization.yaml (Plan 11-07 G-06 fix adds rbac/ FIRST in
+# the resources list as defense in depth) AND by the new top-level Flux Kustomization
+# clusters/hub-flux/pocs/capsule-spoke-rbac.yaml which targets just this rbac/ subdir
+# with NO dependsOn on poc-capsule (codex §2 MEDIUM #3 fix -- deterministic ordering
+# at the Flux K layer, not just inside one K's apply).
+#
+# Ordering within this file: namespace.yaml MUST be first so the capsule-system Namespace
+# lands BEFORE the ServiceAccount that targets it (codex §2 HIGH #1 fix; without this,
+# a clean-spoke first-reconcile hits "namespace not found" before the SA can be created).
+#
+# G-06 gap-close (2026-05-06)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - helm-controller-sa.yaml

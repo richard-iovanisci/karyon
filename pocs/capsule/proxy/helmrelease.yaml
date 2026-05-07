@@ -26,6 +26,16 @@ spec:
   releaseName: capsule-proxy
   targetNamespace: capsule-system
   storageNamespace: capsule-system
+  # G-06 gap-close (2026-05-06): spec.serviceAccountName tells helm-controller
+  # which SA to impersonate ON the target cluster (spoke-capsule via spec.kubeConfig).
+  # Without this, helm-controller defaults to system:serviceaccount:capsule-system:default
+  # which has zero RBAC; flux reconcile times out with `context deadline exceeded`.
+  # Per RESEARCH.md line 971 (Flux Service Account Impersonation oneuptime article).
+  # The SA + cluster-admin CRB are provisioned on spoke by pocs/capsule/spoke/rbac/
+  # which lands FIRST via clusters/hub-flux/pocs/capsule-spoke-rbac.yaml (a separate
+  # top-level Flux Kustomization with NO dependsOn on poc-capsule, ensuring inter-K
+  # ordering -- see codex review §2 MEDIUM #3 closure).
+  serviceAccountName: helm-controller
   install:
     createNamespace: true
     remediation:

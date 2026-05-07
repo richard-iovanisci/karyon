@@ -18,10 +18,23 @@
 # K's reconcile drives the operator HR → CRD registration; wait: true blocks this K's apply
 # until poc-capsule reaches Ready=True.
 #
-# Phase 9 update (D-09-05): adds spec.serviceAccountName: kustomize-controller. Spoke-targeted
-# K with kubeConfig set is exempt from --default-service-account flag scope (RESEARCH §Gap 3),
-# but explicit-set is forward-compat for any future refactor that pushes this onto a non-cluster-
-# admin spoke kubeconfig.
+# Phase 9 update (D-09-05) [SUPERSEDED 2026-05-06 by Plan 11-07 codex review §2 HIGH #2]:
+# Original comment (preserved for git-blame archeology): "Spoke-targeted K with kubeConfig
+# set is exempt from --default-service-account flag scope (RESEARCH §Gap 3), but explicit-
+# set is forward-compat for any future refactor that pushes this onto a non-cluster-admin
+# spoke kubeconfig."
+#
+# Phase 11 correction (G-06 gap-close 2026-05-06; codex review §2 HIGH #2):
+# The original D-09-05 reasoning was wrong. With spec.kubeConfig + spec.serviceAccountName,
+# Flux's kustomize-controller IMPERSONATES the named SA on the TARGET cluster (here:
+# spoke-capsule). The original value was `kustomize-controller`, but POC spokes ONLY have
+# `flux-reconciler` SA + cluster-admin CRB (per scripts/register-poc-cluster.sh:50 and
+# scripts/register-spokes-for-flux.sh:33; see analog clusters/hub-flux/spokes/spoke-apps.yaml
+# line 29 which also uses flux-reconciler). The reason Phase 9 / 10 reconciles still
+# succeeded is unclear -- likely the kubeConfig bearer-token (flux-reconciler-token) carries
+# cluster-admin so Flux's controller-side fallback may have papered over the impersonation
+# failure, OR reconciles failed intermittently and were masked by Flux retries.
+# Either way, this is now corrected.
 #
 # REQ-CAPCLU-02 (key: value.yaml explicit — v0.18 P18 inheritance: silent-misroute fault is
 #   `spec.kubeConfig` ENTIRELY ABSENT, which would make kustomize-controller fall back to its
@@ -37,8 +50,9 @@ spec:
   interval: 5m
   path: ./pocs/capsule/spoke
   prune: true
-  serviceAccountName: kustomize-controller   # D-09-05 — explicit clarity (escape hatch forward-compat)
+  serviceAccountName: flux-reconciler
   dependsOn:
+    - name: poc-capsule-spoke-rbac   # G-06 gap-close (2026-05-06): inter-K ordering -- spoke rbac (NS + helm-controller SA) lands BEFORE any tenant or config CR (codex §2 MEDIUM #3 closure)
     - name: poc-capsule   # D-09-06 — P32 dependsOn chain (no namespace needed; same flux-system ns)
   wait: true                # D-09-06 / RESEARCH Gap 9 — TOP-LEVEL spec.wait, NOT inside dependsOn entry
   timeout: 10m

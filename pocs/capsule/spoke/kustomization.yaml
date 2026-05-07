@@ -7,8 +7,19 @@
 # is now obsolete. Spoke-targeted: parent capsule-spoke.yaml's spec.kubeConfig:
 # spoke-capsule-kubeconfig + spec.path: ./pocs/capsule/spoke routes these resources to
 # spoke-capsule via kustomize-controller's cross-cluster reconcile (D-08-12 split-path invariant).
+#
+# Phase 11 update (G-06 gap-close 2026-05-06; codex review §2 HIGH #1 + MEDIUM #3):
+# rbac/ subdir added FIRST so the capsule-system Namespace + helm-controller
+# ServiceAccount + cluster-admin ClusterRoleBinding land on spoke-capsule before
+# any tenant CR or HR install attempt within THIS K's apply.
+#
+# Defense-in-depth note: the same rbac/ subdir is ALSO referenced by a separate
+# top-level Flux Kustomization (clusters/hub-flux/pocs/capsule-spoke-rbac.yaml)
+# which has NO dependsOn on poc-capsule, ensuring inter-K ordering as well. The
+# in-K ordering here is belt-and-suspenders.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - rbac/
   - config/
   - tenants/

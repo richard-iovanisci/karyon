@@ -1,0 +1,49 @@
+# clusters/hub-flux/pocs/capsule-spoke-rbac.yaml
+# Phase 11 Plan 07 G-06 gap-close (2026-05-06; codex review §2 MEDIUM #3) -- separate
+# spoke-targeted Flux Kustomization for the spoke-side rbac/ subdir bootstrap.
+#
+# Why a separate K (not just rbac/ inside pocs/capsule/spoke/kustomization.yaml):
+# That intra-K ordering only governs apply order INSIDE poc-capsule-spoke. The
+# HelmReleases come from the SEPARATE poc-capsule (hub-targeted) Kustomization and
+# helm-controller can pick them up BEFORE poc-capsule-spoke has applied rbac. Splitting
+# rbac into its own outer K with NO dependsOn on poc-capsule makes ordering deterministic
+# at the Flux K layer:
+#   1. poc-capsule-spoke-rbac reconciles first (no dependsOn -> ready immediately);
+#      provisions capsule-system Namespace + helm-controller SA + cluster-admin CRB on spoke
+#   2. poc-capsule reconciles its HR/OCIRepo CRs to hub (no dependsOn on rbac because the
+#      CRs themselves don't need spoke rbac to APPLY to hub -- only the helm-controller's
+#      spoke-side ACTION needs it, which happens AFTER the CR is on hub)
+#   3. helm-controller picks up the HRs and impersonates `helm-controller` SA on spoke.
+#      The SA exists (provisioned by step 1), so impersonation succeeds.
+#   4. poc-capsule-spoke (tenant CRs + config) dependsOn poc-capsule-spoke-rbac AND poc-capsule;
+#      both must be Ready=True before tenant CRs land.
+#
+# spec.serviceAccountName: flux-reconciler -- corrects codex §2 HIGH #2: POC spokes only
+# have flux-reconciler SA (per scripts/register-poc-cluster.sh:50). Using that name makes
+# Flux's kustomize-controller impersonation valid on the target cluster.
+#
+# spec.path: ./pocs/capsule/spoke/rbac -- narrowly scopes this K to the rbac/ subdir only;
+# pocs/capsule/spoke/kustomization.yaml's broader [rbac/, config/, tenants/] still applies
+# to poc-capsule-spoke (which dependsOn this rbac K) but is itself a defense-in-depth pass.
+#
+# REQ-CAPCLU-02 (key: value.yaml explicit -- v0.18 P18 inheritance per Phase 7 P18 silent-
+# misroute defense; same shape as capsule-spoke.yaml).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-capsule-spoke-rbac
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/capsule/spoke/rbac
+  prune: true
+  serviceAccountName: flux-reconciler   # codex §2 HIGH #2: matches register-poc-cluster.sh:50
+  wait: true
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml

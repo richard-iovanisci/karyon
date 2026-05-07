@@ -1,0 +1,25 @@
+# pocs/capsule/spoke/rbac/namespace.yaml
+# Phase 11 Plan 07 G-06 gap-close (2026-05-06; codex review §2 HIGH #1) -- spoke-side
+# capsule-system Namespace.
+#
+# Background: Plan 11-06 created pocs/capsule/namespace.yaml on the HUB-targeted path
+# (so kustomize-controller has a namespace before HR/OCIRepo CRs are applied on hub).
+# But the SPOKE-targeted path (pocs/capsule/spoke/) had NO capsule-system Namespace
+# resource. On a clean spoke, the rbac Kustomization would fail with "namespace not
+# found" before the helm-controller ServiceAccount could be created -- and helm-controller
+# (running on hub-flux) needs that SA to exist on spoke for spec.serviceAccountName
+# impersonation to succeed.
+#
+# Ordering: This Namespace is listed FIRST in pocs/capsule/spoke/rbac/kustomization.yaml
+# resources list, so the namespace lands BEFORE helm-controller-sa.yaml within the same
+# kustomize-build output. Defense in depth: the entire rbac/ subdir lands as a separate
+# Flux Kustomization (clusters/hub-flux/pocs/capsule-spoke-rbac.yaml) with NO dependsOn
+# on poc-capsule, ensuring this Namespace + the helm-controller SA reach spoke BEFORE
+# the HelmReleases are picked up by helm-controller. (codex §2 MEDIUM #3 fix)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capsule-system
+  labels:
+    karyon.io/managed-by: flux
+    karyon.io/poc: capsule
