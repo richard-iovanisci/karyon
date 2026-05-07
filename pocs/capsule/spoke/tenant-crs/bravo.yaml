@@ -17,8 +17,10 @@ kind: Tenant
 metadata:
   name: bravo
 spec:
-  # TEN-01 — namespace prefix enforcement (TOP-LEVEL field per v0.12.4 schema)
-  forceTenantPrefix: true
+  # D-11-07 live repair — false preserves the established tenant-bravo home
+  # namespace. With true, Capsule expects bravo-tenant-bravo and rejects the
+  # Phase 9 tenant-<name> namespace contract.
+  forceTenantPrefix: false
   # TEN-01 — multi-owner array
   owners:
     # Bootstrap Flux path (D-11-07): poc-capsule-spoke applies tenant-bravo

@@ -46,11 +46,11 @@ setup() {
   [ "$pod_count" -eq 0 ]
 }
 
-@test "Phase 9 TEN-01 inheritance: Tenant CRs alpha + bravo report forceTenantPrefix=true" {
+@test "Phase 9 TEN-01 inheritance: Tenant CRs alpha + bravo report forceTenantPrefix=false" {
   ftp_alpha=$(kubectl --context=k3d-spoke-capsule get tenant alpha -o jsonpath='{.spec.forceTenantPrefix}' 2>/dev/null || true)
   ftp_bravo=$(kubectl --context=k3d-spoke-capsule get tenant bravo -o jsonpath='{.spec.forceTenantPrefix}' 2>/dev/null || true)
-  [ "$ftp_alpha" = "true" ]
-  [ "$ftp_bravo" = "true" ]
+  [ "$ftp_alpha" = "false" ]
+  [ "$ftp_bravo" = "false" ]
 }
 
 @test "Phase 9 D-09-02 inheritance: gitops-reconciler SA exists in tenant-{alpha,bravo} namespaces" {

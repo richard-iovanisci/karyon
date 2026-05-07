@@ -6,7 +6,7 @@
 #
 # Verifies (per RESEARCH §Gap 4 corrections to CONTEXT.md):
 #   - apiVersion: capsule.clastix.io/v1beta2 + kind: Tenant + name alpha|bravo
-#   - spec.forceTenantPrefix: true (TOP-LEVEL — NOT spec.namespaceOptions.forceTenantPrefix)
+#   - spec.forceTenantPrefix: false (TOP-LEVEL — NOT spec.namespaceOptions.forceTenantPrefix)
 #   - spec.owners[] contains kind: ServiceAccount with combined-name format
 #     name: system:serviceaccount:tenant-<name>:gitops-reconciler
 #     (spec.owners[].namespace does NOT exist in v1beta2 schema — RESEARCH §Gap 4 #2)
@@ -23,9 +23,9 @@ setup() {
 
 # ---- alpha ----
 
-@test "TEN-01 / D-09-02 (alpha): apiVersion v1beta2 + kind Tenant + name alpha + forceTenantPrefix TOP-LEVEL=true" {
+@test "TEN-01 / D-11-07 (alpha): apiVersion v1beta2 + kind Tenant + name alpha + forceTenantPrefix TOP-LEVEL=false" {
   [ -f "$ALPHA_TENANT" ]
-  run yq eval '.apiVersion == "capsule.clastix.io/v1beta2" and .kind == "Tenant" and .metadata.name == "alpha" and .spec.forceTenantPrefix == true' "$ALPHA_TENANT"
+  run yq eval '.apiVersion == "capsule.clastix.io/v1beta2" and .kind == "Tenant" and .metadata.name == "alpha" and .spec.forceTenantPrefix == false' "$ALPHA_TENANT"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
@@ -60,9 +60,9 @@ setup() {
 
 # ---- bravo ----
 
-@test "TEN-01 / D-09-02 (bravo): apiVersion v1beta2 + kind Tenant + name bravo + forceTenantPrefix TOP-LEVEL=true" {
+@test "TEN-01 / D-11-07 (bravo): apiVersion v1beta2 + kind Tenant + name bravo + forceTenantPrefix TOP-LEVEL=false" {
   [ -f "$BRAVO_TENANT" ]
-  run yq eval '.apiVersion == "capsule.clastix.io/v1beta2" and .kind == "Tenant" and .metadata.name == "bravo" and .spec.forceTenantPrefix == true' "$BRAVO_TENANT"
+  run yq eval '.apiVersion == "capsule.clastix.io/v1beta2" and .kind == "Tenant" and .metadata.name == "bravo" and .spec.forceTenantPrefix == false' "$BRAVO_TENANT"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

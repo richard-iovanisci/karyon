@@ -5,8 +5,8 @@
 # Plans 09-01..09-03 land the yaml that turns these GREEN.
 #
 # Verifies (per RESEARCH §Gap 4 correction — forceTenantPrefix is TOP-LEVEL):
-#   - kubectl get tenant alpha reports spec.forceTenantPrefix=true (3×30s retry)
-#   - kubectl get tenant bravo reports spec.forceTenantPrefix=true (3×30s retry)
+#   - kubectl get tenant alpha reports spec.forceTenantPrefix=false (3×30s retry)
+#   - kubectl get tenant bravo reports spec.forceTenantPrefix=false (3×30s retry)
 #   - tenant-{alpha,bravo} namespace exists on spoke-capsule
 #   - gitops-reconciler ServiceAccount exists in tenant-{alpha,bravo} namespace
 #
@@ -23,11 +23,11 @@ setup() {
 
 # ---- alpha ----
 
-@test "TEN-01 / RESEARCH Gap 4 (alpha): kubectl get tenant alpha reports forceTenantPrefix=true (TOP-LEVEL, 3×30s retry)" {
+@test "TEN-01 / D-11-07 (alpha): kubectl get tenant alpha reports forceTenantPrefix=false (TOP-LEVEL, 3×30s retry)" {
   local i ftp
   for i in 1 2 3; do
     ftp=$(kubectl --context=k3d-spoke-capsule get tenant alpha -o jsonpath='{.spec.forceTenantPrefix}' 2>/dev/null || true)
-    [[ "$ftp" == "true" ]] && return 0
+    [[ "$ftp" == "false" ]] && return 0
     [[ $i -lt 3 ]] && sleep 30
   done
   echo "Last observed forceTenantPrefix: '$ftp'"
@@ -46,11 +46,11 @@ setup() {
 
 # ---- bravo ----
 
-@test "TEN-01 / RESEARCH Gap 4 (bravo): kubectl get tenant bravo reports forceTenantPrefix=true (TOP-LEVEL, 3×30s retry)" {
+@test "TEN-01 / D-11-07 (bravo): kubectl get tenant bravo reports forceTenantPrefix=false (TOP-LEVEL, 3×30s retry)" {
   local i ftp
   for i in 1 2 3; do
     ftp=$(kubectl --context=k3d-spoke-capsule get tenant bravo -o jsonpath='{.spec.forceTenantPrefix}' 2>/dev/null || true)
-    [[ "$ftp" == "true" ]] && return 0
+    [[ "$ftp" == "false" ]] && return 0
     [[ $i -lt 3 ]] && sleep 30
   done
   echo "Last observed forceTenantPrefix: '$ftp'"
