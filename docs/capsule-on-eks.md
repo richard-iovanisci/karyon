@@ -140,7 +140,7 @@ metadata:
 
 ### Verbatim YAML #2 — capsule-proxy Service (NLB) and Ingress (ALB)
 
-**Option A: NLB-fronted Service**
+#### Option A: NLB-fronted Service
 
 ```yaml
 apiVersion: v1
@@ -163,7 +163,9 @@ spec:
     app.kubernetes.io/name: capsule-proxy
 ```
 
-**Option B: ALB Ingress** (requires AWS Load Balancer Controller installed in-cluster — narrative-only callout)
+#### Option B: ALB Ingress
+
+Requires AWS Load Balancer Controller installed in-cluster -- narrative-only callout.
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -232,20 +234,20 @@ The four blockquotes below capture targeted revisions informed by the Phase 11 b
 > empirically). EKS translation requires cert-manager (controller-managed) or AWS
 > Certificate Manager (ALB-side termination); the controller-less certgen Job pattern
 > doesn't translate cleanly to EKS without operational state-tracking.
-
+>
 > **Phase 11 evidence (ADR-008 cross-reference) -- IRSA:** The POC's TokenRequest pattern
 > translates cleanly to IRSA on EKS (both are short-lived bearer tokens via apiserver-side
 > lifecycle). The `--service-account-max-token-expiration` clamp behavior differs across
 > distros: k3s does NOT clamp (Phase 10 D-10-02 verified live up to 720h); EKS clamps at
 > 24h default. Production translation must adapt the duration logic.
-
+>
 > **Phase 11 evidence (ADR-008 cross-reference) -- Proxy LIST scope:** Negative RBAC bats
 > N1-N9 empirically verified the proxy-edge LIST filter scope:
 > - capsule-proxy filters: namespace LIST (verified by N1, N2, N3 with cross-tenant kubeconfigs).
 > - Cluster-scoped resources (ClusterRole, ClusterRoleBinding, nodes) are filtered by
 >   upstream RBAC NOT proxy (verified by N4 -- ClusterRoleBinding escalation denied at
 >   apiserver auth, not at proxy edge).
-
+>
 > **Phase 11 evidence (ADR-008 cross-reference) -- Push-gate translation (EKS analogues
 > for v0.19 push-gate fixes):**
 > - **Flux PostBuild patch (D-11-01)** maps to Argo CD's post-render kustomization patches

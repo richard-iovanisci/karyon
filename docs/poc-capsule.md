@@ -28,7 +28,7 @@ After a Docker daemon restart or a WSL2 resume, k3d clusters can carry stale Cor
 
 ### Quickstart
 
-```
+```bash
 task fix-dns-poc-capsule
 ```
 
@@ -60,7 +60,7 @@ Total runtime: ~30-90 seconds depending on Docker resource pressure.
 
 After the task completes:
 
-```
+```bash
 kubectl --context k3d-spoke-capsule get nodes
 ```
 
@@ -81,7 +81,7 @@ You should see one node `k3d-spoke-capsule-server-0` with `Ready` status.
 
 If `k3d cluster stop spoke-capsule` reports a failure, the cluster may already be down. Check:
 
-```
+```bash
 k3d cluster list
 docker ps --filter name=k3d-spoke-capsule
 ```
@@ -92,7 +92,7 @@ If no `k3d-spoke-capsule-*` containers are running, the cluster is already stopp
 
 Most often a Docker resource pressure issue (low memory or pre-pull pause). Check:
 
-```
+```bash
 docker stats --no-stream
 ```
 
@@ -102,13 +102,13 @@ Free up memory if WSL is under pressure. Re-run `task fix-dns-poc-capsule`.
 
 Verify the spoke's apiserver is reachable on the host-published port:
 
-```
+```bash
 curl -k https://127.0.0.1:6446/readyz
 ```
 
 If this returns 200, the cluster is up but kubectl context may be stale. Re-fetch:
 
-```
+```bash
 k3d kubeconfig merge spoke-capsule --kubeconfig-merge-default
 ```
 
@@ -116,13 +116,13 @@ k3d kubeconfig merge spoke-capsule --kubeconfig-merge-default
 
 The `spoke-capsule-kubeconfig` Secret on hub-flux references the spoke's apiserver. After a stop/start, the apiserver IP within the `k8s-net` bridge generally stays stable, but if hub-flux's outer `poc-capsule` Kustomization reports `Ready=False` with a connection error, force a reconcile:
 
-```
+```bash
 flux reconcile kustomization poc-capsule -n flux-system --with-source
 ```
 
 If errors persist, re-register:
 
-```
+```bash
 bash scripts/register-poc-cluster.sh spoke-capsule
 ```
 
@@ -150,9 +150,9 @@ Future POCs adding more reserved ports should extend `scripts/preflight.sh` `che
 The `scripts/poc/capsule/issue-tenant-kubeconfig.sh` script mints a short-lived,
 tenant-owner kubeconfig that routes through capsule-proxy on NodePort 30443.
 
-### Quickstart
+### Tenant kubeconfig quickstart
 
-```
+```bash
 bash scripts/poc/capsule/issue-tenant-kubeconfig.sh alpha gitops-reconciler 2>/dev/null > /tmp/alpha.kubeconfig
 KUBECONFIG=/tmp/alpha.kubeconfig kubectl get namespaces
 # alpha-app1

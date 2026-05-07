@@ -197,19 +197,19 @@ invocation without running it.
 
 Architectural decisions are recorded in [`docs/adr/`](docs/adr/):
 
-- **Single-WSL2 + shared Docker network** — [`adr/0001-single-wsl2-shared-docker-network.md`](docs/adr/0001-single-wsl2-shared-docker-network.md)
-- **k3d over Kind** — [`adr/0002-k3d-over-kind.md`](docs/adr/0002-k3d-over-kind.md)
-- **Flux over ArgoCD (with ApplicationSet trade-off)** — [`adr/0003-flux-over-argocd.md`](docs/adr/0003-flux-over-argocd.md)
-- **Hub-only Flux control plane** — [`adr/0004-hub-only-flux-control-plane.md`](docs/adr/0004-hub-only-flux-control-plane.md)
-- **k3s `v1.34.6-k3s1` + CUDA 12.8+ pins** — [`adr/0005-kubernetes-version-pin.md`](docs/adr/0005-kubernetes-version-pin.md)
++ **Single-WSL2 + shared Docker network** — [`adr/0001-single-wsl2-shared-docker-network.md`](docs/adr/0001-single-wsl2-shared-docker-network.md)
++ **k3d over Kind** — [`adr/0002-k3d-over-kind.md`](docs/adr/0002-k3d-over-kind.md)
++ **Flux over ArgoCD (with ApplicationSet trade-off)** — [`adr/0003-flux-over-argocd.md`](docs/adr/0003-flux-over-argocd.md)
++ **Hub-only Flux control plane** — [`adr/0004-hub-only-flux-control-plane.md`](docs/adr/0004-hub-only-flux-control-plane.md)
++ **k3s `v1.34.6-k3s1` + CUDA 12.8+ pins** — [`adr/0005-kubernetes-version-pin.md`](docs/adr/0005-kubernetes-version-pin.md)
 
 For deeper reference:
 
-- Topology diagram: [`docs/architecture.md`](docs/architecture.md)
-- 3-part k3d GPU contract + Blackwell floor: [`docs/gpu-notes.md`](docs/gpu-notes.md)
-- Flux patch-surface contract: [`docs/flux-hub-spoke.md`](docs/flux-hub-spoke.md)
-- WSL2 networking modes (mirrored vs NAT): [`docs/wsl-networking.md`](docs/wsl-networking.md)
-- Rebuild procedure + timings + failure-mode appendix: [`docs/rebuild-runbook.md`](docs/rebuild-runbook.md)
++ Topology diagram: [`docs/architecture.md`](docs/architecture.md)
++ 3-part k3d GPU contract + Blackwell floor: [`docs/gpu-notes.md`](docs/gpu-notes.md)
++ Flux patch-surface contract: [`docs/flux-hub-spoke.md`](docs/flux-hub-spoke.md)
++ WSL2 networking modes (mirrored vs NAT): [`docs/wsl-networking.md`](docs/wsl-networking.md)
++ Rebuild procedure + timings + failure-mode appendix: [`docs/rebuild-runbook.md`](docs/rebuild-runbook.md)
 
 ***
 
@@ -242,16 +242,16 @@ After CI runs green at least once on `main`, configure branch protection:
 
 ## Project Surface
 
-- `scripts/` — bash automation (idempotent, fail-fast, source `lib/preflight-lib.sh` for shared helpers)
-- `images/` — `Dockerfile.k3s-cuda` + `config.toml.tmpl` + the `nvidia-device-plugin` manifest
-- `clusters/hub-flux/` — Flux bootstrap manifests + spoke `Kustomization` resources
-- `clusters/spoke-{ml,apps}/` — per-spoke Kustomize trees (namespace, configmap, etc.)
-- `examples/` — workload manifests reconciled into spokes (podinfo, gpu-smoke-test)
-- `docs/` — reference docs (this README + the files cross-linked above) and ADRs
-- `tests/bats/` — bats-core static and live tests; live tests gated by `KARYON_LIVE_TESTS=1`
-- `Taskfile.yml` — the single orchestration surface; runs scripts, never inline logic
-- `hooks/` — git hooks (currently `pre-commit` for gitleaks; wired via `core.hooksPath`)
-- `.planning/` — the GSD v1 planning state (intentionally tracked; NOT a build artifact)
++ `scripts/` — bash automation (idempotent, fail-fast, source `lib/preflight-lib.sh` for shared helpers)
++ `images/` — `Dockerfile.k3s-cuda` + `config.toml.tmpl` + the `nvidia-device-plugin` manifest
++ `clusters/hub-flux/` — Flux bootstrap manifests + spoke `Kustomization` resources
++ `clusters/spoke-{ml,apps}/` — per-spoke Kustomize trees (namespace, configmap, etc.)
++ `examples/` — workload manifests reconciled into spokes (podinfo, gpu-smoke-test)
++ `docs/` — reference docs (this README + the files cross-linked above) and ADRs
++ `tests/bats/` — bats-core static and live tests; live tests gated by `KARYON_LIVE_TESTS=1`
++ `Taskfile.yml` — the single orchestration surface; runs scripts, never inline logic
++ `hooks/` — git hooks (currently `pre-commit` for gitleaks; wired via `core.hooksPath`)
++ `.planning/` — the GSD v1 planning state (intentionally tracked; NOT a build artifact)
 
 ***
 

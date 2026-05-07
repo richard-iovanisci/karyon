@@ -165,8 +165,8 @@ Per `.planning/phases/11-validation-graduation-adr-008/11-VERIFICATION.md`:
   Plan 11-05 carryover recommendation, gated on G-04 resolution.
 - **CapsuleConfiguration userGroups list (D-11-02)** is opinionated -- chart
   default is `[capsule.clastix.io]` only; karyon adds `system:serviceaccounts`
-  + `system:authenticated` to make capsule-proxy LIST recognize SA-token-authenticated
-  identities as Capsule-owned.
+  and `system:authenticated` to make capsule-proxy LIST recognize
+  SA-token-authenticated identities as Capsule-owned.
 - **PVC strand auto force-delete after 60s (D-11-11)** is acceptable for POC
   iteration -- production teardown would need a `--preserve-data` flag.
 - **Pitfall 11-P2 (cluster-admin webhook bypass)** -- `pocs/capsule/spoke/tenants/{alpha,bravo}/namespace.yaml`
@@ -200,7 +200,7 @@ Per `.planning/phases/11-validation-graduation-adr-008/11-VERIFICATION.md`:
 
 **Outcome-conditional.** Karyon proceeds per the chosen graduation outcome.
 
-### If ADOPT (NOT SELECTED):
+### If ADOPT (NOT SELECTED)
 
 - v0.20 incorporates Capsule into the default `task rebuild` chain (P31 lifted; spoke-capsule
   promoted from POC to v1 spoke).
@@ -208,7 +208,7 @@ Per `.planning/phases/11-validation-graduation-adr-008/11-VERIFICATION.md`:
 - Phase 12 (capsule-addon-fluxcd v0.2.3 Trial) runs as adoption acceleration.
 - ADR-008 references in `docs/capsule-on-eks.md` (EKSDOC-01) become canonical translation guidance.
 
-### If DEFER (SELECTED):
+### If DEFER (SELECTED)
 
 - **v0.20 reruns Phase 11 with the capsule-addon-fluxcd pattern** (Phase 12 OPTIONAL gate
   state ∈ {adopt, defer} is met -- Phase 12 unlocked as a re-evaluation pass).
@@ -238,14 +238,14 @@ Per `.planning/phases/11-validation-graduation-adr-008/11-VERIFICATION.md`:
   translation guidance remains valid -- the DEFER outcome means the karyon POC is still the
   reference implementation, just with a documented re-evaluation pass scheduled for v0.20.
 
-### If REJECT (NOT SELECTED):
+### If REJECT (NOT SELECTED)
 
 - spoke-capsule torn down as part of v0.19 close (`task destroy-poc -- capsule --full`).
 - No v0.20 Capsule carryover; multi-tenancy strategy returns to the design phase.
 - Phase 12 is SKIPPED (gate condition not met).
 - `docs/capsule-on-eks.md` (EKSDOC-01) annotated as superseded.
 
-### If REPLACED BY ADR-009 (NOT SELECTED):
+### If REPLACED BY ADR-009 (NOT SELECTED)
 
 - ADR-009 is named with the replacement POC and the comparison evidence is preserved here
   for historical record.
