@@ -25,7 +25,7 @@
 
 **Goal:** Prove [Capsule](https://capsule.clastix.io/) as a Karyon-managed multi-tenancy pattern on a dedicated, isolated POC spoke (`spoke-capsule`) — without polluting the default v1 topology or `task rebuild` path. Close with an explicit graduation ADR-008 (adopt / defer / reject / another POC).
 
-**Phase numbering:** Continues from v0.18 (Phase 6 → Phase 7). Phase 12 is optional and gated on Phase 11 outcome.
+**Phase numbering:** Continues from v0.18 (Phase 6 → Phase 7). Phase 12 was originally scoped as an OPTIONAL gated `capsule-addon-fluxcd` trial; per `/gsd-plan-milestone-gaps` (2026-05-11), the addon trial is deferred to v0.20 and Phase 12 is repurposed as v0.19 close-out reconciliation (ADDON-01/02 moved to Future Requirements).
 
 **Load-bearing invariants every phase respects:**
 
@@ -41,7 +41,7 @@
 - [x] **Phase 9: Tenants + Flux Multi-Tenancy Lockdown** — Two Tenants with disjoint owners, hub Flux controllers patched with lockdown flags, P27 defense in tenant inner Kustomizations (completed 2026-04-30; 5/5 plans, 8/8 must-haves; verifier `09-VERIFICATION.md` reports `passed_with_overrides` — 4 live PASS + 4 D-08-13 push-gate-deferred to Phase 11 VAL-05; Plan 09-03 lockdown landed on **attempt 3** after two atomic rollbacks — Gap A spoke SA name corrected from `kustomize-controller` to `flux-reconciler` per `register-spokes-for-flux.sh:286`; attempt-1+2 archives preserved at `09-03-SUMMARY.attempt-{1,2}-rollback.md`; RESEARCH.md §Gap 3 + §Gap 11 carry CORRECTION + CORRECTION 2 cumulative falsification record; Plan 09-04 verifier added `--default-service-account=default` to helm-controller per RESEARCH §Gap 2 [Rule 2 deviation, defense-in-depth]; v0.18 task health-check exit 0 across 3 cluster states.)
 - [x] **Phase 10: Tenant Owner Kubeconfigs + Capsule-Proxy Round-trip** — Imperative kubeconfig minting routed via proxy (Plan 10-01 issue-tenant-kubeconfig.sh), tenant-scoped LIST verified live (Plan 10-02 render+apply staging — Pitfall 10-P6 mitigated; helm template + kubectl apply -f, NOT flux-suspend; spoke-capsule has no Flux CRDs per ADR-004), kubeconfig delivery contract documented (PROXY-03 H2 in docs/poc-capsule.md). Plan 10-00 RED bats scaffold (45 @tests) + Plan 10-01 script + doc + Plan 10-02 verifier. Disposition: `passed_with_overrides` (D-08-13 push-gate stays deferred to Phase 11 VAL-05). (completed 2026-05-05)
 - [x] **Phase 11: Validation + Graduation ADR-008** — Negative RBAC suite (N1-N12), webhook failure recovery, clean teardown, rebuild SLO regression gate, graduation ADR (completed 2026-05-06)
-- [x] **Phase 12 (OPTIONAL): capsule-addon-fluxcd Trial** — Trial upstream addon for tenant SA + kubeconfig automation; gated on Phase 11 outcome ∈ {adopt, defer} (completed 2026-05-06)
+- [ ] **Phase 12: v0.19 Close-out Reconciliation** — Gap closure phase created by `/gsd-plan-milestone-gaps` 2026-05-11. Reconcile REQUIREMENTS.md stale checkboxes (15 REQs), refresh ROADMAP Progress table, update STATE.md, supersede stale Phase 11 verification artifacts, close 4 Nyquist VALIDATION ledgers, resolve TEN-01 `forceTenantPrefix` spec deviation per D-11-07, archive Phase 7 carryover todo. (Replaces the original Phase 12 `capsule-addon-fluxcd` trial; addon trial deferred to v0.20.)
 
 ## Phase Details
 
@@ -134,15 +134,20 @@
 - [ ] 11-06-PLAN.md — G-04 gap closure: capsule-system Namespace on hub + D-11-01 PostBuild patch relocated from Kustomization spec.patches to HelmRelease spec.postRenderers (Pitfall 11-P1 fix) + push-gate-01 bats updated + Flux reconcile verification
 - [ ] 11-07-PLAN.md — G-06 + CI carryovers gap closure (REVISED 2026-05-06 per codex review §2): helm-controller SA on spoke (spec.serviceAccountName impersonation fix; closes flux reconcile context-deadline-exceeded) + spoke-side capsule-system Namespace (codex HIGH #1) + corrected poc-capsule-spoke target SA from kustomize-controller to flux-reconciler (codex HIGH #2) + new poc-capsule-spoke-rbac top-level Flux K with no dependsOn for deterministic ordering (codex MEDIUM #3) + G-06 root-cause diagnostics scaffold + markdownlint pre-existing 31 errors + gitleaks file-specific allowlist for proxy-06-live-fixture.bats + slo-regression-live KARYON_REBUILD_APPROVED export + Plan 11-06 Task 3 finalization
 
-### Phase 12: capsule-addon-fluxcd Trial (OPTIONAL — gated)
-**Goal**: Trial the upstream `capsule-addon-fluxcd v0.2.3` for tenant SA + kubeconfig automation as a comparison against the hand-managed Phase 9/10 approach, and record the comparison decision for v0.20+ adoption
-**Depends on**: Phase 11 (ADR-008 outcome ∈ {adopt, defer}; if ADR-008 is reject or replaced, this phase is SKIPPED)
-**Gate condition**: ADR-008 Status is Accepted with outcome ∈ {adopt, defer}
-**Requirements**: ADDON-01, ADDON-02
+### Phase 12: v0.19 Close-out Reconciliation
+**Goal**: Reconcile v0.19 milestone artifacts to match implementation reality at HEAD `8415ab66`. Update all stale documentation, close Nyquist ledgers, supersede pre-11-07-closeout Phase 11 verification artifacts, resolve the TEN-01 `forceTenantPrefix` spec deviation, and archive the stale Phase 7 carryover todo. Prepares v0.19 for clean archival via `/gsd-complete-milestone`.
+**Depends on**: Phase 11 (Plan 11-07 G-04 + G-06 closeout — must be the canonical post-fix state)
+**Gap closure**: Closes ALL `tech_debt` items from `.planning/v0.19-MILESTONE-AUDIT.md` (audited 2026-05-07; status `tech_debt`).
+**Requirements**: No new REQ-IDs (book-keeping phase). Closes the 15 stale `[ ]` checkboxes for POC-01..04, CAPCLU-01..04, EKSDOC-01, CAP-01..03, TEN-01..06 against the existing implementation.
 **Success Criteria** (what must be TRUE):
-  1. `capsule-addon-fluxcd:0.2.3` HelmRelease deployed to spoke-capsule via hub-flux; compatibility with Capsule v0.12.4 confirmed by smoke test (tenant SA created automatically; tenant kubeconfig Secret materialized in tenant namespace)
-  2. Comparison documented in ADR-008 supplement (or follow-up `docs/poc-capsule-addon.md`): hand-managed vs addon-managed across token rotation, kubeconfig refresh, complexity, and blast radius; decision recorded for v0.20+ adoption
-**Plans**: TBD
+  1. `.planning/REQUIREMENTS.md`: 15 stale `[ ]` checkboxes flipped to `[x]` for POC-01..04, CAPCLU-01..04, EKSDOC-01, CAP-01..03, TEN-01..06 against the audit's WIRED evidence. TEN-01 spec text amended to reflect `forceTenantPrefix: false` per Plan 11-07 D-11-07 live repair, OR an ADR-008 amendment records the deviation explicitly.
+  2. `.planning/ROADMAP.md` Progress table (lines 149-162) refreshed to match the Phase Summary checkboxes — no within-document contradiction. Phase 11 row reflects 8/8 Complete (2026-05-07). Phase 12 row reflects new close-out scope, not addon trial.
+  3. `.planning/STATE.md` `last_activity` updated past Plan 11-07 closeout; `current_phase` advances correctly post close-out.
+  4. `.planning/phases/11-validation-graduation-adr-008/11-VERIFICATION.md` and `11-PHASE-VERIFICATION.md` superseded by post-11-07 versions reflecting G-04 + G-06 CLOSED, all 4 outer Flux Ks Ready=True, both HelmReleases Ready=True, healthz HTTP 200. Stale gitleaks (proxy-06-live-fixture.bats:38) and markdownlint citations corrected or removed (live `gitleaks detect --no-git --config .gitleaks.toml` returns 0 leaks; live `markdownlint-cli2` returns 0 errors).
+  5. `.planning/todos/pending/2026-04-29-phase-7-hub-flux-observable-reconcile.md` resolved (auto-close target Phase 8 ran 2026-04-30 — close manually) and removed from pending or archived to `.planning/todos/completed/`.
+  6. Nyquist VALIDATION.md ledgers closed for phases 7, 8, 10, 11 (status `final`, `nyquist_compliant: true`, `wave_0_complete: true` where the underlying Wave-0 RED bats scaffold became GREEN over the phase) — verified via `/gsd-validate-phase` per phase OR direct edits.
+  7. Re-run `/gsd-audit-milestone v0.19` returns `passed` (no remaining gaps, no remaining `tech_debt` items).
+**Plans**: TBD (will be created via `/gsd-plan-phase 12`)
 
 ## Progress
 
@@ -154,12 +159,12 @@
 | 4. Spoke Registration | v0.18 | 5/5 | Complete | 2026-04-28 |
 | 5. Workloads + Health + Rebuild | v0.18 | 6/6 | Complete | 2026-04-28 |
 | 6. Repo Hygiene + Docs + ADRs | v0.18 | 8/8 | Complete | 2026-04-29 |
-| 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 0/6 | Planned | — |
-| 8. Capsule + capsule-proxy Install | v0.19 | 4/4 | Complete   | 2026-04-29 |
-| 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 0/5 | Planned | — |
-| 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete    | 2026-05-05 |
-| 11. Validation + Graduation ADR-008 | v0.19 | 6/8 | In Progress | — |
-| 12. capsule-addon-fluxcd Trial (optional) | v0.19 | 0/0 | Not Started (gated) | — |
+| 7. Foundation: POC Seam + spoke-capsule + EKS Doc | v0.19 | 6/6 | Complete | 2026-04-29 |
+| 8. Capsule + capsule-proxy Install | v0.19 | 5/5 | Complete | 2026-04-30 |
+| 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 5/5 | Complete | 2026-04-30 |
+| 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete | 2026-05-05 |
+| 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
+| 12. v0.19 Close-out Reconciliation | v0.19 | 0/0 | Planned | — |
 
 ---
 

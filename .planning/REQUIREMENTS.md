@@ -81,12 +81,11 @@ Negative RBAC suite, webhook failure recovery, clean teardown, regression gate a
 - [x] **VAL-05** — One-shot history gitleaks scan post-Phase-10 first push returns 0 findings — proves no tenant kubeconfig leaked
 - [x] **VAL-06** — Graduation ADR-008 written with `Status: Accepted` and one of {adopt, defer, reject, replaced by ADR-N — another POC}, sectioned per Nygard 4-section template, with explicit "What we proved / What we did not prove / Trade-offs" sub-sections backed by bats references. ADR-008 also rolls forward `docs/capsule-on-eks.md` (EKSDOC-01) from `Status: Draft` to `Status: Reviewed` with any corrections informed by the bats evidence
 
-### capsule-addon-fluxcd Trial (Phase 12 — OPTIONAL)
+### v0.19 Close-out Reconciliation (Phase 12)
 
-Final optional phase. Trials the upstream `capsule-addon-fluxcd v0.2.3` for tenant SA + kubeconfig automation as a comparison against the hand-managed Phase 9/10 approach. **Gated on Phases 7–11 all green AND ADR-008 outcome ∈ {adopt, defer}.** If ADR-008 is reject / replaced, this phase is skipped.
+Book-keeping phase added by `/gsd-plan-milestone-gaps` (2026-05-11) to close `tech_debt` items from `.planning/v0.19-MILESTONE-AUDIT.md`. No new REQ-IDs — closes the 15 stale `[ ]` checkboxes above (POC-01..04, CAPCLU-01..04, EKSDOC-01, CAP-01..03, TEN-01..06) against the audit's WIRED evidence, refreshes stale planning docs, closes Nyquist VALIDATION ledgers, and resolves the TEN-01 `forceTenantPrefix` spec deviation per Plan 11-07 D-11-07. See ROADMAP.md Phase 12 entry for full success criteria.
 
-- [ ] **ADDON-01** — `capsule-addon-fluxcd:0.2.3` HelmRelease deployed to spoke-capsule via hub-flux. Compatibility with Capsule v0.12.4 confirmed by smoke test (tenant SA created automatically; tenant kubeconfig Secret materialized in tenant namespace)
-- [ ] **ADDON-02** — Comparison documented in ADR-008 supplement (or a follow-up `docs/poc-capsule-addon.md`): hand-managed vs addon-managed — token rotation, kubeconfig refresh, complexity, blast radius. Decision recorded for v0.20+ adoption
+> **Note on Phase 12 history**: The original Phase 12 was an OPTIONAL `capsule-addon-fluxcd v0.2.3` trial (ADDON-01, ADDON-02) gated on ADR-008 outcome ∈ {adopt, defer}. ADR-008 outcome IS DEFER so the gate is met, but the trial was never executed. Per the gap-closure decision 2026-05-11, the addon trial is deferred to v0.20 and the ADDON requirements are moved to `Future Requirements` below. The Phase 12 slot is repurposed for the close-out reconciliation above.
 
 ---
 
@@ -100,6 +99,11 @@ Deferred to later milestones (kept here so they don't get lost):
 - [ ] First-push CI verification + GitHub branch-protection setup (deferred from v0.18 06-07)
 - [ ] Real secret management (Vault / SOPS / age) — was explicitly out of scope for v0.18
 - [ ] Stale frontmatter reconciliation pass (3 phases' VALIDATION.md flags + 3 Phase 6 SUMMARY `requirements-completed` + REQUIREMENTS.md traceability table)
+
+### Deferred from v0.19 (originally Phase 12)
+
+- [ ] **ADDON-01** (v0.20 candidate) — `capsule-addon-fluxcd:0.2.3` HelmRelease deployed to spoke-capsule via hub-flux. Compatibility with Capsule v0.12.4 confirmed by smoke test (tenant SA created automatically; tenant kubeconfig Secret materialized in tenant namespace). Deferred from v0.19 Phase 12 (gate ADR-008 DEFER met, but trial not run; revisit alongside `capsule-addon-fluxcd` releases that pair with newer Capsule minors).
+- [ ] **ADDON-02** (v0.20 candidate) — Comparison documented in ADR-008 supplement (or a follow-up `docs/poc-capsule-addon.md`): hand-managed (Phase 9/10) vs addon-managed — token rotation, kubeconfig refresh, complexity, blast radius. Decision recorded for v0.20+ adoption.
 
 ### Surfaced by v0.19 research
 
@@ -141,7 +145,7 @@ Explicit boundaries with reasoning to prevent re-adding:
 
 ## Traceability
 
-Validated by `/gsd-new-milestone` roadmapper (2026-04-29); each REQ-ID is mapped to exactly one phase (no orphans, no duplicates). `Plan(s)` column will be filled by `/gsd-plan-phase` as each phase is decomposed. Phase 12 is gated on Phase 11 ADR-008 outcome ∈ {adopt, defer}.
+Validated by `/gsd-new-milestone` roadmapper (2026-04-29); each REQ-ID is mapped to exactly one phase (no orphans, no duplicates). `Plan(s)` column filled by `/gsd-plan-phase` as each phase is decomposed. Phase 12 was originally the OPTIONAL gated `capsule-addon-fluxcd` trial (ADDON-01/02); per gap-closure 2026-05-11 the addon trial is deferred to v0.20 and Phase 12 is repurposed as `v0.19 Close-out Reconciliation` (no new REQ-IDs — book-keeping against existing audit evidence).
 
 | REQ-ID | Phase | Plan(s) |
 |--------|-------|---------|
@@ -172,10 +176,8 @@ Validated by `/gsd-new-milestone` roadmapper (2026-04-29); each REQ-ID is mapped
 | VAL-04 | Phase 11 | TBD |
 | VAL-05 | Phase 11 | TBD |
 | VAL-06 | Phase 11 | TBD |
-| ADDON-01 | Phase 12 (optional) | TBD |
-| ADDON-02 | Phase 12 (optional) | TBD |
 
-**Total:** 29 requirements across 6 phases (5 mandatory + 1 optional gated phase).
+**Total:** 27 requirements across 5 mandatory phases (Phases 7-11). Phase 12 is the close-out reconciliation phase added 2026-05-11; it has no new REQ-IDs. ADDON-01 and ADDON-02 (originally Phase 12) are deferred to v0.20 — see Future Requirements §"Deferred from v0.19".
 
 ---
 
