@@ -83,7 +83,7 @@ Negative RBAC suite, webhook failure recovery, clean teardown, regression gate a
 
 ### v0.19 Close-out Reconciliation (Phase 12)
 
-Book-keeping phase added by `/gsd-plan-milestone-gaps` (2026-05-11) to close `tech_debt` items from `.planning/v0.19-MILESTONE-AUDIT.md`. No new REQ-IDs — closes the 15 stale `[ ]` checkboxes above (POC-01..04, CAPCLU-01..04, EKSDOC-01, CAP-01..03, TEN-01..06) against the audit's WIRED evidence, refreshes stale planning docs, closes Nyquist VALIDATION ledgers, and resolves the TEN-01 `forceTenantPrefix` spec deviation per Plan 11-07 D-11-07. See ROADMAP.md Phase 12 entry for full success criteria.
+Book-keeping phase added by `/gsd-plan-milestone-gaps` (2026-05-11) to close `tech_debt` items from `.planning/v0.19-MILESTONE-AUDIT.md`. No new REQ-IDs — closes the 18 v0.19 mandatory `[ ]` checkboxes above (POC-01..04 + CAPCLU-01..04 + EKSDOC-01 + CAP-01..03 + TEN-01..06 = 4+4+1+3+6 = 18) against the audit's WIRED evidence, refreshes stale planning docs, closes Nyquist VALIDATION ledgers, and resolves the TEN-01 `forceTenantPrefix` spec deviation per Plan 11-07 D-11-07. See ROADMAP.md Phase 12 entry for full success criteria.
 
 > **Note on Phase 12 history**: The original Phase 12 was an OPTIONAL `capsule-addon-fluxcd v0.2.3` trial (ADDON-01, ADDON-02) gated on ADR-008 outcome ∈ {adopt, defer}. ADR-008 outcome IS DEFER so the gate is met, but the trial was never executed. Per the gap-closure decision 2026-05-11, the addon trial is deferred to v0.20 and the ADDON requirements are moved to `Future Requirements` below. The Phase 12 slot is repurposed for the close-out reconciliation above.
 
