@@ -1,10 +1,12 @@
 ---
 phase: 8
 slug: capsule-capsule-proxy-bare-minimum-install
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-29
+finalized: 2026-05-11
+finalized_evidence: "Plan 08-00 Wave 0 RED bats scaffold (10 bats files: 5 static + 5 live, cluster-info gated; covering CAP-01/02/03 contracts + Pitfall 8 reframe + Pitfall 9 anti-pattern lint) became GREEN over Plans 08-01..08-04. 08-VERIFICATION.md reports status: passed_with_overrides with 10/10 must-haves verified (6 live-VERIFIED + 4 deferred-with-override); re-verification at 08-04 closed G-03 (cert source) + G-04 (architectural seam split-path) + WR-01..WR-04 (bats hardening). Post-fix evidence: D-08-13 push-gate-deferred items resolved by Plan 11-07 closeout at HEAD 8415ab66 (per 11-07-SUMMARY.md: both HelmReleases Ready=True; capsule operator alive on spoke; healthz HTTP 200). Nyquist sampling rate satisfied: every REQ-ID (CAP-01..03) has at least one bats falsifier in the Wave-0 scaffold turned GREEN."
 ---
 
 # Phase 8 — Validation Strategy
