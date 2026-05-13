@@ -55,7 +55,7 @@ Simple, fast Capsule install. Two upstream HelmReleases reconciled by hub-flux i
 
 Two tenants with disjoint owners on isolated namespaces. Hub Flux controllers patched with multi-tenancy lockdown flags. Tenant inner Kustomizations carry the load-bearing P27 defense (`spec.serviceAccountName`).
 
-- [ ] **TEN-01** — Two `Tenant` custom resources (`alpha`, `bravo`) exist with disjoint `owners` arrays (each kind ServiceAccount, registered as `<tenant-ns>:gitops-reconciler`); namespace prefix enforcement enabled (`forceTenantPrefix: true`)
+- [x] **TEN-01** — Two `Tenant` custom resources (`alpha`, `bravo`) exist with disjoint `owners` arrays (each kind ServiceAccount, registered as `<tenant-ns>:gitops-reconciler`); namespace prefix enforcement DISABLED (`forceTenantPrefix: false` per Plan 11-07 D-11-07 live repair — preserves established `tenant-alpha` / `tenant-bravo` home namespace names; see `11-07-SUMMARY.md` and commit `faecf14`)
 - [x] **TEN-02** — Tenant owner can self-serve a namespace inside their tenant prefix (`kubectl --as=alpha create namespace alpha-app1` succeeds) and the namespace gets the `capsule.clastix.io/tenant=alpha` label automatically
 - [x] **TEN-03** — ResourceQuota and LimitRange objects are auto-materialized inside each tenant namespace (`kubectl get resourcequota -n alpha-app1` shows `capsule-alpha-*` objects without manual creation)
 - [x] **TEN-04** — Tenant inner Flux Kustomizations on hub-flux (under `pocs/capsule/tenants/<name>/`) declare `spec.serviceAccountName: gitops-reconciler` explicitly (P27 defense). Static bats grep-asserts every tenant Kustomization has a non-null `serviceAccountName`
