@@ -1,10 +1,12 @@
 ---
 phase: 9
 slug: tenants-flux-multi-tenancy-lockdown
-status: draft
+status: final
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-29
+finalized: 2026-05-11
+finalized_evidence: "Plan 09-00 Wave 0 RED bats scaffold (12 bats files: 5 static + 7 live; P27 negative falsifier fixture covering TEN-01..06 contracts under D-09-08 Nyquist gate) became GREEN over Plans 09-01..09-04. 09-VERIFICATION.md reports status: passed_with_overrides with 8/8 must-haves verified; Plan 09-03 lockdown landed on attempt 3 after two atomic rollbacks (Gap A spoke SA name correction). Post-fix evidence: TEN-04 + TEN-06 push-gate-deferred items resolved by Plan 11-07 closeout at HEAD 8415ab66 (per 11-07-SUMMARY.md). Phase 9 had nyquist_compliant: true + wave_0_complete: true set by commit fe7d98b (2026-04-29 Wave 0 close); status flipped to final 2026-05-11 per Phase 12 close-out reconciliation. T-3 rationale: included in Cluster E per researcher Open Q 1 recommendation."
 ---
 
 # Phase 9 — Validation Strategy

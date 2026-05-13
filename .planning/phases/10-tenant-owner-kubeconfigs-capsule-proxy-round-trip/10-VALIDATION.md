@@ -1,10 +1,12 @@
 ---
 phase: 10
 slug: tenant-owner-kubeconfigs-capsule-proxy-round-trip
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-05
+finalized: 2026-05-11
+finalized_evidence: "Plan 10-00 Wave 0 RED bats scaffold (7 bats files; 45 @tests covering PROXY-01..03 contracts; Pitfall 10-P2/P3/P5 corrections applied) became GREEN over Plans 10-01..10-02. 10-VERIFICATION.md reports status: passed_with_overrides with 3/3 must-haves verified; 44/45 Phase 10 @tests GREEN at phase close (1 RED-by-design from Phase 8 BLOCKER G-04 inheritance); push_gate_disposition: deferred-to-Phase-11-VAL-05. Post-fix evidence: D-08-13 push-gate-deferred items resolved by Plan 11-07 closeout at HEAD 8415ab66 (per 11-07-SUMMARY.md). Two Rule 3 deviations documented in 10-VERIFICATION.md Notable Observations (CapsuleConfiguration userGroups patch + tenant home namespace ownership) carried to Plan 11 VAL-05 and persisted. Nyquist sampling rate satisfied: every REQ-ID (PROXY-01..03) has at least one bats falsifier in the Wave-0 scaffold turned GREEN."
 ---
 
 # Phase 10 — Validation Strategy
