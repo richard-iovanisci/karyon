@@ -2,15 +2,23 @@
 phase: 11
 plan: 04
 created: 2026-05-06
-disposition: passed_with_overrides
+disposition: passed
+disposition_history:
+  - state: passed_with_overrides
+    set_by: Plan 11-04 verifier (2026-05-06)
+    superseded_by: Plan 11-07 closeout (2026-05-07 → HEAD 8415ab66)
+    notes: "3 overrides + 2 deferred items at time of writing"
+  - state: passed
+    set_by: Phase 12 close-out reconciliation (2026-05-11)
+    reason: "all 3 Plan 11-04 overrides + 2 deferred items resolved by Plans 11-06 + 11-07; canonical post-fix evidence in 11-07-SUMMARY.md and the Supersedure section appended at the end of this file"
 must_haves_total: 6
-must_haves_satisfied: 3
+must_haves_satisfied: 6
 bats_total: 16
 bats_green: 22
 bats_red: 13
 bats_skip: 0
 strict_mode_active: false
-hard_gate_d_11_01_jq: RED
+hard_gate_d_11_01_jq: GREEN
 hard_gate_p_11_06_skip: GREEN
 phase_7_invariants_preserved: true
 phase_8_invariants_inherited_blocker: true
