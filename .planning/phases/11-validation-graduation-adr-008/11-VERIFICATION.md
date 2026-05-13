@@ -311,3 +311,44 @@ The D-11-14 outcome rubric requires the following inputs from this VERIFICATION.
 *Disposition: passed_with_overrides*
 *Strict-mode active: false*
 *Next: Plan 11-05 (ADR-008 graduation decision; consume this VERIFICATION.md as evidence input)*
+
+---
+
+## Supersedure — 2026-05-11
+
+> This file (frontmatter `disposition: passed_with_overrides`, written 2026-05-06 by Plan 11-04 verifier) records the disposition snapshot at the time Plan 11-05 consumed it as ADR-008 evidence. Plans 11-06 + 11-07 subsequently closed all 3 Plan 11-04 overrides + the 2 deferred items. This appendix records the canonical post-fix state at HEAD `8415ab66` (Plan 11-07 closeout commit). The body above is preserved verbatim for audit trail (per Phase 12 close-out reconciliation; RESEARCH.md Anti-Pattern guidance against destructive rewrite).
+
+### Override resolution
+
+| Original override | Resolution plan | Resolution commit(s) | Post-fix state |
+|-------------------|-----------------|----------------------|-----------------|
+| D-11-01 chart-rendered Role propagation (HARD-GATE 1 RED) | Plan 11-06 (PostBuild patch relocated from Kustomization spec.patches to HelmRelease spec.postRenderers; capsule-system Namespace on hub) + Plan 11-07 (spoke-side capsule-system Namespace; helm-controller SA + ClusterRoleBinding on spoke; flux-reconciler impersonation correction; new poc-capsule-spoke-rbac top-level K) | `21c05dd`, `c6c7282`, `1524fd3`, `93f1e04` … `8415ab66` | RESOLVED — capsule HelmRelease Ready=True; capsule-proxy HelmRelease Ready=True; healthz HTTP 200; all 4 outer Flux Kustomizations Ready=True |
+| VAL-01 negative-RBAC suite N9 + N10 (live RED on Phase 8 G-04 cascade) | Same as above — G-04 closed at HEAD `8415ab66` because capsule HelmRelease now reconciles | Same | RESOLVED — capsule-proxy installed and reachable on spoke; tenant kubeconfig path wired; live `kubectl --kubeconfig <tenant>.kubeconfig get namespaces` returns filtered subset (per `11-07-SUMMARY.md`) |
+| VAL-04 SLO `slo-regression-live.bats @test 1` RED on `KARYON_REBUILD_APPROVED` gating | Plan 11-07 (`tests/bats/slo-regression-live.bats setup_file` exports `KARYON_REBUILD_APPROVED=yes`) | `8aec6bd` | RESOLVED — test infrastructure limitation closed |
+
+### Deferred-item resolution
+
+| Original deferred item | Resolution plan | Resolution commit | Post-fix state |
+|------------------------|-----------------|---------------------|-----------------|
+| Pre-existing gitleaks finding on `tests/bats/proxy-06-live-fixture.bats:38` (`.planning/phases/11-validation-graduation-adr-008/deferred-items.md`) | Plan 11-07 extended `.gitleaks.toml` file-specific allowlist for the synthetic fixture | `384f859` | RESOLVED — live `gitleaks detect --no-git --source . --config .gitleaks.toml` returns "no leaks found" (14.42 MB scanned in 256ms) at HEAD `83b81bb5` (verified 2026-05-11 during Phase 12 research) |
+| Pre-existing markdownlint 31 errors / 3 files | Plan 11-07 `markdownlint --fix` + residual error pass | `3b696af` | RESOLVED — live `npx markdownlint-cli2 README.md docs/capsule-on-eks.md docs/poc-capsule.md` returns Summary: 0 error(s) at HEAD `83b81bb5` (verified 2026-05-11) |
+
+### Canonical post-fix state evidence
+
+Per `11-07-SUMMARY.md` (HEAD `8415ab66`):
+
+- `poc-capsule`, `poc-capsule-spoke`, `poc-capsule-spoke-rbac`, `poc-capsule-spoke-tenants` Kustomizations Ready=True.
+- `capsule` + `capsule-proxy` HelmReleases Ready=True.
+- `capsule-system:helm-controller` SA + `helm-controller-cluster-admin` ClusterRoleBinding on `k3d-spoke-capsule`.
+- SAR for `system:serviceaccount:capsule-system:helm-controller` returns `yes`.
+- `curl -sk https://127.0.0.1:30443/healthz` returns HTTP 200.
+- CI passed for pushed HEAD `8415ab6655faba324ee1809fdb22b08380f42a38`.
+
+Diagnostics evidence: `11-07-G06-DIAGNOSTICS.md` (pre-fix RED baseline lines 1-120; post-fix evidence merged into `11-07-SUMMARY.md`).
+
+### Post-supersedure disposition
+
+**`passed`** (all 3 Plan 11-04 overrides resolved; 2 deferred items resolved). The original `passed_with_overrides` disposition is preserved above for historical audit trail.
+
+*Superseded by: Phase 12 close-out reconciliation (2026-05-11)*
+*Canonical post-fix evidence: `11-07-SUMMARY.md`, `11-07-G06-DIAGNOSTICS.md`*
