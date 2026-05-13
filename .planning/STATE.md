@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
-status: executing
-stopped_at: Phase 12 in progress — v0.19 close-out reconciliation
-last_updated: "2026-05-13T00:00:00.000Z"
-last_activity: 2026-05-11 -- Plan 11-07 closed (G-06 diagnostics resolved, HEAD 8415ab66); Phase 12 close-out reconciliation entered
+status: ready_to_archive
+stopped_at: Phase 12 complete — v0.19 close-out reconciliation done; milestone ready for /gsd-complete-milestone v0.19
+last_updated: "2026-05-13T12:00:00.000Z"
+last_activity: 2026-05-11 -- Phase 12 complete; audit re-run passed; v0.19 milestone ready to archive
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 34
-  completed_plans: 27
-  percent: 79
+  completed_plans: 34
+  percent: 100
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-04-29)
 
 ## Current Position
 
-Phase: 12 (v0-19-close-out-reconciliation) — EXECUTING
-Plan: 1 of 7 (12-01 in flight; clusters A-F run as Wave 1 parallel; gate 12-07 in Wave 2)
-Status: Executing Phase 12 close-out reconciliation (book-keeping; mutates only `.planning/*.md`)
-Last activity: 2026-05-11 -- Plan 11-07 closed (HEAD 8415ab66); Phase 12 entered
+Phase: 12 (v0-19-close-out-reconciliation) — COMPLETE
+Plan: 7 of 7 (all plans landed)
+Status: v0.19 milestone ready to archive via /gsd-complete-milestone v0.19
+Last activity: 2026-05-11 -- Phase 12 complete; v0.19-MILESTONE-AUDIT.md regenerated to `passed`
 
 ## Performance Metrics
 

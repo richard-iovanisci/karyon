@@ -179,6 +179,8 @@ Validated by `/gsd-new-milestone` roadmapper (2026-04-29); each REQ-ID is mapped
 
 **Total:** 27 requirements across 5 mandatory phases (Phases 7-11). Phase 12 is the close-out reconciliation phase added 2026-05-11; it has no new REQ-IDs. ADDON-01 and ADDON-02 (originally Phase 12) are deferred to v0.20 — see Future Requirements §"Deferred from v0.19".
 
+Phase 12 closed all 18 v0.19 mandatory REQ checkboxes (POC-01..04 + CAPCLU-01..04 + EKSDOC-01 + CAP-01..03 + TEN-01..06 = 4+4+1+3+6 = 18) against the implementation evidence at HEAD 8415ab66 per `.planning/v0.19-MILESTONE-AUDIT.md` (audit re-run 2026-05-11 status: passed). No new REQ-IDs added by Phase 12.
+
 ---
 
 *Last updated: 2026-04-29 — v0.19 milestone requirements drafted from research synthesis (.planning/research/SUMMARY.md), restructured per user feedback to squash POC seam + cluster into Phase 7 and add EKSDOC-01 for team-presentation. Roadmap pass 2026-04-29: 29/29 REQ-IDs mapped, success criteria derived per phase, ROADMAP.md and STATE.md written.*
