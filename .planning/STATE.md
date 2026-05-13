@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
 status: executing
-stopped_at: Plan 11-07 Task 6 human-verify checkpoint
-last_updated: "2026-05-11T16:16:14.116Z"
-last_activity: 2026-05-11 -- Phase 12 planning complete
+stopped_at: Phase 12 in progress — v0.19 close-out reconciliation
+last_updated: "2026-05-13T00:00:00.000Z"
+last_activity: 2026-05-11 -- Plan 11-07 closed (G-06 diagnostics resolved, HEAD 8415ab66); Phase 12 close-out reconciliation entered
 progress:
   total_phases: 6
   completed_phases: 5
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-04-29)
 
 ## Current Position
 
-Phase: 11 (validation-graduation-adr-008) — EXECUTING
-Plan: 8 of 8 (11-07)
-Status: Ready to execute
-Last activity: 2026-05-11 -- Phase 12 planning complete
+Phase: 12 (v0-19-close-out-reconciliation) — EXECUTING
+Plan: 1 of 7 (12-01 in flight; clusters A-F run as Wave 1 parallel; gate 12-07 in Wave 2)
+Status: Executing Phase 12 close-out reconciliation (book-keeping; mutates only `.planning/*.md`)
+Last activity: 2026-05-11 -- Plan 11-07 closed (HEAD 8415ab66); Phase 12 entered
 
 ## Performance Metrics
 
@@ -111,11 +111,11 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ### Pending Todos
 
-- **Phase 7 carryover — hub Flux observable reconcile of `poc-capsule`** (resolves_phase: 8). Script-internal P18 falsifier passed; runtime Flux observation of `Ready=True` deferred to Phase 8 where CAP-01/02 HelmRelease landings naturally exercise the seam. Phase 8 verifier truth #7 *momentarily* observed Ready=True at `32e0b2fa`, but masked by empty inventory (G-04 will break this on push). → `.planning/todos/pending/2026-04-29-phase-7-hub-flux-observable-reconcile.md`
-- **Phase 7 carryover — gitleaks rule fires on planning docs that quote inert synthetic fixture** (resolves_phase: 11). New `kubeconfig-bearer-token` rule catches embedded fixture YAML in 3 planning docs; CI gitleaks-scan job will fail on first push to origin. Phase 11 VAL-05 owns one-shot history scan; resolution must precede VAL-05. → `.planning/todos/pending/2026-04-29-phase-7-gitleaks-planning-doc-allowlist.md`
+- **Phase 7 carryover — hub Flux observable reconcile of `poc-capsule` (RESOLVED 2026-05-11)** — All 4 outer Flux Kustomizations Ready=True at HEAD `8415ab66` per `11-07-SUMMARY.md` (G-04 + G-06 closed). Todo moved to `.planning/todos/completed/2026-04-29-phase-7-hub-flux-observable-reconcile.md` by Plan 12-05.
+- **Phase 7 carryover — gitleaks rule fires on planning docs that quote inert synthetic fixture (RESOLVED 2026-05-07)** — Allowlist for proxy-fixture source landed in commit `384f859 fix(11-07): allowlist proxy fixture source`; Phase 11 VAL-05 one-shot history scan passed (per `11-VERIFICATION.md` VAL-05 row). Original todo file: `.planning/todos/pending/2026-04-29-phase-7-gitleaks-planning-doc-allowlist.md` (not yet relocated; lifecycle managed independent of Plan 12-05 hub-flux move).
 - **Phase 7 HUMAN-UAT items 2/3/4** (non-blocking; tracked in `07-HUMAN-UAT.md`). Real Docker/WSL restart recovery (item 2 — environmental, observe-when-it-happens), Mermaid GitHub render fidelity (item 3 — gated behind first-push deferred to Phase 11), EKS doc presentation walkthrough (item 4 — subjective milestone-owner judgment).
-- **Phase 8 BLOCKER gap G-03 (BL-01) — cert source incompatible with D-08-04**. `pocs/capsule/proxy/helmrelease.yaml:75-76` uses `certManager.generateCertificates: true` which requires a cert-manager controller; spoke-capsule has none. Verifier-recommended fix: flip to `options.generateCertificates: true` + `certManager.generateCertificates: false` (controller-less certgen Job). → `08-VERIFICATION.md` Gap G-03 (untracked file).
-- **Phase 8 BLOCKER gap G-04 — architectural seam: outer Kustomization → spoke applies HR CRs to wrong cluster**. Outer `clusters/hub-flux/pocs/capsule.yaml` carries `spec.kubeConfig: spoke-capsule-kubeconfig` (Phase 7 P40/P18 invariant) but spoke has no Flux CRDs. Server-side dry-run confirms `no matches for kind "HelmRelease"`. Requires architectural decision (verifier offers Option A: remove kubeConfig from outer; Option B: split paths) before push. → `08-VERIFICATION.md` Gap G-04.
+- **Phase 8 BLOCKER gap G-03 (BL-01) — cert source incompatible with D-08-04 (RESOLVED 2026-04-30)** — Decision D-08-11 cert flip applied in commit `75e5b78 fix(08-04): D-08-11 cert flip on proxy HR + WR-01/WR-02 yq-path bats hardening`; closure summarized in commit `ecbb4b6 docs(08-04): plan summary — gap-close (G-03 cert + G-04 split-K + WR-01..04 lints)`. Phase 8 re-verification commit `2c60d5a docs(08): re-verification post-gap-close — passed_with_overrides` confirms G-03 closed. → `08-VERIFICATION.md` Gap G-03.
+- **Phase 8 BLOCKER gap G-04 — architectural seam: outer Kustomization → spoke applies HR CRs to wrong cluster (RESOLVED 2026-04-30)** — Decision D-08-12 split-Kustomization architecture (Option B) applied in commit `a9af679 fix(08-04): D-08-12 architectural seam fix — split outer K into hub-targeted + spoke-targeted`; closure summarized in commit `ecbb4b6 docs(08-04): plan summary — gap-close (G-03 cert + G-04 split-K + WR-01..04 lints)`. P40/P18 invariant evolved: split-path pattern (spoke-targeted Ks include kubeConfig; hub-targeted Ks exclude it). Phase 8 re-verification commit `2c60d5a docs(08): re-verification post-gap-close — passed_with_overrides` confirms G-04 closed. → `08-VERIFICATION.md` Gap G-04.
 
 ### Blockers/Concerns
 
