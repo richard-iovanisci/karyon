@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
 status: executing
-stopped_at: Plan 11-07 Task 6 human-verify checkpoint
-last_updated: "2026-05-11T16:16:14.116Z"
-last_activity: 2026-05-11 -- Phase 12 planning complete
+stopped_at: Phase 12 in progress — v0.19 close-out reconciliation
+last_updated: "2026-05-13T00:00:00.000Z"
+last_activity: 2026-05-11 -- Plan 11-07 closed (G-06 diagnostics resolved, HEAD 8415ab66); Phase 12 close-out reconciliation entered
 progress:
   total_phases: 6
   completed_phases: 5
