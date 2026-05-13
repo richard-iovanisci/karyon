@@ -6,8 +6,15 @@ score: 6/6 must-haves verified (3 satisfied + 3 documented overrides per Plan 11
 overrides_applied: 3
 re_verification: false
 canonical_evidence_source: 11-VERIFICATION.md
-canonical_disposition: passed_with_overrides
-canonical_disposition_mapped_to: passed (orchestrator schema; per task brief: "the overrides are explicit + documented per D-11-14 + reviewer HIGH #1 rules; this is not a gap, it's a declared override path")
+canonical_disposition: passed
+canonical_disposition_mapped_to: passed (orchestrator schema; superseded 2026-05-11 per Phase 12 close-out: all 3 overrides + 2 deferred items resolved by Plans 11-06 + 11-07)
+disposition_history:
+  - canonical_disposition: passed_with_overrides
+    set_by: Plan 11-04 verifier (2026-05-06)
+    superseded_by: Plan 11-07 closeout (2026-05-07 → HEAD 8415ab66)
+  - canonical_disposition: passed
+    set_by: Phase 12 close-out reconciliation (2026-05-11)
+    reason: "all 3 Plan 11-04 overrides + 2 deferred items resolved per the Supersedure section at the end of this file"
 overrides:
   - must_have: "D-11-01 chart-rendered Role propagation (HARD-GATE 1 per reviewer HIGH #2)"
     reason: "Phase 8 BLOCKER G-04 inheritance — outer poc-capsule Kustomization spec.kubeConfig redirects HR/OCIRepo CRs to spoke-capsule (zero Flux CRDs); chart never rendered; D-11-01 PostBuild patch literal verified GREEN by push-gate-01-static (2/2) but has no target Role to patch. Pitfall 11-P1 fired. Carried to Plan 11-05 (ADR-008 DEFER outcome) as workaround/follow-up; G-04 architectural decision pending since 2026-04-29."
@@ -287,3 +294,36 @@ Score: 6/6 must-haves verified (3 satisfied directly + 3 satisfied via documente
 *Status: passed (canonical: passed_with_overrides; mapped per task brief rule)*
 *Phase goal: ACHIEVED with 3 documented overrides + 3 deferred items forwarded to v0.20 / post-milestone follow-up*
 *Next: v0.19 milestone closes; Phase 12 (capsule-addon-fluxcd) is OPTIONAL and unlocked*
+
+
+---
+
+## Supersedure — 2026-05-11
+
+> This file (frontmatter `status: passed` mapped from `canonical_disposition: passed_with_overrides`, written 2026-05-06 by Plan 11-04 verifier as orchestrator-level cross-check) records the per-phase disposition at ADR-008 acceptance time. Plans 11-06 + 11-07 closed all 3 Plan 11-04 overrides and the 2 deferred items. The original "Phase 12 (capsule-addon-fluxcd) is OPTIONAL and unlocked" trailing line is now ALSO superseded by the gap-closure 2026-05-11 decision that re-purposed Phase 12 from the addon trial to v0.19 close-out reconciliation (ADDON-01/02 moved to Future Requirements / deferred to v0.20). The body above is preserved verbatim for audit trail.
+
+### Override resolution
+
+| Original override | Resolution plan | Resolution commit(s) | Post-fix state |
+|-------------------|-----------------|----------------------|-----------------|
+| D-11-01 chart-rendered Role propagation | Plan 11-06 + Plan 11-07 | `21c05dd` … `8415ab66` | RESOLVED |
+| VAL-01 N9 + N10 live RED | Plan 11-07 (G-04 closure via capsule HR reconcile + spoke-side rbac) | `93f1e04` … `8415ab66` | RESOLVED |
+| VAL-04 SLO `KARYON_REBUILD_APPROVED` gate | Plan 11-07 setup_file export | `8aec6bd` | RESOLVED |
+
+### Deferred-item resolution
+
+| Original deferred item | Resolution plan | Resolution commit | Post-fix state |
+|------------------------|-----------------|---------------------|-----------------|
+| Pre-existing gitleaks `proxy-06-live-fixture.bats:38` | Plan 11-07 `.gitleaks.toml` file-specific allowlist | `384f859` | RESOLVED — live `gitleaks detect` returns 0 (verified 2026-05-11) |
+| Pre-existing markdownlint 31 errors / 3 files | Plan 11-07 `markdownlint --fix` + residual pass | `3b696af` | RESOLVED — live `markdownlint-cli2` returns 0 errors (verified 2026-05-11) |
+
+### Phase 12 re-scoping note
+
+The trailing line of the original body — "Phase 12 (capsule-addon-fluxcd) is OPTIONAL and unlocked" — was authoritative as of 2026-05-06. Per gap-closure decision 2026-05-11, the original Phase 12 `capsule-addon-fluxcd` trial is deferred to v0.20 and the Phase 12 slot has been re-purposed for v0.19 close-out reconciliation (this is that phase). ADDON-01 and ADDON-02 moved to REQUIREMENTS.md Future Requirements §"Deferred from v0.19". See ROADMAP.md Phase 12 entry and REQUIREMENTS.md lines 84-89.
+
+### Post-supersedure status
+
+**`passed`** (all 3 Plan 11-04 overrides resolved; 2 deferred items resolved). The original `canonical_disposition: passed_with_overrides` is preserved above for historical audit trail.
+
+*Superseded by: Phase 12 close-out reconciliation (2026-05-11)*
+*Canonical post-fix evidence: `11-07-SUMMARY.md`, `11-07-G06-DIAGNOSTICS.md`*
