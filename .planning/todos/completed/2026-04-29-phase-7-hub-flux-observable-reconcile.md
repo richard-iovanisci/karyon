@@ -45,3 +45,20 @@ The Phase 8 verifier (`08-VERIFICATION.md`, untracked) ran 2026-04-29T20:50:00Z 
 However, the verifier also flagged this as a *masked* pass: outer Kustomization is reconciling against pre-Phase-8 source where `pocs/capsule/kustomization.yaml: resources: []` produces zero objects to apply (`inventory.entries: []`). The masking will lift the moment Phase 8 push lands, surfacing Phase 8 Gap G-04 — outer Kustomization will go `Ready=False` because spoke-capsule has no Flux CRDs to receive the HelmRelease/OCIRepository CRs being applied to it via `spec.kubeConfig: spoke-capsule-kubeconfig`.
 
 **Disposition:** Todo stays `pending` (resolves_phase: 8). It will auto-close only when Phase 8 verifier reports `passed` after G-03 + G-04 gap fixes land. The current "fragile pass" does not meet the close-out bar.
+
+---
+
+## 2026-05-11 closure (Phase 12 v0.19 close-out reconciliation)
+
+**Resolved.** The auto-close target was Phase 8 (run 2026-04-30) which observed `poc-capsule` outer Kustomization Ready=True only with masked empty inventory (see existing "2026-04-29 status update — fragile pass, NOT resolved" section above). The masking was lifted by Plan 11-06 (G-04 capsule-system Namespace on hub + PostBuild patch relocated from Kustomization `spec.patches` to HelmRelease `spec.postRenderers`) and Plan 11-07 (spoke-side `capsule-system` Namespace + `helm-controller` SA + flux-reconciler impersonation correction + new `poc-capsule-spoke-rbac` top-level Flux Kustomization). At HEAD `8415ab66`, per `11-07-SUMMARY.md`:
+
+- `poc-capsule`, `poc-capsule-spoke`, `poc-capsule-spoke-rbac`, `poc-capsule-spoke-tenants` all Ready=True
+- `capsule` and `capsule-proxy` HelmReleases Ready=True
+- `curl -sk https://127.0.0.1:30443/healthz` returns HTTP 200
+- CI passed for pushed HEAD `8415ab6655faba324ee1809fdb22b08380f42a38`
+
+This is the **observable post-push hub-Flux reconcile of `poc-capsule`** that Phase 7's 1b deferred verification was waiting for. Todo closed manually as part of Phase 12 close-out reconciliation (auto-close target Phase 8 completed 2026-04-30 with the fragile-pass override that 11-06 + 11-07 subsequently lifted).
+
+Cross-references:
+- `.planning/phases/11-validation-graduation-adr-008/11-07-SUMMARY.md` — canonical post-fix evidence
+- `.planning/phases/11-validation-graduation-adr-008/11-07-G06-DIAGNOSTICS.md` — empirical pre/post-fix evidence for G-06
