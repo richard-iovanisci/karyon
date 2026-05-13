@@ -1,12 +1,14 @@
 ---
 phase: 11
 slug: validation-graduation-adr-008
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-05
 revised: 2026-05-05
 revised_for: review feedback (codex gpt-5.5; see 11-REVIEWS.md)
+finalized: 2026-05-11
+finalized_evidence: "Plan 11-00 Wave 0 RED bats scaffold (16 bats files: 5 negative-rbac + 1 anti-pattern lint + 5 push-gate + 4 teardown + 1 slo-regression-live; covering D-11-05..16 contracts including VAL-01 N1-N12 falsifiers, VAL-02 webhook failure, VAL-03 teardown, VAL-04 SLO, VAL-05 push-gate, VAL-06 ADR-008 template) became GREEN over Plans 11-01..11-07. Plan 11-04 verifier reported 22 bats GREEN / 13 bats RED with disposition: passed_with_overrides (3 overrides). Plans 11-06 + 11-07 closed all 3 overrides + 2 deferred items per Plan 12-03 Supersedure block at HEAD 8415ab66. Post-supersedure disposition: passed (must_haves_satisfied: 6/6). 11-VALIDATION.md was revised 2026-05-05 for codex gpt-5.5 review feedback; never finalized until Phase 12 close-out reconciliation. Nyquist sampling rate satisfied: every REQ-ID (VAL-01..06) has at least one bats falsifier in the Wave-0 scaffold turned GREEN (with the documented overrides resolved by 11-06 + 11-07 closeout)."
 ---
 
 # Phase 11 — Validation Strategy
