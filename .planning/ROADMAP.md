@@ -148,13 +148,13 @@
   6. Nyquist VALIDATION.md ledgers closed for phases 7, 8, 10, 11 (status `final`, `nyquist_compliant: true`, `wave_0_complete: true` where the underlying Wave-0 RED bats scaffold became GREEN over the phase) — verified via `/gsd-validate-phase` per phase OR direct edits.
   7. Re-run `/gsd-audit-milestone v0.19` returns `passed` (no remaining gaps, no remaining `tech_debt` items).
 **Plans**: 7 plans (6 Wave-1 parallel clusters + 1 Wave-2 audit-rerun gate)
-- [ ] 12-01-PLAN.md — Cluster A: REQUIREMENTS.md flip (17 same-line checkbox flips + TEN-01 spec amend per D-11-07)
-- [ ] 12-02-PLAN.md — Cluster C: STATE.md update (frontmatter last_activity / progress counters + Current Position block)
-- [ ] 12-03-PLAN.md — Cluster D: 11-VERIFICATION.md + 11-PHASE-VERIFICATION.md supersedure (append `## Supersedure — 2026-05-11` H2 + frontmatter disposition_history)
-- [ ] 12-04-PLAN.md — Cluster E: 5 VALIDATION.md ledger closes (phases 7, 8, 9, 10, 11 — Phase 9 included per T-3 / RESEARCH.md Open Q 1)
-- [ ] 12-05-PLAN.md — Cluster F: stale Phase 7 hub-flux observable-reconcile todo git-mv pending → completed + closure appendix
-- [ ] 12-06-PLAN.md — Cluster B: ROADMAP.md Progress-table verification (verify-only; commit 83b81bb already fixed this per RESEARCH.md Pitfall 1)
-- [ ] 12-07-PLAN.md — Wave-2 gate: `/gsd-audit-milestone v0.19` re-run + Phase 12 self-close (ROADMAP + STATE + 12-VALIDATION flips) + human-verify checkpoint
+- [x] 12-01-PLAN.md — Cluster A: REQUIREMENTS.md flip (17 same-line checkbox flips + TEN-01 spec amend per D-11-07)
+- [x] 12-02-PLAN.md — Cluster C: STATE.md update (frontmatter last_activity / progress counters + Current Position block)
+- [x] 12-03-PLAN.md — Cluster D: 11-VERIFICATION.md + 11-PHASE-VERIFICATION.md supersedure (append `## Supersedure — 2026-05-11` H2 + frontmatter disposition_history)
+- [x] 12-04-PLAN.md — Cluster E: 5 VALIDATION.md ledger closes (phases 7, 8, 9, 10, 11 — Phase 9 included per T-3 / RESEARCH.md Open Q 1)
+- [x] 12-05-PLAN.md — Cluster F: stale Phase 7 hub-flux observable-reconcile todo git-mv pending → completed + closure appendix
+- [x] 12-06-PLAN.md — Cluster B: ROADMAP.md Progress-table verification (verify-only; commit 83b81bb already fixed this per RESEARCH.md Pitfall 1)
+- [x] 12-07-PLAN.md — Wave-2 gate: `/gsd-audit-milestone v0.19` re-run + Phase 12 self-close (ROADMAP + STATE + 12-VALIDATION flips) + human-verify checkpoint (completed 2026-05-13)
 
 ## Progress
 
@@ -171,7 +171,7 @@
 | 9. Tenants + Flux Multi-Tenancy Lockdown | v0.19 | 5/5 | Complete | 2026-04-30 |
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete | 2026-05-05 |
 | 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
-| 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-11 |
+| 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete    | 2026-05-13 |
 
 ---
 

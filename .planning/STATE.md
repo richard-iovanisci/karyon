@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: — Capsule Multi-Tenancy POC
-status: ready_to_archive
+status: milestone_complete
 stopped_at: Phase 12 complete — v0.19 close-out reconciliation done; milestone ready for /gsd-complete-milestone v0.19
 last_updated: "2026-05-13T12:00:00.000Z"
-last_activity: 2026-05-11 -- Phase 12 complete; audit re-run passed; v0.19 milestone ready to archive
+last_activity: 2026-05-13 -- Phase 12 verified; audit re-run passed; v0.19 milestone ready to archive
 progress:
   total_phases: 6
   completed_phases: 6
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-29)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 11 — validation-graduation-adr-008
+**Current focus:** v0.19 milestone complete — ready to archive via `/gsd-complete-milestone v0.19`
 
 **Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
 
 ## Current Position
 
 Phase: 12 (v0-19-close-out-reconciliation) — COMPLETE
-Plan: 7 of 7 (all plans landed)
-Status: v0.19 milestone ready to archive via /gsd-complete-milestone v0.19
-Last activity: 2026-05-11 -- Phase 12 complete; v0.19-MILESTONE-AUDIT.md regenerated to `passed`
+Plan: 7 of 7 (all plans landed; audit re-run returned `passed`)
+Status: v0.19 milestone complete — ready to archive via `/gsd-complete-milestone v0.19`
+Last activity: 2026-05-13 -- Phase 12 verified (7/7 SCs, 30/30 must-haves); v0.19-MILESTONE-AUDIT.md status: passed
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Last activity: 2026-05-11 -- Phase 12 complete; v0.19-MILESTONE-AUDIT.md regener
 | 09 | 5 | - | - |
 | 10 | 3 | - | - |
 | 11 | 6 | - | - |
+| 12 | 7 | - | - |
 
 **By Phase (v0.19 — pending):**
 
