@@ -34,11 +34,16 @@ fs.inotify.max_user_instances = 1024
 
 ---
 
-### 1b. Hub Flux observable reconcile of `poc-capsule` Kustomization (DEFERRED to Phase 8)
+### 1b. Hub Flux observable reconcile of `poc-capsule` Kustomization (RESOLVED 2026-05-13)
 
 expected: `flux get kustomization poc-capsule -n flux-system --context k3d-hub-flux` returns `Ready=True` with `Applied revision: main@<sha>` for the post-Phase-7 commit.
 
-result: **deferred** — observable only after origin/main is updated past `1f2da1d3`. Current state: registration script edited the FLUX PATCH SURFACE locally and committed (`5bc8cb0`); origin/main has NOT been pushed because Phase 11 graduation owns first-push. The Phase 8 acceptance criteria (CAP-01 / CAP-02 — Capsule operator + capsule-proxy HelmReleases reconciled into spoke-capsule with `Ready=True`) implicitly require this — Phase 8 cannot pass without Flux successfully reconciling through `pocs/capsule.yaml` into spoke-capsule. **This is the natural integration test for the seam.**
+result: **passed** — verified 2026-05-13 by user via live `flux get kustomization`. Output:
+```
+NAME            REVISION                SUSPENDED       READY   MESSAGE
+poc-capsule     main@sha1:8415ab66      False           True    Applied revision: main@sha1:8415ab66
+```
+Phase 11 / Plan 11-07 closed G-04 + G-06 (split-Kustomization architecture; all 4 outer Flux Kustomizations Ready=True at HEAD 8415ab66 per `11-07-SUMMARY.md`). Phase 12 / Plan 12-05 moved the carryover tracking todo pending → completed with 2026-05-11 closure block.
 
 Phase 8 must:
 - Confirm origin/main has been updated and Flux's `flux-system` GitRepository has `Ready=True` at a revision past `1f2da1d3` (or mint a local-only test path if first-push remains gated)
@@ -61,7 +66,9 @@ flux get kustomization poc-capsule -n flux-system --context k3d-hub-flux
 
 expected: After a Docker daemon or WSL restart that leaves spoke-capsule in a degraded CoreDNS state (stale NodeHosts entries), running `task fix-dns-poc-capsule` recovers spoke-capsule via `k3d cluster stop spoke-capsule && k3d cluster start spoke-capsule` without affecting `task rebuild` (v0.18 SLO < 230s) or the existing `task fix-dns` (which targets hub-flux only).
 
-result: [pending]
+result: **passed** — verified 2026-05-13 by user. `task fix-dns-poc-capsule` ran end-to-end: `4 passed, 0 warnings, 0 failed` (tool gate + stop + start + node readiness). Post-recovery state: `kubectl get nodes` shows `k3d-spoke-capsule-server-0  Ready  control-plane  14d  v1.34.6+k3s1`. DNS resolution validated via `nslookup kubernetes.default.svc.cluster.local` → `10.43.0.1` after a ~30s CoreDNS settle window; CoreDNS Corefile retains the `kubernetes cluster.local in-addr.arpa ip6.arpa` zone block after stop/start; `kubernetes` service intact at ClusterIP `10.43.0.1`.
+
+**Methodology note (2026-05-13):** the original test wording (`nslookup kubernetes.default`) intermittently NXDOMAIN'd immediately after the k3d stop/start cycle — this is a busybox-search-domain + CoreDNS-settle-time quirk, not a script defect. Recommended canonical incantation on future runs: `sleep 30; kubectl run --rm -it dns-test --image=busybox:1.36 --restart=Never -- nslookup kubernetes.default.svc.cluster.local` (FQDN + pinned busybox + settle window).
 
 auto-verification (2026-04-29):
 - ✓ `Taskfile.yml:44-47` defines `fix-dns-poc-capsule` as a sibling-not-parent of `fix-dns` (line 39). Both are top-level entries; no env-var dispatch (D-16 anti-pattern avoided).
