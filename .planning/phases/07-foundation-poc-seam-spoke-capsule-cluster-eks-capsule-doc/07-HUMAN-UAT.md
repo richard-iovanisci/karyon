@@ -1,15 +1,16 @@
 ---
-status: partial
+status: passed
 phase: 07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc
 source: [.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-VERIFICATION.md]
 started: 2026-04-29T15:30:00Z
-updated: 2026-04-29T19:45:00Z
+updated: 2026-05-13T21:00:00Z
 auto_verification: 2026-04-29T19:45:00Z (--auto pre-flight)
+human_verification: 2026-05-13 (milestone owner, pre-v0.19 close)
 ---
 
 ## Current Test
 
-[awaiting human testing — items 2/3/4 below; item 1 split into 1a (resolved) + 1b (deferred to Phase 8). 2026-04-29 `/gsd-verify-work 7 --auto` ran structural pre-flight on items 2/3/4 — see "auto-verification" subsections under each. Human-side actions (real Docker restart, GitHub render, presentation walkthrough) still required for definitive pass.]
+[testing complete — all 5 scenarios resolved 2026-05-13: 1a passed 2026-04-29; 1b resolved via live `flux get kustomization poc-capsule` Ready=True at main@8415ab66; 2 passed via `task fix-dns-poc-capsule` recovery (4 internal checks + post-settle DNS resolution); 3 passed via GitHub Web UI Mermaid render (screenshot captured); 4 passed via milestone-owner end-to-end read-through.]
 
 ## Tests
 
@@ -97,7 +98,9 @@ kubectl --context k3d-spoke-capsule run --rm -i --tty dns-test --image=busybox -
 
 expected: Pushing the branch to GitHub and viewing `docs/capsule-on-eks.md` in the GitHub web UI renders the Mermaid topology block as a graphical diagram (NOT raw markdown). The diagram should match the `.planning/research/SUMMARY.md` ASCII topology source-of-truth: hub-flux outer reconcile arrows to spoke-capsule, NodePort 30443 publish, "Tenants on spoke-capsule, hub-controlled" callout, "no Flux on spoke-capsule" caption.
 
-result: [pending]
+result: **passed** — verified 2026-05-13 by user via GitHub Web UI render (screenshot captured). All declared EKS-target nodes visible and legible: AWS Region + EKS Cluster + capsule-system namespace boundaries, capsule-controller-manager (HelmRelease, OCIRepository=ECR), capsule-proxy (HelmRelease, NLB OR ALB Service, Ingress), alpha-app1 + bravo-app1 tenant namespaces with IRSA-bound `gitops-reconciler` SAs, IAM TrustPolicy per tenant SA, ECR (capsule + capsule-proxy charts) in `Outside cluster`, Git-gated OCIRepository pipeline, NLB/ALB → `https://capsule-proxy.<your-domain>:443` → tenant kubectl edge.
+
+**Note on test wording (per 2026-04-29 auto-pre-flight finding):** the test's original "should match" criteria referenced k3d source-of-truth elements (hub-flux outer reconcile arrows, NodePort 30443, "no Flux on spoke-capsule" caption) that intentionally do NOT belong in the EKS-target diagram. The artifact is correct against its declared purpose (EKS-target adaptation) and was evaluated against EKS-target criteria, not the k3d source-of-truth. No code defect; UAT wording could optionally be rewritten on a future pass to use EKS-target language.
 
 auto-verification (2026-04-29):
 - ✓ Mermaid block exists at `docs/capsule-on-eks.md:46-79` (33 lines including fences). Header comment block declares it the "EKS-target topology — AWS-flavored equivalents of the karyon k3d POC".
@@ -117,7 +120,7 @@ To run:
 
 expected: Milestone owner can walk a team through `docs/capsule-on-eks.md` in 10–15 minutes. Section (a) "what Capsule is" lands in one paragraph for non-experts. Section (b) (CRDs) names all 7 without overwhelming. Section (c) (RBAC) signals the admin-required steps clearly. Section (d) (rough EKS install path) leads with the high-level walkthrough then drops into IRSA + LB/ALB + VPC nodeSelector verbatim YAML for Cloud Ops. Section (e) (NOT proved — HA Capsule, OIDC, multi-spoke federation) sets the scope honestly without scaring the audience.
 
-result: [pending]
+result: **passed** — verified 2026-05-13 by user (milestone owner end-to-end read-through). All 5 sections (a-e) confirmed naturally readable for a Mixed Engineering + Cloud Ops audience; structural elements verified by 2026-04-29 auto-pre-flight remain intact at HEAD.
 
 auto-verification (2026-04-29):
 - ✓ Section (a) `## What Capsule is` (line 14) — single paragraph, ~70 words, links to capsule.clastix.io.
@@ -139,10 +142,10 @@ To run:
 ## Summary
 
 total: 5
-passed: 1
+passed: 5 (1a 2026-04-29; 1b/2/3/4 2026-05-13)
 issues: 0
-pending: 3 (auto-pre-flighted 2026-04-29; structural checks pass on all 3; human-side actions still required for definitive pass)
-deferred: 1
+pending: 0
+deferred: 0
 skipped: 0
 blocked: 0
 
