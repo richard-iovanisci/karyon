@@ -1,5 +1,5 @@
 ---
-status: passed
+status: complete
 phase: 07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc
 source: [.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-VERIFICATION.md]
 started: 2026-04-29T15:30:00Z
