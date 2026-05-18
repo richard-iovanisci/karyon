@@ -36,36 +36,28 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - [x] Destructive tasks (`destroy`, `rebuild`) require explicit confirmation *(Validated in Phase 5 + audited in Phase 6 — DESTROY-01..06 + REPO-06; typed-yes confirmation in scripts/destroy.sh + scripts/rebuild.sh)*
 - [x] All scripts are idempotent, fail fast, preflight their own prerequisites, and produce useful errors *(Validated across Phases 1-5 — preflight delegation in create-clusters/bootstrap-flux/register-spokes/deploy-examples/rebuild; strict-mode bash + `set -euo pipefail` throughout)*
 - [x] Documented NAT-mode fallback procedure for WSL2 `networkingMode=mirrored` edge cases with Docker custom networks *(Validated in Phase 1 — docs/wsl-networking.md)*
+- [x] Generic POC onboarding seam (`KARYON POC MOUNT` sentinel-guarded patch surface in `clusters/hub-flux/flux-system/kustomization.yaml`) so future POCs onboard consistently *(Validated in Phase 7 — POC-01..04)*
+- [x] Persistent isolated `spoke-capsule` k3d cluster reconciled hub-only by Flux; never enters `task rebuild` until a graduation ADR adopts it (P31 invariant) *(Validated in Phase 7 — CAPCLU-01..04)*
+- [x] Self-contained EKS-targeted Capsule rough-cut doc (`docs/capsule-on-eks.md`, Status: Reviewed) — Mermaid topology + IRSA / NLB+ALB / CapsuleConfiguration YAML for team-presentation use *(Validated in Phase 7 + 11 — EKSDOC-01; D-11-15 rolled Status Draft → Reviewed with 4 evidence blocks)*
+- [x] Capsule operator (`capsule:0.12.4`) + capsule-proxy installed as two separate Flux HelmReleases reconciled hub-only into spoke-capsule; CRDs visible; proxy reachable from WSL host *(Validated in Phase 8 — CAP-01..03; D-08-12 split-Kustomization architecture — spoke-targeted Ks include `kubeConfig`, hub-targeted Ks exclude it; D-08-11 controller-less self-sign cert flip)*
+- [x] Two Tenants (alpha, bravo) with disjoint owners, auto-materialized resource isolation, namespaceOptions quotas, containerRegistries allowlists; hub Flux controllers patched with multi-tenancy lockdown flags; P27 defense (`spec.serviceAccountName: flux-reconciler`) on every tenant Flux Kustomization *(Validated in Phase 9 — TEN-01..06; D-11-07 `forceTenantPrefix: false` repair landed live; Plan 09-03 landed on attempt 3 after two atomic rollbacks)*
+- [x] Tenant owner kubeconfigs minted imperatively via TokenRequest + tls.crt embed, routed through capsule-proxy (never apiserver direct), give each owner LIST visibility ONLY into their own tenant's namespaces, and never land in git (P29) *(Validated in Phase 10 — PROXY-01..03; D-08-13 push-gate deferral inherited)*
+- [x] Empirical bats evidence proves Capsule's tenant boundary holds (12-test negative-RBAC suite + webhook failure recovery + clean teardown), v0.18 `task rebuild` SLO unchanged, public-repo gitleaks defense (P29 kubeconfig-bearer-token rule + one-shot history scan) clean; closing graduation ADR-008 records adopt/defer/reject/replaced decision backed by bats evidence *(Validated in Phase 11 — VAL-01..06; ADR-008 outcome = **DEFER** per D-11-14 evidence-bound rubric)*
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-## Current Milestone: v0.19 — Capsule Multi-Tenancy POC
+## Current State: Between Milestones
 
-**Goal:** Prove [Capsule](https://capsule.clastix.io/) as a Karyon-managed multi-tenancy pattern on a dedicated, isolated POC spoke — without polluting the default v1 topology or `task rebuild` path. Close with an explicit graduation ADR (adopt / defer / reject / another POC).
+v0.19 (Capsule Multi-Tenancy POC) shipped 2026-05-18. No active milestone — next requirements set will be defined via `/gsd-new-milestone`.
 
-**Target features:**
+**Carry-forward candidates for the next milestone** (parking lot — promote to Active scope only when explicitly requested):
 
-- Generic external POC onboarding seam (`KARYON POC MOUNT` sentinel-guarded patch surface) so future POCs onboard consistently
-- `spoke-capsule` POC cluster — persistent for the POC, NOT part of default v1 topology, NOT in `task rebuild`
-- Hub-only Flux preserved — Capsule HelmRelease + tenant Kustomizations live on hub-flux, reconcile to spoke-capsule via `spec.kubeConfig` (ADR-004 invariant)
-- Capsule operator installation via Flux HelmRelease
-- Capsule-proxy installation and reachable via kubeconfig
-- ≥2 tenants with separate owners and isolated namespaces
-- Tenant owner access validation (positive RBAC)
-- Negative RBAC tests (owner-A cannot access tenant-B; no escalation to cluster-admin)
-- Kube-api access through capsule-proxy (tenant kubeconfig routes via proxy, not direct apiserver)
-- Flux tenant reconciliation investigation (multi-tenancy lockdown / SA impersonation / cross-namespace refs)
-- Capsule webhook failure / teardown validation
-- Graduation ADR closing the milestone
-
-**Carried-forward candidates from v0.18 close (not in v0.19 scope unless explicitly added later):**
-
-- Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155)
-- First-push CI verification + GitHub branch-protection setup
-- Real secret management (Vault / SOPS / age)
-- Stale frontmatter reconciliation pass (VALIDATION.md flags + REQUIREMENTS.md traceability table)
+- **`capsule-addon-fluxcd` Trial (ADDON-01/02 deferred from v0.19 Phase 12)** — Trial the addon as a Flux HelmRelease + comparison doc (hand-managed vs addon-managed: token rotation, kubeconfig refresh, complexity, blast radius). Revisit alongside `capsule-addon-fluxcd` releases that pair with newer Capsule minors.
+- **G-04 architectural decision** — `spec.kubeConfig` redirects HR/OCIRepo to spoke without Flux CRDs; Plan 11-07 D-11-01 PostBuild relocation is a documented workaround. Re-evaluate Capsule's split-Kustomization architecture (or alternative install pattern) at the next milestone if Capsule returns.
+- **Carry-forward from v0.18 close** — Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155), real secret management (Vault / SOPS / age).
+- **Carry-forward from v0.19 close** — Pre-existing markdownlint failures, pre-existing gitleaks finding in proxy-06 fixture, optional `KARYON_PHASE11_STRICT_LIVE=1` re-verification, slo-regression-live `KARYON_REBUILD_APPROVED` infrastructure.
 
 ### Out of Scope
 
@@ -91,7 +83,9 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 **Host target:** Author's development machine — Windows 11, RTX 5090 (Blackwell, sm_120), ample RAM/disk. `.wslconfig` pins 52 GB RAM and 20 CPU to WSL. Preflight floor is tight (40 GB RAM / 16 C / 100 GB free pass; 16 GB RAM / 8 C / 30 GB warn; below → fail). Because the topology is tuned to this machine, "works on my dev box" is explicitly the floor, not a generic minimum.
 
-**Current state (post-v0.18 — shipped 2026-04-29):** The full karyon Lab v1 stack is operational. `task rebuild` chains preflight → destroy → create-clusters → bootstrap-flux → register-spokes → deploy-examples → health-check end-to-end and was validated at **190 seconds** with warm CUDA cache (well under the 20-minute SLO). All 81 v0.18 requirements are satisfied across 6 phases / 41 plans / 90 tasks. Public-repo secrets defense is operational with 0 historical findings across 251 commits and a 5-job GitHub Actions CI workflow (gitleaks fetch-depth: 0, shellcheck, kubeconform, markdownlint, prune-lint-bats) with all third-party actions SHA-pinned. Five ADRs document the locked architectural decisions; README + architecture.md (Mermaid topology) + gpu-notes.md + rebuild-runbook.md + flux-hub-spoke.md cross-link the full reference.
+**Current state (post-v0.19 — shipped 2026-05-18):** The full karyon Lab v1 stack remains operational at the 190-second `task rebuild` SLO (v0.18 baseline preserved across v0.19 — VAL-04 SLO regression gate green). v0.19 added a generic, sentinel-guarded POC onboarding seam (`KARYON POC MOUNT`) plus a persistent isolated `spoke-capsule` k3d cluster reconciled hub-only by Flux, demonstrating multi-tenancy via Capsule operator + capsule-proxy + 2 tenants (alpha, bravo) with disjoint owners, RBAC isolation (12-test negative suite GREEN), and tenant kubeconfigs routed through capsule-proxy (never apiserver direct). Graduation ADR-008 records the **DEFER** decision (HARD-GATE 1 RED on Phase 8 G-04 cascade; ≥1 documented workaround via Plan 11-07 D-11-01 PostBuild patch + namespace seed). `spoke-capsule` stays outside `task rebuild` per P31. All 108 requirements across both milestones satisfied (81 v0.18 + 27 v0.19 mandatory; ADDON-01/02 deferred to a future milestone). 6 ADRs (ADR-001..005 from v0.18 + ADR-008 from v0.19); EKS-target reference doc `docs/capsule-on-eks.md` rolled Status: Draft → Reviewed for team-presentation use. Public-repo secrets defense extended in v0.19: kubeconfig-bearer-token gitleaks rule + 4 tenant-kubeconfig .gitignore globs; post-push history scan + Phase 11 VAL-05 verifier both clean.
+
+**Prior state (post-v0.18 — shipped 2026-04-29):** karyon Lab v1 reached `task rebuild` at 190s with warm CUDA cache; 81/81 v0.18 requirements across 6 phases / 41 plans / 90 tasks; public-repo secrets defense with 0 historical findings across 251 commits; 5-job GitHub Actions CI workflow with SHA-pinned third-party actions.
 
 **Prior work (consumed during v0.18):** An existing preflight checker at `prereqs.sh` was ported to `scripts/preflight.sh` + `scripts/lib/preflight-lib.sh` and extended with PRE-04 (default-runtime), PRE-09..14 (env, shim precedence, systemd-resolved, clock skew, cgroup v2, mirrored-mode bridge probe). Both `prereqs.sh` and the original `starter.md` walkthrough were superseded by the new entry-point surface (README + Taskfile) and removed in Phase 6 Plan 05.
 
