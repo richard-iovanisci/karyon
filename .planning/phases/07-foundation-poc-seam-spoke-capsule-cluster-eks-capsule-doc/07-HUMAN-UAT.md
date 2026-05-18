@@ -33,7 +33,7 @@ To make the inotify limit persist across reboots, add to `/etc/sysctl.d/99-karyo
 fs.inotify.max_user_instances = 1024
 ```
 
----
+***
 
 ### 1b. Hub Flux observable reconcile of `poc-capsule` Kustomization (RESOLVED 2026-05-13)
 
@@ -61,7 +61,7 @@ flux reconcile source git flux-system --context k3d-hub-flux
 flux get kustomization poc-capsule -n flux-system --context k3d-hub-flux
 ```
 
----
+***
 
 ### 2. `task fix-dns-poc-capsule` recovers from real Docker/WSL restart (CAPCLU-03)
 
@@ -92,7 +92,7 @@ kubectl --context k3d-spoke-capsule get nodes
 kubectl --context k3d-spoke-capsule run --rm -i --tty dns-test --image=busybox --restart=Never -- nslookup kubernetes.default
 ```
 
----
+***
 
 ### 3. Mermaid topology renders correctly in `docs/capsule-on-eks.md` (EKSDOC-01 / D-03)
 
@@ -114,7 +114,7 @@ To run:
 - Open `docs/capsule-on-eks.md` in the GitHub web UI
 - Verify the Mermaid block renders graphically with all expected nodes and arrows
 
----
+***
 
 ### 4. EKS doc reads naturally for a Mixed Eng + Cloud Ops team presentation (EKSDOC-01 / D-01)
 
@@ -137,7 +137,7 @@ To run:
 - Confirm the verbatim YAML blocks are lift-ready (Terraform / EKS module / kubectl apply)
 - Confirm the NOT-PROVED 3-item list aligns with the eventual ADR-008 graduation vocabulary
 
----
+***
 
 ## Summary
 
