@@ -42,20 +42,20 @@ R1 + R3 + R4 each carry pieces of this model. RBAC-04..06 below make Tier 2's "p
 
 A custom `tenant-workload-editor` ClusterRole replaces `admin` for **human-exercised tenant owners** — narrower than k8s' `edit`. The existing Flux SA owner pattern (`clusterRoles: [admin]` for GitOps reconciliation) is **preserved** with talk-track explanation of why automation gets broader scope than humans.
 
-- [ ] **RBAC-01** — A `tenant-workload-editor` ClusterRole exists with scope narrower than upstream k8s `edit`: NO Secret create / edit, NO RoleBinding, NO ResourceQuota, NO LimitRange. Final Secrets policy (read-only / no-access / upstream-edit-equivalent) resolved in discuss-phase per OQ-2.
-- [ ] **RBAC-02** — Human-exercised tenant-owner kubeconfigs minted via `issue-tenant-kubeconfig.sh` use `tenant-workload-editor` (NOT `admin`). `kubectl auth can-i '*' '*'` returns `no` for the resulting tenant-owner identity.
-- [ ] **RBAC-03** — Existing Flux SA owner pattern preserved: alpha + bravo Tenant CRs continue to carry `clusterRoles: [admin]` for the per-tenant Flux ServiceAccount that handles GitOps reconciliation. v0.19 Flux reconciliation continues unbroken (regression gate).
-- [ ] **RBAC-04** — Platform-owner identity (`capsule-platform-owners` group) demonstrably lacks `cluster-admin`: `kubectl auth can-i '*' '*'` returns `no` under the platform-owner kubeconfig. Platform-owner has only the scoped privileges defined by RBAC-05 + RBAC-06 + the Capsule-required cluster-scoped read on Tenant CRs — no wildcard, no PV/PVC across namespaces, no Node access, no CRD authoring.
-- [ ] **RBAC-05** — Platform-owner can perform the full Tenant CR lifecycle: `kubectl create / get / patch / delete tenant` succeeds under the platform-owner kubeconfig — verified via demo act-3 ("provision a new tenant live") + a corresponding act for deletion (or cleanup). This is the "Karyon Platform Team can add and remove tenants without being cluster-admin" assertion.
-- [ ] **RBAC-06** — Platform-owner is listed as a **co-owner** on every Tenant CR (the `capsule-platform-owners` group appears in `spec.owners[]` on alpha + bravo + any new tenant the platform-owner provisions live). This gives platform-owner operational LIST/WATCH/GET/LOGS/EXEC visibility across every tenant namespace through capsule-proxy without granting cluster-admin. The platform-owner's bound ClusterRole inside tenant namespaces is broader than `tenant-workload-editor` (so the platform team can debug across tenants) but is bounded — the exact role + Secrets policy resolved in discuss-phase (OQ-2 also applies here). New-tenant provisioning script / template MUST include the platform-owners group in the new Tenant CR's `spec.owners[]` by default.
+- [x] **RBAC-01** — A `tenant-workload-editor` ClusterRole exists with scope narrower than upstream k8s `edit`: NO Secret create / edit, NO RoleBinding, NO ResourceQuota, NO LimitRange. Final Secrets policy (read-only / no-access / upstream-edit-equivalent) resolved in discuss-phase per OQ-2.
+- [x] **RBAC-02** — Human-exercised tenant-owner kubeconfigs minted via `issue-tenant-kubeconfig.sh` use `tenant-workload-editor` (NOT `admin`). `kubectl auth can-i '*' '*'` returns `no` for the resulting tenant-owner identity.
+- [x] **RBAC-03** — Existing Flux SA owner pattern preserved: alpha + bravo Tenant CRs continue to carry `clusterRoles: [admin]` for the per-tenant Flux ServiceAccount that handles GitOps reconciliation. v0.19 Flux reconciliation continues unbroken (regression gate).
+- [x] **RBAC-04** — Platform-owner identity (`capsule-platform-owners` group) demonstrably lacks `cluster-admin`: `kubectl auth can-i '*' '*'` returns `no` under the platform-owner kubeconfig. Platform-owner has only the scoped privileges defined by RBAC-05 + RBAC-06 + the Capsule-required cluster-scoped read on Tenant CRs — no wildcard, no PV/PVC across namespaces, no Node access, no CRD authoring.
+- [x] **RBAC-05** — Platform-owner can perform the full Tenant CR lifecycle: `kubectl create / get / patch / delete tenant` succeeds under the platform-owner kubeconfig — verified via demo act-3 ("provision a new tenant live") + a corresponding act for deletion (or cleanup). This is the "Karyon Platform Team can add and remove tenants without being cluster-admin" assertion.
+- [x] **RBAC-06** — Platform-owner is listed as a **co-owner** on every Tenant CR (the `capsule-platform-owners` group appears in `spec.owners[]` on alpha + bravo + any new tenant the platform-owner provisions live). This gives platform-owner operational LIST/WATCH/GET/LOGS/EXEC visibility across every tenant namespace through capsule-proxy without granting cluster-admin. The platform-owner's bound ClusterRole inside tenant namespaces is broader than `tenant-workload-editor` (so the platform team can debug across tenants) but is bounded — the exact role + Secrets policy resolved in discuss-phase (OQ-2 also applies here). New-tenant provisioning script / template MUST include the platform-owners group in the new Tenant CR's `spec.owners[]` by default.
 
 ### SEED — Tenant Namespace Seeding via GlobalTenantResource (Demo R2)
 
 A `GlobalTenantResource` CR auto-propagates a hello-world workload into **every tenant namespace** (alpha-app1, tenant-alpha, bravo-app1, tenant-bravo, plus any new tenant the platform-owner provisions live during the demo).
 
-- [ ] **SEED-01** — A `GlobalTenantResource` CR (or equivalent Capsule mechanism) is reconciled into `spoke-capsule` and auto-propagates a hello-world workload into every existing tenant namespace (alpha-app1, tenant-alpha, bravo-app1, tenant-bravo).
-- [ ] **SEED-02** — Propagation latency ≤ 60 seconds: from a new tenant namespace appearing on the cluster, the seeded hello workload reaches Ready state in that namespace within 60s. Measured via `kubectl wait --for=condition=Ready` or equivalent verifiable bats falsifier.
-- [ ] **SEED-03** — Hello-world workload shape is the OQ-3-resolved choice (Pod + Service / ConfigMap-only / Deployment + Service + ConfigMap) — final selection lightweight enough to land alongside ≤230s SLO and visually meaningful enough for the demo narrative.
+- [x] **SEED-01** — A `GlobalTenantResource` CR (or equivalent Capsule mechanism) is reconciled into `spoke-capsule` and auto-propagates a hello-world workload into every existing tenant namespace (alpha-app1, tenant-alpha, bravo-app1, tenant-bravo).
+- [x] **SEED-02** — Propagation latency ≤ 60 seconds: from a new tenant namespace appearing on the cluster, the seeded hello workload reaches Ready state in that namespace within 60s. Measured via `kubectl wait --for=condition=Ready` or equivalent verifiable bats falsifier.
+- [x] **SEED-03** — Hello-world workload shape is the OQ-3-resolved choice (Pod + Service / ConfigMap-only / Deployment + Service + ConfigMap) — final selection lightweight enough to land alongside ≤230s SLO and visually meaningful enough for the demo narrative.
 
 ### DEMO — Capsule-Proxy Two-Perspective View (Demo R3)
 
@@ -82,9 +82,9 @@ The demo demonstrates LIST / WATCH / RBAC behavior from **two distinct kubeconfi
 
 The demo resources (ClusterRole, GlobalTenantResource, any hello-world workload manifests) land via a clearly-named delivery mechanism — decision deferred to discuss-phase per OQ-4.
 
-- [ ] **DELIVERY-01** — New demo resources (`tenant-workload-editor` ClusterRole, `GlobalTenantResource` CR, hello-world workload manifest) land via the OQ-4-resolved delivery mechanism — either GitOps under `pocs/capsule/` (production-correct, slower because of push-and-reconcile cycle) or a `task seed-capsule-demo` Taskfile entry (fast, self-contained). Single canonical path documented in RUNBOOK-01.
-- [ ] **DELIVERY-02** — Delivery mechanism preserves P31 invariant: zero new `spoke-capsule` mentions in any v0.18 default-path script (anything outside `scripts/poc/`). Verified by the existing static bats P31 grep + a fresh-run `task rebuild` post-deployment showing SLO < 230s holds.
-- [ ] **DELIVERY-03** — Delivery mechanism is **additive only**: existing alpha + bravo Tenant CRs unchanged, existing Flux reconciliation paths unchanged, `task rebuild` exit-code 0 with v0.18 health-check unchanged.
+- [x] **DELIVERY-01** — New demo resources (`tenant-workload-editor` ClusterRole, `GlobalTenantResource` CR, hello-world workload manifest) land via the OQ-4-resolved delivery mechanism — either GitOps under `pocs/capsule/` (production-correct, slower because of push-and-reconcile cycle) or a `task seed-capsule-demo` Taskfile entry (fast, self-contained). Single canonical path documented in RUNBOOK-01.
+- [x] **DELIVERY-02** — Delivery mechanism preserves P31 invariant: zero new `spoke-capsule` mentions in any v0.18 default-path script (anything outside `scripts/poc/`). Verified by the existing static bats P31 grep + a fresh-run `task rebuild` post-deployment showing SLO < 230s holds.
+- [x] **DELIVERY-03** — Delivery mechanism is **additive only**: existing alpha + bravo Tenant CRs unchanged, existing Flux reconciliation paths unchanged, `task rebuild` exit-code 0 with v0.18 health-check unchanged.
 
 ---
 
@@ -135,15 +135,15 @@ Which phases cover which requirements. Filled by roadmapper.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RBAC-01 | Phase 13 | Pending |
-| RBAC-02 | Phase 13 | Pending |
-| RBAC-03 | Phase 13 | Pending |
-| RBAC-04 | Phase 13 | Pending |
-| RBAC-05 | Phase 13 | Pending |
-| RBAC-06 | Phase 13 | Pending |
-| SEED-01 | Phase 13 | Pending |
-| SEED-02 | Phase 13 | Pending |
-| SEED-03 | Phase 13 | Pending |
+| RBAC-01 | Phase 13 | Complete |
+| RBAC-02 | Phase 13 | Complete |
+| RBAC-03 | Phase 13 | Complete |
+| RBAC-04 | Phase 13 | Complete |
+| RBAC-05 | Phase 13 | Complete |
+| RBAC-06 | Phase 13 | Complete |
+| SEED-01 | Phase 13 | Complete |
+| SEED-02 | Phase 13 | Complete |
+| SEED-03 | Phase 13 | Complete |
 | DEMO-01 | Phase 14 | Pending |
 | DEMO-02 | Phase 14 | Pending |
 | DEMO-03 | Phase 14 | Pending |
@@ -155,9 +155,9 @@ Which phases cover which requirements. Filled by roadmapper.
 | RUNBOOK-03 | Phase 14 | Pending |
 | RUNBOOK-04 | Phase 14 | Pending |
 | RUNBOOK-05 | Phase 14 | Pending |
-| DELIVERY-01 | Phase 13 | Pending |
-| DELIVERY-02 | Phase 13 | Pending |
-| DELIVERY-03 | Phase 13 | Pending |
+| DELIVERY-01 | Phase 13 | Complete |
+| DELIVERY-02 | Phase 13 | Complete |
+| DELIVERY-03 | Phase 13 | Complete |
 
 **Coverage:**
 

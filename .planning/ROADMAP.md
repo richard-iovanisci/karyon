@@ -136,7 +136,7 @@ Plans:
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete | 2026-05-05 |
 | 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
-| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 5/5 | Complete   | 2026-05-19 |
+| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 5/5 | Complete    | 2026-05-19 |
 | 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/TBD | Not started | - |
 | 15. v0.20 Close-out + Retrospective | v0.20 | 0/TBD | Not started | - |
 
