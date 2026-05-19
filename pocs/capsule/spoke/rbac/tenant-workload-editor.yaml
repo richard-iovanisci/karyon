@@ -1,0 +1,84 @@
+# pocs/capsule/spoke/rbac/tenant-workload-editor.yaml
+# Capsule tenant-workload-editor ClusterRole (Phase 13 — Tier 3 RBAC narrowing).
+#
+# REQ: RBAC-01 (v0.20 — narrower than upstream k8s `edit`)
+# Decision: D-13-04 (positive grants + 4 explicit denials)
+# Threat: T-13-04 (Elevation of Privilege via overbroad tenant role)
+#
+# Intent: replace upstream k8s `admin` / `edit` for human-exercised tenant
+# owners. Narrower than `edit` by removing Secret CUD (read-only per D-13-01)
+# + RoleBindings + ResourceQuotas + LimitRanges.
+#
+# The Flux SA owner pattern (RBAC-03) is preserved on alpha + bravo with
+# implicit-default `clusterRoles: [admin, capsule-namespace-deleter]`; only
+# the new `human-tenant-owner` SA per tenant binds to THIS ClusterRole via
+# Capsule's auto-injected RoleBinding `capsule-<tenant>-<index>-tenant-workload-editor`.
+#
+# Anti-pattern (Pitfall 13-P3): DO NOT add any rbac.authorization.k8s.io/
+# aggregate-to-* label — would silently inherit upstream `edit` Secret CUD.
+#
+# Local POC usage:
+#   kubectl --context=k3d-spoke-capsule auth can-i create pods \
+#     -n tenant-alpha \
+#     --as=system:serviceaccount:tenant-alpha:human-tenant-owner
+#
+# Production translation: bind via tenant.spec.owners[] with explicit
+# clusterRoles: [tenant-workload-editor]. Capsule v0.12.4 auto-injects
+# one RoleBinding per (owner, clusterRole, namespace) tuple.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tenant-workload-editor
+  labels:
+    karyon.io/poc: capsule
+    karyon.io/role: capsule-tenant-workload-editor
+rules:
+  # Workload management — full CRUD on pods + log/exec/portforward subresources
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/portforward"]
+    verbs: ["create"]
+  # Workload lifecycle — apps + batch
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  # Service exposure
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  # Workload configuration
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  # Storage references — read-only (PVC creation is platform-team concern)
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  # Debugging — events read-only
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  # Secrets — D-13-01 read-only ONLY (NO create/update/patch/delete)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+# Implicit denials (not in rules[]):
+#   - rolebindings, roles (rbac.authorization.k8s.io)  -- RBAC-01 explicit denial #2
+#   - resourcequotas (""), limitranges ("")            -- RBAC-01 explicit denials #3 and #4
+#   - nodes, csr, clusterrolebinding, clusterrole      -- Tier-1/Tier-2 surface
+#   - tenants.capsule.clastix.io, customresourcedefinitions  -- Tier-2 surface
+#   - networkpolicies.networking.k8s.io                -- defense in depth
