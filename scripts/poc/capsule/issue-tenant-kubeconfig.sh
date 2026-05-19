@@ -66,7 +66,9 @@ Mints a tenant-owner kubeconfig that routes through capsule-proxy NodePort 30443
 
 Args:
   <tenant>        Tenant name (e.g., alpha, bravo). MUST match existing Tenant CR on spoke-capsule.
-  <owner>         ServiceAccount name in tenant-<tenant> namespace (currently: gitops-reconciler).
+  <owner>         ServiceAccount name in tenant-<tenant> namespace; one of:
+                    - gitops-reconciler  (Flux automation; Phase 10 default)
+                    - human-tenant-owner (RBAC-02 human-exercised; Phase 13 default)
 
 Flags:
   --duration <d>  TokenRequest duration (default: ${DEFAULT_DURATION}). Valid: golang time.Duration string (e.g., 1h, 24h, 7d).
@@ -172,7 +174,8 @@ if ! kubectl --context="${POC_CTX}" -n "tenant-${TENANT}" get sa "${OWNER}" >/de
   fail "Owner '${OWNER}' SA not found in namespace tenant-${TENANT}.
        Available SAs in this tenant: ${AVAILABLE_SAS:-<none>}.
        Hint: run /gsd-execute-phase 9 first if Phase 9 has not landed yet,
-             or pass a known SA name (currently only 'gitops-reconciler')."
+             or pass a known SA name (currently 'gitops-reconciler' or
+             'human-tenant-owner' — Phase 13 RBAC-02 default)."
   exit 1
 fi
 pass "owner SA '${OWNER}' exists in tenant-${TENANT}"
