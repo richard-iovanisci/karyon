@@ -2,9 +2,10 @@
 phase: 13
 slug: rbac-narrowing-globaltenantresource-seed-delivery-mechanism
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-19
+wave_0_committed: 2026-05-19
 ---
 
 # Phase 13 — Validation Strategy
@@ -66,27 +67,27 @@ created: 2026-05-19
 
 ## Wave 0 Requirements
 
-**New bats files (18 — all RED at end of Plan 13-00):**
+**New bats files (19 — all RED end-of-Plan-13-00 except regression-gate tests that probe pre-existing state):**
 
-- [ ] `tests/bats/rbac-01-static-tenant-workload-editor.bats` — RBAC-01 ClusterRole shape (positive grants + 4 denial categories)
-- [ ] `tests/bats/rbac-02-static-platform-owner-sa.bats` — D-13-06 SA file shape + dual-subject CRB
-- [ ] `tests/bats/rbac-03-static-tenant-co-ownership.bats` — D-13-05 + D-13-07 owner additions to alpha + bravo
-- [ ] `tests/bats/rbac-04-static-human-owner-sa.bats` — human-tenant-owner SA file shape per tenant
-- [ ] `tests/bats/rbac-05-live-tenant-owner-grant-matrix.bats` — `kubectl auth can-i` matrix per D-13-04 (RBAC-01)
-- [ ] `tests/bats/rbac-06-live-tenant-kubeconfig.bats` — live tenant kubeconfig RBAC-02 verification
-- [ ] `tests/bats/rbac-07-live-flux-sa-preservation.bats` — RBAC-03 Flux SA owner pattern regression gate
-- [ ] `tests/bats/rbac-08-live-platform-owner-grant-matrix.bats` — platform-owner `auth can-i` matrix (RBAC-04)
-- [ ] `tests/bats/rbac-09-live-platform-owner-kubeconfig.bats` — live platform-owner kubeconfig LIST + RBAC-06 co-owner
-- [ ] `tests/bats/rbac-10-live-tenant-crud.bats` — RBAC-05 Tenant CRUD via platform-owner kubeconfig
-- [ ] `tests/bats/seed-01-static-globaltenantresource.bats` — GTR CR + inline Pod + Service shape
-- [ ] `tests/bats/seed-02-live-existing-tenants.bats` — SEED-01 propagation to alpha + bravo namespaces
-- [ ] `tests/bats/seed-03-live-fresh-tenant.bats` — SEED-02 fresh-namespace propagation ≤ 60s falsifier
-- [ ] `tests/bats/seed-04-live-shape.bats` — SEED-03 (Pod + Service only; no Deployment/RS/extra ConfigMap)
-- [ ] `tests/bats/delivery-01-static-mount-sentinel.bats` — KARYON POC MOUNT sentinel preservation
-- [ ] `tests/bats/delivery-02-static-paths.bats` — D-13-13 file layout + DELIVERY-01
-- [ ] `tests/bats/delivery-03-live-additive-only.bats` — DELIVERY-03 additive-only Tenant CR diff
-- [ ] `tests/bats/delivery-04-live-flux-reconcile.bats` — Flux Kustomizations Ready=True after Phase 13
-- [ ] `tests/bats/delivery-05-live-slo-regression.bats` — DELIVERY-02 SLO regression (KARYON_REBUILD_APPROVED gated)
+- [x] `tests/bats/rbac-01-static-tenant-workload-editor.bats` — RBAC-01 ClusterRole shape (positive grants + 4 denial categories)
+- [x] `tests/bats/rbac-02-static-platform-owner-sa.bats` — D-13-06 SA file shape + dual-subject CRB
+- [x] `tests/bats/rbac-03-static-tenant-co-ownership.bats` — D-13-05 + D-13-07 owner additions to alpha + bravo
+- [x] `tests/bats/rbac-04-static-human-owner-sa.bats` — human-tenant-owner SA file shape per tenant
+- [x] `tests/bats/rbac-05-live-tenant-owner-grant-matrix.bats` — `kubectl auth can-i` matrix per D-13-04 (RBAC-01)
+- [x] `tests/bats/rbac-06-live-tenant-kubeconfig.bats` — live tenant kubeconfig RBAC-02 verification
+- [x] `tests/bats/rbac-07-live-flux-sa-preservation.bats` — RBAC-03 Flux SA owner pattern regression gate
+- [x] `tests/bats/rbac-08-live-platform-owner-grant-matrix.bats` — platform-owner `auth can-i` matrix (RBAC-04)
+- [x] `tests/bats/rbac-09-live-platform-owner-kubeconfig.bats` — live platform-owner kubeconfig LIST + RBAC-06 co-owner
+- [x] `tests/bats/rbac-10-live-tenant-crud.bats` — RBAC-05 Tenant CRUD via platform-owner kubeconfig
+- [x] `tests/bats/seed-01-static-globaltenantresource.bats` — GTR CR + inline Pod + Service shape
+- [x] `tests/bats/seed-02-live-existing-tenants.bats` — SEED-01 propagation to alpha + bravo namespaces
+- [x] `tests/bats/seed-03-live-fresh-tenant.bats` — SEED-02 fresh-namespace propagation ≤ 60s falsifier
+- [x] `tests/bats/seed-04-live-shape.bats` — SEED-03 (Pod + Service only; no Deployment/RS/extra ConfigMap)
+- [x] `tests/bats/delivery-01-static-mount-sentinel.bats` — KARYON POC MOUNT sentinel preservation
+- [x] `tests/bats/delivery-02-static-paths.bats` — D-13-13 file layout + DELIVERY-01
+- [x] `tests/bats/delivery-03-live-additive-only.bats` — DELIVERY-03 additive-only Tenant CR diff
+- [x] `tests/bats/delivery-04-live-flux-reconcile.bats` — Flux Kustomizations Ready=True after Phase 13
+- [x] `tests/bats/delivery-05-live-slo-regression.bats` — DELIVERY-02 SLO regression (KARYON_REBUILD_APPROVED gated)
 
 **Inherited bats files (re-run by Plan 13-04 verifier; NOT modified):**
 
@@ -112,12 +113,12 @@ created: 2026-05-19
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references (18 new bats files)
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s (static) / < 10min (full live)
-- [ ] `nyquist_compliant: true` set in frontmatter (after Plan 13-00 lands all RED bats files)
-- [ ] `wave_0_complete: true` set in frontmatter (after Plan 13-00 commits)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (19 new bats files — one more than originally planned 18; delivery-02 + delivery-05 split-out for clarity)
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s (static) / < 10min (full live)
+- [x] `nyquist_compliant: true` set in frontmatter (Plan 13-00 landed all RED bats files at commit bb51bec on 2026-05-19)
+- [x] `wave_0_complete: true` set in frontmatter (Plan 13-00 commit bb51bec)
 
-**Approval:** pending — flipped after Plan 13-00 lands all RED bats files and the planner/verifier confirms `wave_0_complete: true`.
+**Approval:** Wave 0 complete — Plan 13-00 commit `bb51bec` lands 19 RED bats files. Plan 13-04 verifier confirms inheritance regressions (if any) and dispositions.
