@@ -56,7 +56,13 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 ## Current Milestone: v0.20 Capsule POC Demo & RBAC Polish
 
-**Goal:** Take the v0.19 Capsule POC from "shipped + technically correct" to **"demo-ready and least-privilege-aligned"** — land the artifacts + runbook needed to walk a Mixed Eng + Cloud Ops team through the platform-owner / tenant-owner / capsule-proxy story end-to-end, with a strict no-admin posture for every human-exercised role.
+**Goal:** Take the v0.19 Capsule POC from "shipped + technically correct" to **"demo-ready and least-privilege-aligned"** — land the artifacts + runbook needed to walk a Mixed Eng + Cloud Ops team through a falsifiable **three-tier permission model** end-to-end, with a strict no-admin posture for every human-exercised role.
+
+**Three-tier permission model** (the real-world target this milestone validates — modeling the constraint that the Karyon Platform Team does NOT have cloud-account-level cluster admin):
+
+- **Tier 1 — Cloud Ops / EKS cluster owners** — provisions the EKS cluster itself; holds AWS-side cluster-admin equivalent. Out of scope here (talk-track only).
+- **Tier 2 — Karyon Platform Team (platform-owner role)** — does NOT have k8s cluster-admin; CAN add/remove tenants (Tenant CR lifecycle); IS a co-owner on every tenant (visibility + operational access inside every tenant namespace, but bounded).
+- **Tier 3 — Tenant Developers (tenant-owner role)** — narrower than k8s `edit`; access ONLY to their own tenant's namespaces.
 
 **Target features:**
 
