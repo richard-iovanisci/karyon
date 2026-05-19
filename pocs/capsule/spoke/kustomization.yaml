@@ -29,3 +29,6 @@ resources:
   - rbac/
   - config/
   - tenants/
+  # NEW (Phase 13 D-13-13): GTR + Pod + Service propagation. Lands LAST so
+  # Tenant.Status.Namespaces is non-empty when controller first reconciles.
+  - global-resources/

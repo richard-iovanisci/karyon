@@ -1,0 +1,14 @@
+# pocs/capsule/spoke/global-resources/kustomization.yaml
+# Local Kustomize aggregator for the spoke-side global-resources subdir.
+# Resolved by parent pocs/capsule/spoke/kustomization.yaml (resources list includes
+# global-resources/ — Phase 13 D-13-13).
+#
+# D-13-11 + D-13-12 — GlobalTenantResource (cluster-scoped Capsule CR) with embedded
+# Pod + Service propagated to every tenant namespace. Spoke-targeted (parent
+# capsule-spoke.yaml's spec.kubeConfig: spoke-capsule-kubeconfig + spec.path:
+# ./pocs/capsule/spoke routes these resources to spoke-capsule via kustomize-controller's
+# cross-cluster reconcile (D-08-12 split-path invariant).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - hello-world.yaml
