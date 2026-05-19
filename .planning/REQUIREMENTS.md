@@ -135,35 +135,37 @@ Which phases cover which requirements. Filled by roadmapper.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RBAC-01 | TBD | Pending |
-| RBAC-02 | TBD | Pending |
-| RBAC-03 | TBD | Pending |
-| RBAC-04 | TBD | Pending |
-| RBAC-05 | TBD | Pending |
-| RBAC-06 | TBD | Pending |
-| SEED-01 | TBD | Pending |
-| SEED-02 | TBD | Pending |
-| SEED-03 | TBD | Pending |
-| DEMO-01 | TBD | Pending |
-| DEMO-02 | TBD | Pending |
-| DEMO-03 | TBD | Pending |
-| DEMO-04 | TBD | Pending |
-| DEMO-05 | TBD | Pending |
-| DEMO-06 | TBD | Pending |
-| RUNBOOK-01 | TBD | Pending |
-| RUNBOOK-02 | TBD | Pending |
-| RUNBOOK-03 | TBD | Pending |
-| RUNBOOK-04 | TBD | Pending |
-| RUNBOOK-05 | TBD | Pending |
-| DELIVERY-01 | TBD | Pending |
-| DELIVERY-02 | TBD | Pending |
-| DELIVERY-03 | TBD | Pending |
+| RBAC-01 | Phase 13 | Pending |
+| RBAC-02 | Phase 13 | Pending |
+| RBAC-03 | Phase 13 | Pending |
+| RBAC-04 | Phase 13 | Pending |
+| RBAC-05 | Phase 13 | Pending |
+| RBAC-06 | Phase 13 | Pending |
+| SEED-01 | Phase 13 | Pending |
+| SEED-02 | Phase 13 | Pending |
+| SEED-03 | Phase 13 | Pending |
+| DEMO-01 | Phase 14 | Pending |
+| DEMO-02 | Phase 14 | Pending |
+| DEMO-03 | Phase 14 | Pending |
+| DEMO-04 | Phase 14 | Pending |
+| DEMO-05 | Phase 14 | Pending |
+| DEMO-06 | Phase 14 | Pending |
+| RUNBOOK-01 | Phase 14 | Pending |
+| RUNBOOK-02 | Phase 14 | Pending |
+| RUNBOOK-03 | Phase 14 | Pending |
+| RUNBOOK-04 | Phase 14 | Pending |
+| RUNBOOK-05 | Phase 14 | Pending |
+| DELIVERY-01 | Phase 13 | Pending |
+| DELIVERY-02 | Phase 13 | Pending |
+| DELIVERY-03 | Phase 13 | Pending |
 
 **Coverage:**
 
 - v0.20 requirements: **23 total** (6 RBAC + 3 SEED + 6 DEMO + 5 RUNBOOK + 3 DELIVERY)
-- Mapped to phases: 0 (pending roadmapper)
-- Unmapped: 23 ⚠️ (will resolve to 0 after roadmap)
+- Mapped to phases: **23 / 23** (Phase 13: 12 REQs = 6 RBAC + 3 SEED + 3 DELIVERY; Phase 14: 11 REQs = 6 DEMO + 5 RUNBOOK; Phase 15: 0 REQs — close-out / book-keeping)
+- Unmapped: **0**
+
+**Note:** Phase 15 (v0.20 close-out + retrospective) introduces no new REQ-IDs — it is a book-keeping / reconciliation phase that flips the 23 mandatory checkboxes above against live evidence from Phases 13 + 14 (mirrors v0.19 Phase 12 close-out pattern).
 
 ---
 
@@ -182,4 +184,4 @@ Which phases cover which requirements. Filled by roadmapper.
 
 ---
 
-*Requirements defined: 2026-05-19 — milestone v0.20 (Capsule POC Demo & RBAC Polish) opened via `/gsd-new-milestone v0.20` ingesting `v0.20-MILESTONE-BRIEFING.md`. 23 requirements across 5 categories (6 RBAC / 3 SEED / 6 DEMO / 5 RUNBOOK / 3 DELIVERY); RBAC-04..06 + DEMO-01/03/04/06 + RUNBOOK-01/03 make the **three-tier permission model** explicit (Tier 1 Cloud Ops out-of-scope / Tier 2 Karyon Platform Team / Tier 3 Tenant Devs) per milestone-owner clarification — the real-world target is "platform team is not cluster-admin but runs the multi-tenant environment". 5 open questions explicitly deferred to discuss-phase (TLS noise, Secrets policy, workload shape, delivery path, new-tenant name + live-provisioning style). Roadmapper will continue phase numbering from v0.19's last phase (Phase 12 → start at Phase 13).*
+*Requirements defined: 2026-05-19 — milestone v0.20 (Capsule POC Demo & RBAC Polish) opened via `/gsd-new-milestone v0.20` ingesting `v0.20-MILESTONE-BRIEFING.md`. 23 requirements across 5 categories (6 RBAC / 3 SEED / 6 DEMO / 5 RUNBOOK / 3 DELIVERY); RBAC-04..06 + DEMO-01/03/04/06 + RUNBOOK-01/03 make the **three-tier permission model** explicit (Tier 1 Cloud Ops out-of-scope / Tier 2 Karyon Platform Team / Tier 3 Tenant Devs) per milestone-owner clarification — the real-world target is "platform team is not cluster-admin but runs the multi-tenant environment". 5 open questions explicitly deferred to discuss-phase (TLS noise, Secrets policy, workload shape, delivery path, new-tenant name + live-provisioning style). Roadmapper traceability filled 2026-05-19 — 3 phases (13: RBAC+SEED+DELIVERY artifacts, 12 REQs; 14: DEMO+RUNBOOK verification, 11 REQs; 15: close-out + retrospective, 0 new REQs).*
