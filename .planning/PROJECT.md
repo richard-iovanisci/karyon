@@ -48,16 +48,48 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 <!-- Current scope. Building toward these. -->
 
-## Current State: Between Milestones
+- [ ] Custom `tenant-workload-editor` ClusterRole replaces `admin` for human-exercised tenant owners (Flux SA owner pattern preserved with talk-track) *(v0.20 — Demo R1)*
+- [ ] `GlobalTenantResource` CR auto-propagates a hello-world workload into every tenant namespace within 60s of namespace creation *(v0.20 — Demo R2)*
+- [ ] Capsule-proxy two-perspective demo: platform-owner kubeconfig (all-tenants visibility) vs tenant-owner kubeconfig (single-tenant; rejected on `kubectl create secret` and cross-tenant access) *(v0.20 — Demo R3)*
+- [ ] `docs/poc-capsule-demo.md` polished 6-act demo runbook with pre-demo checklist + known-noise notes *(v0.20 — Demo R4)*
+- [ ] Self-contained delivery path for demo resources (GitOps `pocs/capsule/` OR `task seed-capsule-demo`; resolved in discuss-phase per OQ-3) *(v0.20 — Demo R5)*
 
-v0.19 (Capsule Multi-Tenancy POC) shipped 2026-05-18. No active milestone — next requirements set will be defined via `/gsd-new-milestone`.
+## Current Milestone: v0.20 Capsule POC Demo & RBAC Polish
 
-**Carry-forward candidates for the next milestone** (parking lot — promote to Active scope only when explicitly requested):
+**Goal:** Take the v0.19 Capsule POC from "shipped + technically correct" to **"demo-ready and least-privilege-aligned"** — land the artifacts + runbook needed to walk a Mixed Eng + Cloud Ops team through the platform-owner / tenant-owner / capsule-proxy story end-to-end, with a strict no-admin posture for every human-exercised role.
 
-- **`capsule-addon-fluxcd` Trial (ADDON-01/02 deferred from v0.19 Phase 12)** — Trial the addon as a Flux HelmRelease + comparison doc (hand-managed vs addon-managed: token rotation, kubeconfig refresh, complexity, blast radius). Revisit alongside `capsule-addon-fluxcd` releases that pair with newer Capsule minors.
-- **G-04 architectural decision** — `spec.kubeConfig` redirects HR/OCIRepo to spoke without Flux CRDs; Plan 11-07 D-11-01 PostBuild relocation is a documented workaround. Re-evaluate Capsule's split-Kustomization architecture (or alternative install pattern) at the next milestone if Capsule returns.
-- **Carry-forward from v0.18 close** — Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155), real secret management (Vault / SOPS / age).
-- **Carry-forward from v0.19 close** — Pre-existing markdownlint failures, pre-existing gitleaks finding in proxy-06 fixture, optional `KARYON_PHASE11_STRICT_LIVE=1` re-verification, slo-regression-live `KARYON_REBUILD_APPROVED` infrastructure.
+**Target features:**
+
+- Custom `tenant-workload-editor` ClusterRole replacing `admin` for human tenant owners (narrower than k8s `edit`; no Secret create/edit, no RoleBinding, no ResourceQuota, no LimitRange) — Demo R1
+- `GlobalTenantResource` CR auto-propagating a hello-world workload across every tenant namespace (alpha-app1, tenant-alpha, bravo-app1, tenant-bravo, and any new tenant provisioned live) within 60s — Demo R2
+- Capsule-proxy two-perspective demo using 2 distinct kubeconfigs (platform-owner sees all; tenant-owner via capsule-proxy on NodePort 30443 sees only their tenant) — Demo R3
+- `docs/poc-capsule-demo.md` 6-act walkthrough — architecture → platform-owner role → provision new tenant live → GlobalTenantResource auto-seed → two perspectives → cleanup — Demo R4
+- Self-contained delivery path for the new demo resources — GitOps under `pocs/capsule/` OR `task seed-capsule-demo` Taskfile entry (decision in discuss-phase) — Demo R5
+
+**Framing:** Lean milestone. Smallest viable phase count to get a meaningful demo together ASAP. Purely additive — existing alpha/bravo tenants + existing Flux reconciliation stay untouched. Anti-scope guard active: discuss-phase "while we're at it, can we also..." additions get rejected unless directly load-bearing for R1–R5.
+
+**Audience for the resulting demo:** Mixed internal team — Engineering + Cloud Ops mix. ~10–15 minute live walkthrough; goal is to leave them able to articulate the platform-owner vs tenant-owner delegation model and the capsule-proxy LIST-filter mechanic.
+
+**Open questions (resolved in discuss-phase, not at milestone open):**
+
+1. `tls: bad certificate` controller-noise — fix as part of R4, document-only in runbook, or defer entirely? (Recommended default: document-only)
+2. `tenant-workload-editor` Secrets policy — read-only (recommended), no-access-at-all (strictest), or upstream-`edit`-equivalent (full read+write, less demo-distinct)
+3. Hello-world workload shape — Pod + Service (recommended; lightweight, visual), ConfigMap-only (fastest), or Deployment + Service + ConfigMap (heavier)
+4. R5 delivery path — GitOps via `pocs/capsule/` vs `task seed-capsule-demo` direct apply
+5. New tenant name for the live-provisioning marquee moment ("charlie", "demo", "team-foo", etc.) + provision-live vs pre-staged delete+recreate dance
+
+**Carry-forward parking lot** (acknowledged, still deferred — NOT scoped into v0.20):
+
+- `capsule-addon-fluxcd` Trial (ADDON-01 / ADDON-02 deferred from v0.19 Phase 12) — Trial as a Flux HelmRelease + hand-managed vs addon-managed comparison doc. Revisit alongside `capsule-addon-fluxcd` releases that pair with newer Capsule minors.
+- G-04 architectural decision / split-Kustomization refactor — Plan 11-07 D-11-01 PostBuild workaround stays. Architecture review is a future-milestone concern.
+- Optional `KARYON_PHASE11_STRICT_LIVE=1` re-verification path
+- slo-regression-live `KARYON_REBUILD_APPROVED` infrastructure
+- Pre-existing markdownlint failures
+- Pre-existing gitleaks finding in `proxy-06` fixture
+- Phase 1-5 shellcheck warning cleanup (SC2034 / SC2155) (v0.18 close carryover)
+- First-push CI verification + GitHub branch-protection setup (v0.18 close carryover)
+- Real secret management (Vault / SOPS / age) (v0.18 close carryover)
+- Stale frontmatter reconciliation pass (v0.18 close carryover)
 
 ### Out of Scope
 
@@ -154,4 +186,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-13 — milestone v0.19 (Capsule Multi-Tenancy POC) complete; Phase 12 (v0.19 Close-out Reconciliation) closed `passed` (7/7 plans; 30/30 plan-level must-haves verified; all 7 ROADMAP Success Criteria satisfied). `/gsd-audit-milestone v0.19` re-run returned `status: passed` — 27/27 v0.19 mandatory REQs satisfied (POC-01..04 + CAPCLU-01..04 + EKSDOC-01 + CAP-01..03 + TEN-01..06 = 18 mandatory checkboxes flipped; PROXY-01..03 + VAL-01..06 = 9 already-validated; ADDON-01/02 deferred to v0.20). 5/5 Nyquist VALIDATION ledgers `status: final`. 11-VERIFICATION.md + 11-PHASE-VERIFICATION.md disposition flipped to `passed` via Supersedure 2026-05-11 blocks. v0.19 milestone state: `ready_to_archive` (next: `/gsd-complete-milestone v0.19`). Prior: Phase 11 closed `passed_with_overrides` (6/6 plans; VAL-01..06 verified). ADR-008 outcome = **DEFER** per D-11-14 evidence-bound rubric — HARD-GATE 1 RED on Phase 8 G-04 cascade (chart-rendered Role NotFound; `spec.kubeConfig` architecture redirects HR/OCIRepo to spoke without Flux CRDs), HARD-GATE 2 GREEN, 22/13/0 GREEN/RED/SKIP bats matrix across 35 @tests, ≥1 documented workaround. Phase 12 capsule-addon-fluxcd Trial UNLOCKED via OPTIONAL gate condition (∈ {adopt, defer}); 6 carryover items forwarded to v0.20 / Phase 12 (G-04 architectural decision, Pitfall 11-P1 D-11-01 relocation, pre-existing markdownlint failures, pre-existing gitleaks finding in proxy-06 fixture, slo-regression-live `KARYON_REBUILD_APPROVED` infrastructure, optional `KARYON_PHASE11_STRICT_LIVE=1` re-verification). docs/capsule-on-eks.md rolled forward Status: Draft → Reviewed (D-11-15 4 evidence blocks). Code review: 3 BLOCKER + 8 WARNING + 4 INFO findings — see 11-REVIEW.md (advisory). Prior: Phase 9 closed out `passed_with_overrides` (5/5 plans, 8/8 must-haves). v0.18 (karyon Lab v1) shipped 2026-04-29 — 6 phases, 41 plans, 81/81 requirements.*
+*Last updated: 2026-05-19 — milestone v0.20 (Capsule POC Demo & RBAC Polish) opened via `/gsd-new-milestone v0.20` ingesting `v0.20-MILESTONE-BRIEFING.md`. Lean / additive milestone: 5 in-scope demo requirements (R1 `tenant-workload-editor` RBAC narrowing, R2 `GlobalTenantResource` seed, R3 capsule-proxy two-perspective demo, R4 `docs/poc-capsule-demo.md` runbook, R5 delivery-path decision); 5 open questions deferred to discuss-phase; 11-item parking lot inherited as still-deferred. Anti-scope guard active. Existing alpha/bravo tenants + Flux reconciliation untouched. P27/P29/P31 invariants + `task rebuild` SLO < 230s preserved. Suggested decomposition (planner guidance): 2 phases (RBAC + GlobalTenantResource seed; then two-perspective demo + runbook) plus a v0.20 close-out — planner may collapse but MAY NOT add a 4th phase. Prior: milestone v0.19 (Capsule Multi-Tenancy POC) shipped 2026-05-18; 6 phases, 34 plans, 76 tasks; ADR-008 outcome = **DEFER** per D-11-14 evidence-bound rubric. v0.18 (karyon Lab v1) shipped 2026-04-29 — 6 phases, 41 plans, 81/81 requirements.*

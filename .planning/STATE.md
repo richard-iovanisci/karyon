@@ -1,36 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.19
-milestone_name: — Capsule Multi-Tenancy POC
-status: completed
-stopped_at: Plan 11-07 Task 6 human-verify checkpoint
-last_updated: "2026-05-18T13:08:12.332Z"
-last_activity: 2026-05-18
+milestone: v0.20
+milestone_name: Capsule POC Demo & RBAC Polish
+status: planning
+last_updated: "2026-05-19T18:12:42.107Z"
+last_activity: 2026-05-19
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 34
-  completed_plans: 34
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-29)
+See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** v0.19 milestone complete — ready to archive via `/gsd-complete-milestone v0.19`
+**Current focus:** v0.20 — defining requirements + roadmap for Capsule POC Demo & RBAC Polish (lean / additive milestone; demo-ready ASAP)
 
-**Phase counting choice:** `total_phases: 5` counts only the 5 MANDATORY phases (7-11). Phase 12 (capsule-addon-fluxcd) is OPTIONAL and gated on ADR-008 outcome ∈ {adopt, defer}; it is tracked separately as `total_phases_with_optional: 6`. Progress percent computes against the mandatory 5 unless Phase 12 is activated, at which point it switches to 6.
+**Milestone framing (v0.20):** Lean / additive — Smallest viable phase count to ship the Capsule POC demo runbook and the least-privilege tenant ClusterRole. Suggested phase shape (planner guidance, may collapse): 2 phases (RBAC narrowing + GlobalTenantResource seed; then two-perspective demo + runbook) plus close-out. Anti-scope guard active: no exploratory side-quests; existing alpha/bravo tenants + Flux reconciliation stay untouched.
 
 ## Current Position
 
-Phase: 12 (v0-19-close-out-reconciliation) — COMPLETE
-Plan: 7 of 7 (all plans landed; audit re-run returned `passed`)
-Status: v0.19 milestone complete — ready to archive via `/gsd-complete-milestone v0.19`
-Last activity: 2026-05-18
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-19 — Milestone v0.20 started
 
 ## Performance Metrics
 
@@ -57,7 +56,7 @@ Last activity: 2026-05-18
 | 11 | 6 | - | - |
 | 12 | 7 | - | - |
 
-**By Phase (v0.19 — pending):**
+**By Phase (v0.19 — shipped):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -65,8 +64,14 @@ Last activity: 2026-05-18
 | 08 | 4 | - | - |
 | 09 | 5 | - | - |
 | 10 | 3 | - | - |
-| 11 | TBD | - | - |
-| 12 (optional) | TBD | - | - |
+| 11 | 6 | - | - |
+| 12 | 7 | - | - |
+
+**By Phase (v0.20 — pending):**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| TBD (roadmapper output) | — | — | — |
 
 **Recent Trend:**
 
@@ -92,6 +97,15 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - D-14 blocking comment is exact-text greppable ('INTENTIONALLY NOT calling') — Phase 6 DESTROY-04 lint grep target; preserved through v0.19 P31 isolation contract
 - Public-repo gitleaks defense (Phase 6 REPO-01..04): native pre-commit + `.gitleaks.toml` allowlist + post-push CI fetch-depth: 0 + one-shot history scan; v0.19 P29 extends with kubeconfig-shaped rule
 
+**v0.20 milestone-open (2026-05-19):**
+
+- Lean / additive milestone framing per `v0.20-MILESTONE-BRIEFING.md` — 5 in-scope demo requirements (R1 RBAC narrowing, R2 GlobalTenantResource seed, R3 capsule-proxy two-perspective demo, R4 demo runbook, R5 delivery path); 5 open questions deferred to discuss-phase; 11-item parking lot stays deferred
+- Anti-scope guard active — discuss-phase "while we're at it" additions get rejected unless directly load-bearing for R1–R5
+- Suggested decomposition (planner guidance): 2 phases (RBAC + GlobalTenantResource seed; then two-perspective demo + runbook) plus v0.20 close-out — planner MAY collapse but MUST NOT add a 4th phase
+- ADR-008 = DEFER inheritance: v0.20 does NOT revisit graduation rubric (D-11-14)
+- P27/P29/P31 invariants + `task rebuild` SLO < 230s preserved (no regression)
+- Existing alpha/bravo Tenant CRs preserved as-is; v0.20 work is additive, NOT retroactive
+
 **v0.19 milestone-open (logged in PROJECT.md):**
 
 - Selected 6-phase split (PITFALLS.md / ARCHITECTURE.md aligned over FEATURES.md 4-phase) — bundles risk: KARYON POC MOUNT static surface separated from cluster live work; webhook failure + teardown + ADR isolated from negative-RBAC validation
@@ -103,7 +117,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase ?]: Phase 10 Plan 10-01: issue-tenant-kubeconfig.sh script (PROXY-01) + docs/poc-capsule.md H2 append (PROXY-03) landed; Pitfall 10-P7 implemented via 5-helper function-override at definition time (cleaner than per-call-site >&2); Rule 3 deviation: capsule-proxy live-staged via helm install + RBAC patch (secrets create on tenant Role) to satisfy proxy-04 GREEN criterion — staging brought forward 1 plan from Plan 10-02 territory; proxy-05 stays RED (LIST filter wiring deferred to Plan 10-02 verifier)
 - [Phase 10]: Phase 10 Plan 10-02 verifier: 10-VERIFICATION.md written with `passed_with_overrides` disposition; all 3 PROXY-01..03 must-haves verified live; 44/45 Phase 10 @tests GREEN (1 RED-by-design — Phase 8 BLOCKER G-04 inheritance); Pitfall 10-P1..P7 mitigations applied + verified; Phase 7 P31 + Phase 8 CAP-01..03 + Phase 9 TEN-01..06 + ADR-004 inheritance preserved; v0.18 task health-check exits 0; D-08-13 push-gate stays deferred to Phase 11 VAL-05; 2 Rule 3 deviations during verifier: (a) CapsuleConfiguration userGroups patched in-cluster to add system:serviceaccounts + system:authenticated (proxy LIST filter wiring); (b) tenant-alpha + tenant-bravo namespaces recreated as Capsule-owned via --as=alpha/bravo impersonation (home namespace ownership for proxy LIST visibility); both deviations documented in 10-VERIFICATION.md "Notable Observations" for Phase 11 push-gate awareness
 
-### Load-Bearing v0.19 Invariants (every plan must respect)
+### Load-Bearing Invariants Inherited Into v0.20 (every plan must respect)
 
 - **P27** — every tenant Flux Kustomization MUST set `spec.serviceAccountName` explicitly. Flux's `--default-service-account` lockdown does NOT apply when `spec.kubeConfig` is set. Without explicit `serviceAccountName`, tenants run as cluster-admin and bypass Capsule. Static bats grep-asserts every tenant Kustomization has a non-null `serviceAccountName` (Phase 9 contract; Phase 11 falsifier).
 - **P29** — tenant kubeconfigs MUST NOT land in git. Phase 7 expands `.gitignore` + adds `.gitleaks.toml` rule for `kind: Config` + bearer-token shape. Phase 10 generator defaults to `${TMPDIR:-/tmp}/karyon-tenants/` (outside repo) and prints to stdout. Phase 11 synthetic-fixture bats + one-shot history scan close the loop.
@@ -143,6 +157,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-07T12:19:48.374Z
-Stopped at: Plan 11-07 Task 6 human-verify checkpoint
-Resume file: .planning/phases/11-validation-graduation-adr-008/11-07-G06-DIAGNOSTICS.md
+Last session: 2026-05-19 — v0.20 milestone open
+Stopped at: defining requirements (post milestone-open, pre-REQUIREMENTS.md)
+Resume file: —
