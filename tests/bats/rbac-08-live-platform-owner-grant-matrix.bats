@@ -34,53 +34,61 @@ setup() {
 # ---- positive: Tier-2 platform-owner grants ----
 
 @test "RBAC-04 / D-13-06 (positive): platform-owner can create tenants.capsule.clastix.io" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i create tenants.capsule.clastix.io
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i create tenants.capsule.clastix.io 2>/dev/null"
   [ "$output" = "yes" ]
 }
 
 @test "RBAC-04 / D-13-06 (positive): platform-owner can list tenants.capsule.clastix.io" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i list tenants.capsule.clastix.io
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i list tenants.capsule.clastix.io 2>/dev/null"
   [ "$output" = "yes" ]
 }
 
 @test "RBAC-04 / D-13-06 (positive): platform-owner can get tenants.capsule.clastix.io" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i get tenants.capsule.clastix.io
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i get tenants.capsule.clastix.io 2>/dev/null"
   [ "$output" = "yes" ]
 }
 
 @test "RBAC-04 / D-13-06 (positive): platform-owner can list namespaces (Tier-2 visibility)" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i list namespaces
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i list namespaces 2>/dev/null"
   [ "$output" = "yes" ]
 }
 
 @test "RBAC-04 / D-13-06 (positive): platform-owner can get customresourcedefinitions" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i get customresourcedefinitions
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i get customresourcedefinitions 2>/dev/null"
   [ "$output" = "yes" ]
 }
 
 # ---- denial: Tier-1 ceiling enforcement ----
 
 @test "RBAC-04 / D-13-06 (ceiling): platform-owner auth can-i '*' '*' returns no" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i '*' '*'
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i '*' '*' 2>/dev/null"
   [ "$output" = "no" ]
 }
 
 @test "RBAC-04 / D-13-06 (ceiling): platform-owner cannot get nodes" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i get nodes
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i get nodes 2>/dev/null"
   [ "$output" = "no" ]
 }
 
 @test "RBAC-04 / D-13-06 (ceiling): platform-owner cannot get csr" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i get certificatesigningrequests
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i get certificatesigningrequests 2>/dev/null"
   [ "$output" = "no" ]
 }
 
 @test "RBAC-04 / D-13-06 (ceiling): platform-owner cannot create clusterrolebinding" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i create clusterrolebinding
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i create clusterrolebinding 2>/dev/null"
   [ "$output" = "no" ]
 }
 
-@test "RBAC-04 / D-13-06 (ceiling): platform-owner cannot create namespaces (cluster-scoped)" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" auth can-i create namespaces
-  [ "$output" = "no" ]
+@test "RBAC-04 / D-13-06 (ceiling): platform-owner create namespaces is RBAC-allowed but webhook-gated" {
+  # Capsule's standard install ClusterRoleBinding 'capsule-namespace-provisioner' binds
+  # ClusterRole capsule-namespace-provisioner (verbs: create namespaces) to ALL
+  # system:authenticated + system:serviceaccounts groups. So the k8s RBAC layer
+  # returns 'yes' for any authenticated subject. The actual ceiling is enforced by
+  # Capsule's MUTATING webhook, which rejects namespace creates not assigned to a
+  # tenant the caller owns. This test documents the RBAC-layer answer (yes); the
+  # tenant-ownership semantic is exercised by rbac-09-live (namespace LIST filter
+  # through capsule-proxy) and rbac-10-live (Tenant CRUD via new-tenant.sh).
+  run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i create namespaces 2>/dev/null"
+  [ "$output" = "yes" ]
 }
