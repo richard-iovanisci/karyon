@@ -108,8 +108,16 @@ setup() {
   if ! kubectl --context=k3d-spoke-capsule get namespace alpha-app1 >/dev/null 2>&1; then
     _strict_skip "alpha-app1 namespace absent (Phase 9 TEN-02 fixture missing); re-create before re-running"
   fi
+  # Phase 13 (Plan 13-04 verifier Rule 1 - Bug):
+  # Plan 13-01 additively added `docker.io` to alpha + bravo `containerRegistries.allowed[]`
+  # (required so the GTR-propagated `docker.io/library/nginx:alpine` Pod is webhook-accepted
+  # per Pitfall 13-P1). The N7 falsifier MUST pull from a registry NOT in `allowed[]` to
+  # exercise the webhook. After Phase 13: `allowed[] = [registry.example.io, docker.io]`,
+  # so `quay.io/library/nginx` is the canonical "different registry" probe. Phase 13 Plan
+  # 13-01 Notable Observation #3 promised this non-regression — that promise is honored
+  # here by retargeting the fixture to a registry still outside the allowlist.
   run kubectl --kubeconfig="$ALPHA_KUBECONFIG" run probe-n7 \
-    --image=docker.io/library/nginx -n alpha-app1
+    --image=quay.io/library/nginx -n alpha-app1
   [ "$status" -ne 0 ]
   # REVISED 2026-05-05 (gsd-plan-checker BLOCKER 1): N7 falsifier validity tightening.
   # Capsule v0.12.4 deprecated `containerRegistries.allowed` in favor of

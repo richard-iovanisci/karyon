@@ -27,13 +27,20 @@ setup() {
   [ "$output" = "true" ]
 }
 
-@test "D-11-07: tenant home kustomizations contain only labeled namespace then owner SA" {
+@test "D-11-07: tenant home kustomizations contain labeled namespace then owner SAs (Phase 13 D-13-05 additive)" {
   [ -f "$K_ALPHA" ]
   [ -f "$K_BRAVO" ]
-  run yq eval '(.resources | length) == 2 and .resources[0] == "namespace.yaml" and .resources[1] == "sa.yaml"' "$K_ALPHA"
+  # Phase 13 (Plan 13-04 verifier Rule 1 - Bug):
+  # Plan 13-01 (D-13-05) additively appended `human-owner-sa.yaml` to alpha + bravo
+  # tenant kustomization.yaml `resources[]` (after `sa.yaml`, preserving FIFO order).
+  # The shape contract expanded from 2 entries -> 3 entries; first two entries
+  # (namespace.yaml + sa.yaml) preserved character-for-character per D-11-07 + D-13-05
+  # additive guarantee. The new human-owner-sa.yaml MUST be the third entry per FIFO
+  # sortOptions and the Plan 13-01 reviewer-confirmed sequence.
+  run yq eval '(.resources | length) == 3 and .resources[0] == "namespace.yaml" and .resources[1] == "sa.yaml" and .resources[2] == "human-owner-sa.yaml"' "$K_ALPHA"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
-  run yq eval '(.resources | length) == 2 and .resources[0] == "namespace.yaml" and .resources[1] == "sa.yaml"' "$K_BRAVO"
+  run yq eval '(.resources | length) == 3 and .resources[0] == "namespace.yaml" and .resources[1] == "sa.yaml" and .resources[2] == "human-owner-sa.yaml"' "$K_BRAVO"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
