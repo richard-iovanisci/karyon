@@ -4,8 +4,8 @@ milestone: v0.20
 milestone_name: Capsule POC Demo & RBAC Polish
 status: executing
 stopped_at: Phase 13 context gathered
-last_updated: "2026-05-19T20:55:03.984Z"
-last_activity: 2026-05-19 -- Phase 13 planning complete
+last_updated: "2026-05-19T20:56:30.710Z"
+last_activity: 2026-05-19 -- Phase 13 execution started
 progress:
   total_phases: 3
   completed_phases: 0
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** v0.20 — roadmap landed (Phases 13/14/15); REQUIREMENTS.md Traceability filled (23/23 mapped; 0 unmapped). Ready for Phase 13 discuss-phase (OQ-2 Secrets policy, OQ-3 workload shape, OQ-4 delivery path).
+**Current focus:** Phase 13 — RBAC Narrowing + GlobalTenantResource Seed + Delivery Mechanism
 
 **Milestone framing (v0.20):** Lean / additive — Smallest viable phase count to ship the Capsule POC demo runbook and the least-privilege tenant ClusterRole. 3 phases total: Phase 13 (RBAC narrowing + GlobalTenantResource seed + delivery mechanism — 12 REQs), Phase 14 (two-perspective demo verification + 6-act runbook + TLS-noise resolution — 11 REQs), Phase 15 (v0.20 close-out + retrospective — 0 new REQs). Anti-scope guard active: no exploratory side-quests; existing alpha/bravo tenants + Flux reconciliation stay untouched.
 
 ## Current Position
 
-Phase: Not started (Phase 13 ready to open with `/gsd-plan-phase 13`)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-05-19 -- Phase 13 planning complete
+Phase: 13 (RBAC Narrowing + GlobalTenantResource Seed + Delivery Mechanism) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 13
+Last activity: 2026-05-19 -- Phase 13 execution started
 
 ## Performance Metrics
 
