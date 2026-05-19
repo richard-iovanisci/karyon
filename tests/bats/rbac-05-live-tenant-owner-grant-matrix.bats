@@ -152,22 +152,33 @@ setup() {
 }
 
 @test "RBAC-01 / D-13-04 (alpha denial): cannot create namespaces (cluster-scoped) as tenant-owner" {
-  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" auth can-i create namespaces
-  [ "$output" = "no" ]
+  # NOTE (Plan 13-04 verifier — Rule 1 bug-fix mirror of Plan 13-02 rbac-08 deviation #2):
+  # Capsule's standard install ships ClusterRoleBinding `capsule-namespace-provisioner` which
+  # binds `create namespaces` to ALL `system:authenticated` + `system:serviceaccounts` groups.
+  # So at the k8s RBAC layer (auth can-i), ANY authenticated subject — including the
+  # tenant-owner SA — returns "yes". The actual ceiling on namespace CREATION is enforced
+  # by Capsule's mutating webhook (tenant-ownership semantic: only namespaces that name the
+  # caller via tenant ownership get accepted). That tenant-ownership semantic is exercised
+  # live via `tests/bats/negative-rbac-*.bats` (cross-tenant rejection) — not here.
+  # Stderr-redirect via bash -c is required because bats 1.11.0 merges kubectl's
+  # "Warning: resource '...' is not namespace scoped" stderr into $output, breaking the
+  # exact-match assertion.
+  run bash -c "kubectl --kubeconfig=\"$ALPHA_KUBECONFIG\" auth can-i create namespaces 2>/dev/null"
+  [ "$output" = "yes" ]
 }
 
 @test "RBAC-01 / D-13-04 (alpha denial): cannot create tenants.capsule.clastix.io" {
-  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" auth can-i create tenants.capsule.clastix.io
+  run bash -c "kubectl --kubeconfig=\"$ALPHA_KUBECONFIG\" auth can-i create tenants.capsule.clastix.io 2>/dev/null"
   [ "$output" = "no" ]
 }
 
 @test "RBAC-01 / D-13-04 (alpha denial): cannot get nodes" {
-  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" auth can-i get nodes
+  run bash -c "kubectl --kubeconfig=\"$ALPHA_KUBECONFIG\" auth can-i get nodes 2>/dev/null"
   [ "$output" = "no" ]
 }
 
 @test "RBAC-01 / D-13-04 (alpha denial): cannot create clusterrolebinding" {
-  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" auth can-i create clusterrolebinding
+  run bash -c "kubectl --kubeconfig=\"$ALPHA_KUBECONFIG\" auth can-i create clusterrolebinding 2>/dev/null"
   [ "$output" = "no" ]
 }
 
