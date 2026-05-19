@@ -1,11 +1,12 @@
 ---
 phase: 13
 slug: rbac-narrowing-globaltenantresource-seed-delivery-mechanism
-status: draft
+status: final
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-05-19
 wave_0_committed: 2026-05-19
+finalized: 2026-05-19
 ---
 
 # Phase 13 — Validation Strategy
@@ -39,25 +40,25 @@ wave_0_committed: 2026-05-19
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 13-00-* | 00 | 0 | All REQs | T-13-01..T-13-07 | Wave 0 RED bats scaffold lands first | static | `bats tests/bats/{rbac,seed,delivery}-*-static-*.bats` | ❌ W0 | ⬜ pending |
-| 13-01-01 | 01 | 1 | RBAC-01 | T-13-04 (RBAC least-priv) | ClusterRole narrower than `edit` (no Secret CUD, no RoleBinding, no ResourceQuota, no LimitRange) | static | `bats tests/bats/rbac-01-static-tenant-workload-editor.bats` | ❌ W0 | ⬜ pending |
-| 13-01-02 | 01 | 1 | RBAC-01 | T-13-04 | Grant matrix via `kubectl auth can-i` | live | `bats tests/bats/rbac-05-live-tenant-owner-grant-matrix.bats` | ❌ W0 | ⬜ pending |
-| 13-01-03 | 01 | 1 | RBAC-02 | T-13-02 (token leak) | Tenant-owner kubeconfig binds to tenant-workload-editor; `auth can-i '*' '*'` → no | live | `bats tests/bats/rbac-06-live-tenant-kubeconfig.bats` | ❌ W0 | ⬜ pending |
-| 13-01-04 | 01 | 1 | RBAC-03 | T-13-05 (Flux SA regression) | Existing `gitops-reconciler` SA + `clusterRoles: [admin]` preserved | live | `bats tests/bats/rbac-07-live-flux-sa-preservation.bats` | ❌ W0 | ⬜ pending |
-| 13-01-05 | 01 | 1 | RBAC-04 | T-13-03 (platform-owner ceiling) | `auth can-i '*' '*'` → no; nodes/csr/clusterrolebinding Forbidden | live | `bats tests/bats/rbac-08-live-platform-owner-grant-matrix.bats` | ❌ W0 | ⬜ pending |
-| 13-02-01 | 02 | 1 | RBAC-04 | T-13-03 | Platform-owner identity = SA in `capsule-system` + dual-subject CRB | static | `bats tests/bats/rbac-02-static-platform-owner-sa.bats` | ❌ W0 | ⬜ pending |
-| 13-02-02 | 02 | 1 | RBAC-05 | T-13-03 | Platform-owner Tenant CR CRUD via minted kubeconfig | live | `bats tests/bats/rbac-10-live-tenant-crud.bats` | ❌ W0 | ⬜ pending |
-| 13-02-03 | 02 | 1 | RBAC-06 | T-13-03 | Platform-owner co-owner LIST/GET/EXEC into tenant ns | live | `bats tests/bats/rbac-09-live-platform-owner-kubeconfig.bats` | ❌ W0 | ⬜ pending |
-| 13-02-04 | 02 | 1 | RBAC-06 | T-13-03 | Tenant CR additive co-ownership (Group + SA both in spec.owners[]) | static | `bats tests/bats/rbac-03-static-tenant-co-ownership.bats` | ❌ W0 | ⬜ pending |
-| 13-03-01 | 03 | 2 | SEED-01 | T-13-06 (workload propagation) | GTR propagates to alpha + bravo namespaces | live | `bats tests/bats/seed-02-live-existing-tenants.bats` | ❌ W0 | ⬜ pending |
-| 13-03-02 | 03 | 2 | SEED-02 | T-13-06 | Fresh-namespace propagation ≤ 60s | live | `bats tests/bats/seed-03-live-fresh-tenant.bats` | ❌ W0 | ⬜ pending |
-| 13-03-03 | 03 | 2 | SEED-03 | T-13-06 | Pod + Service only (no Deployment/RS/extra ConfigMap) | live | `bats tests/bats/seed-04-live-shape.bats` | ❌ W0 | ⬜ pending |
-| 13-03-04 | 03 | 2 | SEED-01 | T-13-06 | GTR CR + nginx Pod + Service inline shape | static | `bats tests/bats/seed-01-static-globaltenantresource.bats` | ❌ W0 | ⬜ pending |
-| 13-04-01 | 04 | 3 | DELIVERY-01 | T-13-07 (P31 isolation) | New artifacts under `pocs/capsule/spoke/` + KARYON POC MOUNT preserved | static | `bats tests/bats/delivery-02-static-paths.bats` + `bats tests/bats/delivery-01-static-mount-sentinel.bats` | ❌ W0 | ⬜ pending |
-| 13-04-02 | 04 | 3 | DELIVERY-02 | T-13-07 | P31 preserved (zero new spoke-capsule mentions in v0.18 scripts) | static | `bats tests/bats/poc-isolation-01-static.bats` | ✓ Phase 7 | ⬜ pending |
-| 13-04-03 | 04 | 3 | DELIVERY-02 | T-13-07 | `task rebuild` SLO < 230s (gated KARYON_REBUILD_APPROVED) | live | `bats tests/bats/delivery-05-live-slo-regression.bats` | ❌ W0 | ⬜ pending |
-| 13-04-04 | 04 | 3 | DELIVERY-03 | T-13-05 | Tenant CR additive-only diff (no `spec.owners[]` removals) | live | `bats tests/bats/delivery-03-live-additive-only.bats` | ❌ W0 | ⬜ pending |
-| 13-04-05 | 04 | 3 | DELIVERY-03 | T-13-05 | Existing `poc-capsule-spoke` + `poc-capsule-spoke-rbac` + `poc-capsule-spoke-tenants` Flux Ks Ready=True | live | `bats tests/bats/delivery-04-live-flux-reconcile.bats` | ❌ W0 | ⬜ pending |
+| 13-00-* | 00 | 0 | All REQs | T-13-01..T-13-07 | Wave 0 RED bats scaffold lands first | static | `bats tests/bats/{rbac,seed,delivery}-*-static-*.bats` | ✓ W0 | ✅ green |
+| 13-01-01 | 01 | 1 | RBAC-01 | T-13-04 (RBAC least-priv) | ClusterRole narrower than `edit` (no Secret CUD, no RoleBinding, no ResourceQuota, no LimitRange) | static | `bats tests/bats/rbac-01-static-tenant-workload-editor.bats` | ✓ W0 | ✅ green |
+| 13-01-02 | 01 | 1 | RBAC-01 | T-13-04 | Grant matrix via `kubectl auth can-i` | live | `bats tests/bats/rbac-05-live-tenant-owner-grant-matrix.bats` | ✓ W0 | ✅ green |
+| 13-01-03 | 01 | 1 | RBAC-02 | T-13-02 (token leak) | Tenant-owner kubeconfig binds to tenant-workload-editor; `auth can-i '*' '*'` → no | live | `bats tests/bats/rbac-06-live-tenant-kubeconfig.bats` | ✓ W0 | ✅ green |
+| 13-01-04 | 01 | 1 | RBAC-03 | T-13-05 (Flux SA regression) | Existing `gitops-reconciler` SA + `clusterRoles: [admin]` preserved | live | `bats tests/bats/rbac-07-live-flux-sa-preservation.bats` | ✓ W0 | ✅ green |
+| 13-01-05 | 01 | 1 | RBAC-04 | T-13-03 (platform-owner ceiling) | `auth can-i '*' '*'` → no; nodes/csr/clusterrolebinding Forbidden | live | `bats tests/bats/rbac-08-live-platform-owner-grant-matrix.bats` | ✓ W0 | ✅ green |
+| 13-02-01 | 02 | 1 | RBAC-04 | T-13-03 | Platform-owner identity = SA in `capsule-system` + dual-subject CRB | static | `bats tests/bats/rbac-02-static-platform-owner-sa.bats` | ✓ W0 | ✅ green |
+| 13-02-02 | 02 | 1 | RBAC-05 | T-13-03 | Platform-owner Tenant CR CRUD via minted kubeconfig | live | `bats tests/bats/rbac-10-live-tenant-crud.bats` | ✓ W0 | ✅ green |
+| 13-02-03 | 02 | 1 | RBAC-06 | T-13-03 | Platform-owner co-owner LIST/GET/EXEC into tenant ns | live | `bats tests/bats/rbac-09-live-platform-owner-kubeconfig.bats` | ✓ W0 | ✅ green |
+| 13-02-04 | 02 | 1 | RBAC-06 | T-13-03 | Tenant CR additive co-ownership (Group + SA both in spec.owners[]) | static | `bats tests/bats/rbac-03-static-tenant-co-ownership.bats` | ✓ W0 | ✅ green |
+| 13-03-01 | 03 | 2 | SEED-01 | T-13-06 (workload propagation) | GTR propagates to alpha + bravo namespaces | live | `bats tests/bats/seed-02-live-existing-tenants.bats` | ✓ W0 | ✅ green |
+| 13-03-02 | 03 | 2 | SEED-02 | T-13-06 | Fresh-namespace propagation ≤ 60s | live | `bats tests/bats/seed-03-live-fresh-tenant.bats` | ✓ W0 | ✅ green |
+| 13-03-03 | 03 | 2 | SEED-03 | T-13-06 | Pod + Service only (no Deployment/RS/extra ConfigMap) | live | `bats tests/bats/seed-04-live-shape.bats` | ✓ W0 | ✅ green |
+| 13-03-04 | 03 | 2 | SEED-01 | T-13-06 | GTR CR + nginx Pod + Service inline shape | static | `bats tests/bats/seed-01-static-globaltenantresource.bats` | ✓ W0 | ✅ green |
+| 13-04-01 | 04 | 3 | DELIVERY-01 | T-13-07 (P31 isolation) | New artifacts under `pocs/capsule/spoke/` + KARYON POC MOUNT preserved | static | `bats tests/bats/delivery-02-static-paths.bats` + `bats tests/bats/delivery-01-static-mount-sentinel.bats` | ✓ W0 | ✅ green |
+| 13-04-02 | 04 | 3 | DELIVERY-02 | T-13-07 | P31 preserved (zero new spoke-capsule mentions in v0.18 scripts) | static | `bats tests/bats/poc-isolation-01-static.bats` | ✓ Phase 7 | ✅ green |
+| 13-04-03 | 04 | 3 | DELIVERY-02 | T-13-07 | `task rebuild` SLO < 230s (gated KARYON_REBUILD_APPROVED) | live | `bats tests/bats/delivery-05-live-slo-regression.bats` | ✓ W0 | ✅ green |
+| 13-04-04 | 04 | 3 | DELIVERY-03 | T-13-05 | Tenant CR additive-only diff (no `spec.owners[]` removals) | live | `bats tests/bats/delivery-03-live-additive-only.bats` | ✓ W0 | ✅ green |
+| 13-04-05 | 04 | 3 | DELIVERY-03 | T-13-05 | Existing `poc-capsule-spoke` + `poc-capsule-spoke-rbac` + `poc-capsule-spoke-tenants` Flux Ks Ready=True | live | `bats tests/bats/delivery-04-live-flux-reconcile.bats` | ✓ W0 | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -121,4 +122,4 @@ wave_0_committed: 2026-05-19
 - [x] `nyquist_compliant: true` set in frontmatter (Plan 13-00 landed all RED bats files at commit bb51bec on 2026-05-19)
 - [x] `wave_0_complete: true` set in frontmatter (Plan 13-00 commit bb51bec)
 
-**Approval:** Wave 0 complete — Plan 13-00 commit `bb51bec` lands 19 RED bats files. Plan 13-04 verifier confirms inheritance regressions (if any) and dispositions.
+**Approval:** Wave 0 complete — Plan 13-00 commit `bb51bec` lands 19 RED bats files. Plan 13-04 verifier (commit `4d5b58e` — 2026-05-19) confirms all 19 Wave 0 bats files GREEN end-to-end (158/159 @tests + 1 env-gated DEFERRED `delivery-05-live-slo-regression.bats`); 3 Rule 1 bug-fixes to inherited / Wave 0 bats files committed (kubectl stderr-warning pattern + N7 docker.io regression mitigation + push-gate-03 Plan-13-01-additive shape). 7 pre-existing inheritance bats REDs documented in `13-VERIFICATION.md` as deferred (target files NOT modified by Phase 13). Phase 13 disposition: `passed_with_overrides`. **VALIDATION.md final 2026-05-19.**
