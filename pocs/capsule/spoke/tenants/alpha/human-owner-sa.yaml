@@ -1,0 +1,21 @@
+# pocs/capsule/spoke/tenants/alpha/human-owner-sa.yaml
+# Per-tenant ServiceAccount registered as Tenant owner via the combined name
+# format `system:serviceaccount:tenant-alpha:human-tenant-owner` in
+# tenant-crs/alpha.yaml spec.owners[].
+#
+# REQ: RBAC-01 / RBAC-02 (human-exercised tenant-owner identity)
+# Decision: D-13-05 (binds to tenant-workload-editor via explicit clusterRoles in owner entry)
+# Threat: T-13-04 mitigation (narrower than edit; bound via Capsule auto-injection)
+#
+# Distinct from sibling `sa.yaml` (gitops-reconciler — Flux automation owner with
+# implicit-default clusterRoles: [admin, capsule-namespace-deleter]). human-tenant-owner
+# is the operator-bound SA used to mint tenant-owner kubeconfigs via:
+#   bash scripts/poc/capsule/issue-tenant-kubeconfig.sh alpha human-tenant-owner
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: human-tenant-owner
+  namespace: tenant-alpha
+  labels:
+    karyon.io/poc: capsule
+    karyon.io/role: capsule-tenant-workload-editor

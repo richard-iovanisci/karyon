@@ -14,3 +14,5 @@ sortOptions:
 resources:
   - namespace.yaml
   - sa.yaml
+  # NEW (Phase 13 D-13-05): human-tenant-owner SA for RBAC-01 binding target
+  - human-owner-sa.yaml

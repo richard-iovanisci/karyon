@@ -17,3 +17,5 @@ resources:
   - namespace.yaml
   - helm-controller-sa.yaml
   - platform-owner.yaml
+  # NEW (Phase 13 D-13-04): Tier 3 RBAC narrowing — narrower than upstream k8s edit
+  - tenant-workload-editor.yaml

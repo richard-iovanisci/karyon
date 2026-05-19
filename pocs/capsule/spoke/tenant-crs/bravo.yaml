@@ -36,6 +36,14 @@ spec:
     # Human/CLI testing (TEN-02 `kubectl --as=bravo`)
     - kind: User
       name: bravo
+    # === NEW (Phase 13 D-13-05): Tier 3 human-exercised tenant owner ===
+    # Binds via Capsule auto-injected RoleBinding capsule-bravo-<index>-tenant-workload-editor.
+    # Pitfall 13-P8: clusterRoles MUST be non-empty (NEVER `clusterRoles: []` — that
+    # removes all bindings; OMIT field for Capsule default, OR list explicit roles).
+    - kind: ServiceAccount
+      name: system:serviceaccount:tenant-bravo:human-tenant-owner
+      clusterRoles:
+        - tenant-workload-editor
   # TEN-03 — ResourceQuota auto-materialization shape
   # Capsule reconciles these into ResourceQuota objects in tenant namespaces
   # named capsule-<tenant>-<index>. Phase 9 verifies SHAPE only; enforcement
@@ -70,5 +78,9 @@ spec:
   containerRegistries:
     allowed:
       - registry.example.io
+      # NEW (Phase 13 Pitfall 13-P1): required for FQCI nginx Pod propagation
+      # by GTR (Phase 9 N7 negative-RBAC fixture continues to assert rejection
+      # of an arbitrary other registry — additive).
+      - docker.io
   # No additionalRoleBindings, storageClasses, ingressClasses, nodeSelector, networkPolicies --
   # Capsule defaults to allow-all (per CONTEXT.md Claude's Discretion).
