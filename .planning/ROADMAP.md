@@ -90,7 +90,7 @@
 Plans:
 - [x] 13-00-PLAN.md — Wave 0 RED bats scaffold (19 NEW bats files: RBAC + SEED + DELIVERY contracts locked pre-implementation; preflight verifies Phase 11 D-11-02 inheritance)
 - [x] 13-01-PLAN.md — tenant-workload-editor ClusterRole + per-tenant human-tenant-owner SAs + Tenant CR additive owners[] (RBAC-01 + RBAC-02 + RBAC-03 GREEN)
-- [ ] 13-02-PLAN.md — platform-owner SA + dual-subject CRB + co-ownership + issue-platform-owner-kubeconfig.sh + new-tenant.sh (RBAC-04 + RBAC-05 + RBAC-06 GREEN)
+- [x] 13-02-PLAN.md — platform-owner SA + dual-subject CRB + co-ownership + issue-platform-owner-kubeconfig.sh + new-tenant.sh (RBAC-04 + RBAC-05 + RBAC-06 GREEN)
 - [ ] 13-03-PLAN.md — GlobalTenantResource CR + hello-world Pod + Service propagation (SEED-01 + SEED-02 + SEED-03 GREEN; FQCI docker.io/library/nginx:alpine per Pitfall 13-P1)
 - [ ] 13-04-PLAN.md — Verifier + docs/poc-capsule.md platform-owner H2 append + 13-VALIDATION.md final (DELIVERY-01 + DELIVERY-02 + DELIVERY-03; Phase 13 close)
 
@@ -136,7 +136,7 @@ Plans:
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete | 2026-05-05 |
 | 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
-| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 2/5 | In Progress|  |
+| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 3/5 | In Progress|  |
 | 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/TBD | Not started | - |
 | 15. v0.20 Close-out + Retrospective | v0.20 | 0/TBD | Not started | - |
 
