@@ -1,0 +1,83 @@
+# pocs/capsule/spoke/global-resources/hello-world.yaml
+# GlobalTenantResource that auto-propagates a hello-world Pod + Service into
+# every tenant namespace (Phase 13 — SEED-01/02/03).
+#
+# REQ: SEED-01 (propagation to all tenant namespaces), SEED-02 (<=60s for fresh
+#      tenant), SEED-03 (Pod + Service shape ONLY — no Deployment / RS / extra CM)
+# Decision: D-13-11 (match-all tenantSelector), D-13-12 (Pod + Service workload),
+#           D-13-13 (file layout under pocs/capsule/spoke/global-resources/)
+# Threat: T-13-06 (workload propagation outside intended tenants) — mitigated by
+#         explicit match-all selector (canonical k8s pattern per A1); proxy LIST
+#         scopes visibility; bats seed-02-live verifies exactly 4 namespaces
+#
+# CRITICAL Pitfall 13-P1: image MUST be FQCI (docker.io/library/nginx:alpine).
+# Capsule's containerRegistries enforcement webhook rejects non-FQCI images
+# even when `docker.io` is in `containerRegistries.allowed`. Plan 13-01 added
+# `docker.io` to alpha + bravo `containerRegistries.allowed` (additive, does
+# not regress Phase 9 N7 fixture which tests a DIFFERENT arbitrary registry).
+#
+# Pitfall 13-P2: Apply ordering — pocs/capsule/spoke/kustomization.yaml has
+# FIFO sortOptions + global-resources/ AFTER tenants/, so alpha + bravo home
+# namespaces exist when controller first reconciles. For new tenants created
+# via new-tenant.sh, the GTR controller watches Tenant resources and enqueues
+# a reconcile when Tenant.Status.Namespaces becomes non-empty (A5).
+#
+# Pitfall 13-P6: pruningOnDelete: true (default) means tenant deletion
+# unmaterializes propagated copies — RBAC-05 cleanup race is mitigated in
+# SEED-03 bats teardown via `kubectl wait --for=delete --timeout=30s`.
+#
+# CRD schema verified against:
+#   https://raw.githubusercontent.com/projectcapsule/capsule/v0.12.4/
+#     charts/capsule/crds/capsule.clastix.io_globaltenantresources.yaml
+# Live CRD installed since 2026-04-30 (storage version v1beta2).
+apiVersion: capsule.clastix.io/v1beta2
+kind: GlobalTenantResource
+metadata:
+  name: hello-world-seeded
+  labels:
+    karyon.io/poc: capsule
+spec:
+  tenantSelector:
+    matchLabels: {}                 # match-all (A1: canonical k8s pattern)
+  resyncPeriod: 60s                 # default; explicit for SEED-02 SLO clarity
+  pruningOnDelete: true             # default; explicit per D-13-11 + Pitfall 13-P6
+  resources:
+    - additionalMetadata:
+        labels:
+          karyon.io/managed-by: capsule-global-tenant-resource
+          karyon.io/poc: capsule
+      rawItems:
+        - apiVersion: v1
+          kind: Pod
+          metadata:
+            name: hello-world
+            labels:
+              app: hello-world
+          spec:
+            containers:
+              - name: nginx
+                image: docker.io/library/nginx:alpine
+                ports:
+                  - containerPort: 80
+                    name: http
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: hello-world
+            labels:
+              app: hello-world
+          spec:
+            type: ClusterIP
+            selector:
+              app: hello-world
+            ports:
+              - port: 80
+                targetPort: http
+                protocol: TCP
