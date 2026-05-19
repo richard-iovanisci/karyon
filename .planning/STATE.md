@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.20
 milestone_name: Capsule POC Demo & RBAC Polish
-status: ready_to_plan
-stopped_at: Phase 13 context gathered
-last_updated: "2026-05-19T20:56:30.710Z"
-last_activity: 2026-05-19 -- Phase 13 execution started
+status: planning
+stopped_at: Phase 14 context gathered
+last_updated: "2026-05-19T23:48:37.756Z"
+last_activity: 2026-05-19
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 5
-  completed_plans: 0
-  percent: 33
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -177,6 +177,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-19T19:55:03.732Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-rbac-narrowing-globaltenantresource-seed-delivery-mechanism/13-CONTEXT.md
+Last session: 2026-05-19T23:48:37.751Z
+Stopped at: Phase 14 context gathered
+Resume file: .planning/phases/14-two-perspective-demo-verification-6-act-runbook-tls-noise-re/14-CONTEXT.md
