@@ -85,7 +85,14 @@
   3. **GlobalTenantResource auto-propagation works within 60s** — A `GlobalTenantResource` CR (OQ-3-resolved hello-world workload shape) is reconciled into `spoke-capsule` and auto-propagates the workload into every existing tenant namespace (alpha-app1, tenant-alpha, bravo-app1, tenant-bravo). Propagation latency ≤ 60s verified via `kubectl wait --for=condition=Ready` on a fresh-namespace falsifier; bats assertion locks the contract.
   4. **Delivery mechanism is additive and P31-safe** — New demo resources (ClusterRole, GlobalTenantResource, hello-world manifest) land via the OQ-4-resolved single canonical path (GitOps `pocs/capsule/` OR `task seed-capsule-demo`). Zero new `spoke-capsule` mentions in any v0.18 default-path script (anything outside `scripts/poc/`); existing alpha + bravo Tenant CR YAML diffs are additive-only (no destructive edits to `spec.owners[]` beyond appending `capsule-platform-owners`); `task rebuild` exits 0 in < 230s post-deployment with v0.18 health-check unchanged.
   5. **Wave 0 RED bats scaffold locked before implementation** — Pre-implementation RED bats files exist covering: (a) `tenant-workload-editor` ClusterRole grant matrix (positive grants + 4 explicit denials: Secret create/edit, RoleBinding, ResourceQuota, LimitRange), (b) GlobalTenantResource propagation latency falsifier with a fresh-namespace flow, (c) platform-owner `cluster-admin` Forbidden assertions + Tenant CR CRUD positive controls, (d) P27/P29/P31 + ADR-004 regression greps. Nyquist gate held (no implementation lands without a pre-existing RED bats falsifier).
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 13-00-PLAN.md — Wave 0 RED bats scaffold (19 NEW bats files: RBAC + SEED + DELIVERY contracts locked pre-implementation; preflight verifies Phase 11 D-11-02 inheritance)
+- [ ] 13-01-PLAN.md — tenant-workload-editor ClusterRole + per-tenant human-tenant-owner SAs + Tenant CR additive owners[] (RBAC-01 + RBAC-02 + RBAC-03 GREEN)
+- [ ] 13-02-PLAN.md — platform-owner SA + dual-subject CRB + co-ownership + issue-platform-owner-kubeconfig.sh + new-tenant.sh (RBAC-04 + RBAC-05 + RBAC-06 GREEN)
+- [ ] 13-03-PLAN.md — GlobalTenantResource CR + hello-world Pod + Service propagation (SEED-01 + SEED-02 + SEED-03 GREEN; FQCI docker.io/library/nginx:alpine per Pitfall 13-P1)
+- [ ] 13-04-PLAN.md — Verifier + docs/poc-capsule.md platform-owner H2 append + 13-VALIDATION.md final (DELIVERY-01 + DELIVERY-02 + DELIVERY-03; Phase 13 close)
 
 ### Phase 14: Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution
 **Goal**: Two distinct live kubeconfigs (platform-owner + tenant-owner) demonstrably enforce the three-tier permission model end-to-end; `docs/poc-capsule-demo.md` ships as a polished 6-act walkthrough executable cold in ≤ 15 minutes by a teammate; controller TLS chatter is resolved per OQ-1 (document-only recommended default)
@@ -129,7 +136,7 @@
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete | 2026-05-05 |
 | 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
-| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 0/TBD | Not started | - |
+| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 0/5 | Planned | - |
 | 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/TBD | Not started | - |
 | 15. v0.20 Close-out + Retrospective | v0.20 | 0/TBD | Not started | - |
 
