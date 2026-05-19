@@ -68,7 +68,7 @@
 
 #### Phase Summary
 
-- [ ] **Phase 13: RBAC Narrowing + GlobalTenantResource Seed + Delivery Mechanism** — Custom `tenant-workload-editor` ClusterRole replaces `admin` for humans (Tier 3); platform-owner identity + co-ownership on alpha/bravo Tenant CRs land (Tier 2); `GlobalTenantResource` auto-propagates a hello-world workload into every tenant namespace within 60s; OQ-2/3/4 resolved in discuss-phase; delivery path lands via OQ-4-chosen mechanism (GitOps or Taskfile). Wave 0 RED bats scaffolds for ClusterRole grant matrix + GlobalTenantResource propagation + platform-owner co-owner LIST/EXEC.
+- [x] **Phase 13: RBAC Narrowing + GlobalTenantResource Seed + Delivery Mechanism** — Custom `tenant-workload-editor` ClusterRole replaces `admin` for humans (Tier 3); platform-owner identity + co-ownership on alpha/bravo Tenant CRs land (Tier 2); `GlobalTenantResource` auto-propagates a hello-world workload into every tenant namespace within 60s; OQ-2/3/4 resolved in discuss-phase; delivery path lands via OQ-4-chosen mechanism (GitOps or Taskfile). Wave 0 RED bats scaffolds for ClusterRole grant matrix + GlobalTenantResource propagation + platform-owner co-owner LIST/EXEC. (completed 2026-05-19)
 - [ ] **Phase 14: Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution** — Verifies platform-owner (sees all tenants + co-owner access) vs tenant-owner (own-tenant-only via capsule-proxy NodePort 30443) using 2 distinct live kubeconfigs; writes `docs/poc-capsule-demo.md` 6-act walkthrough with pre-demo checklist + known-noise notes; resolves OQ-1 TLS noise treatment; resolves OQ-5 new-tenant name + live-provisioning style.
 - [ ] **Phase 15: v0.20 Milestone Close-out + Retrospective** — Pattern-mirrors v0.19 Phase 12 close-out at smaller scale: flips REQ checkboxes against live evidence, updates STATE.md, runs `/gsd-audit-milestone v0.20`, writes RETROSPECTIVE-v0.20.md, prepares milestone for clean archival.
 
@@ -92,7 +92,7 @@ Plans:
 - [x] 13-01-PLAN.md — tenant-workload-editor ClusterRole + per-tenant human-tenant-owner SAs + Tenant CR additive owners[] (RBAC-01 + RBAC-02 + RBAC-03 GREEN)
 - [x] 13-02-PLAN.md — platform-owner SA + dual-subject CRB + co-ownership + issue-platform-owner-kubeconfig.sh + new-tenant.sh (RBAC-04 + RBAC-05 + RBAC-06 GREEN)
 - [x] 13-03-PLAN.md — GlobalTenantResource CR + hello-world Pod + Service propagation (SEED-01 + SEED-02 + SEED-03 GREEN; FQCI docker.io/library/nginx:alpine per Pitfall 13-P1)
-- [ ] 13-04-PLAN.md — Verifier + docs/poc-capsule.md platform-owner H2 append + 13-VALIDATION.md final (DELIVERY-01 + DELIVERY-02 + DELIVERY-03; Phase 13 close)
+- [x] 13-04-PLAN.md — Verifier + docs/poc-capsule.md platform-owner H2 append + 13-VALIDATION.md final (DELIVERY-01 + DELIVERY-02 + DELIVERY-03; Phase 13 close)
 
 ### Phase 14: Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution
 **Goal**: Two distinct live kubeconfigs (platform-owner + tenant-owner) demonstrably enforce the three-tier permission model end-to-end; `docs/poc-capsule-demo.md` ships as a polished 6-act walkthrough executable cold in ≤ 15 minutes by a teammate; controller TLS chatter is resolved per OQ-1 (document-only recommended default)
@@ -136,7 +136,7 @@ Plans:
 | 10. Tenant Kubeconfigs + Proxy Round-trip | v0.19 | 3/3 | Complete | 2026-05-05 |
 | 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
-| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 4/5 | In Progress|  |
+| 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 5/5 | Complete   | 2026-05-19 |
 | 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/TBD | Not started | - |
 | 15. v0.20 Close-out + Retrospective | v0.20 | 0/TBD | Not started | - |
 
