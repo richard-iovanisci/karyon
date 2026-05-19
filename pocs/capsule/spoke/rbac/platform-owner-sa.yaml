@@ -1,0 +1,28 @@
+# pocs/capsule/spoke/rbac/platform-owner-sa.yaml
+# Tier 2 platform-owner ServiceAccount in capsule-system namespace (Phase 13).
+#
+# REQ: RBAC-04 / RBAC-05 / RBAC-06 (v0.20 — platform-owner identity for
+#      Tenant CR lifecycle + co-owner LIST/EXEC across tenant namespaces)
+# Decision: D-13-06 (SA path complements existing Group impersonation path via
+#           dual-subject CRB extension in sibling platform-owner.yaml)
+# Threat: T-13-03 (Elevation of Privilege via overbroad platform-owner) —
+#         mitigated by the bounded capsule-platform-owner ClusterRole (no
+#         wildcards; no nodes; no csr; no clusterrolebinding writes)
+#
+# The SA-token kubeconfig minted by issue-platform-owner-kubeconfig.sh authenticates
+# as system:serviceaccount:capsule-system:platform-owner. The dual-subject ClusterRoleBinding
+# in platform-owner.yaml binds this SA AND the capsule-platform-owners Group to the
+# capsule-platform-owner ClusterRole — both identity paths share the same RBAC ceiling.
+#
+# The SA is ALSO listed as a Tenant CR co-owner on alpha + bravo (tenant-crs/*.yaml)
+# so that Capsule auto-injects per-tenant RoleBindings (default clusterRoles:
+# [admin, capsule-namespace-deleter] — broader-than-tenant-workload-editor +
+# narrower-than-cluster-admin = Tier 2 operational ceiling).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: platform-owner
+  namespace: capsule-system
+  labels:
+    karyon.io/poc: capsule
+    karyon.io/role: capsule-platform-owner

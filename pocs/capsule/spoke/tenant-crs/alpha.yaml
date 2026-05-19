@@ -44,6 +44,17 @@ spec:
       name: system:serviceaccount:tenant-alpha:human-tenant-owner
       clusterRoles:
         - tenant-workload-editor
+    # === NEW (Phase 13 D-13-07): Tier 2 platform-owner co-ownership ===
+    # Group impersonation path (kubectl --as=... --as-group=capsule-platform-owners)
+    # AND SA-token kubeconfig path (issue-platform-owner-kubeconfig.sh). Both use
+    # Capsule's default clusterRoles: [admin, capsule-namespace-deleter] —
+    # broader-than-tenant-workload-editor / narrower-than-cluster-admin = Tier 2.
+    # capsule-proxy LIST filter matches on owner-set membership.
+    # Pitfall 13-P8: OMIT clusterRoles field for Capsule defaults (NEVER `[]`).
+    - kind: Group
+      name: capsule-platform-owners
+    - kind: ServiceAccount
+      name: system:serviceaccount:capsule-system:platform-owner
   # TEN-03 — ResourceQuota auto-materialization shape
   # Capsule reconciles these into ResourceQuota objects in tenant namespaces
   # named capsule-<tenant>-<index>. Phase 9 verifies SHAPE only; enforcement
