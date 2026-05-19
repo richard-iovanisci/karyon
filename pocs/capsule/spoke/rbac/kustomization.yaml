@@ -16,6 +16,9 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - helm-controller-sa.yaml
+  # NEW (Phase 13 D-13-06): platform-owner SA BEFORE platform-owner.yaml so the SA
+  # referenced in the dual-subject ClusterRoleBinding lands first on clean reconcile.
+  - platform-owner-sa.yaml
   - platform-owner.yaml
   # NEW (Phase 13 D-13-04): Tier 3 RBAC narrowing — narrower than upstream k8s edit
   - tenant-workload-editor.yaml
