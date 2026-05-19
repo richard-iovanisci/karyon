@@ -230,3 +230,47 @@ group:
 ```bash
 bats tests/bats/capsule-platform-owner-02-live-rbac.bats
 ```
+
+## Platform-owner kubeconfig delivery contract
+
+> **Status:** Active. Phase 13 — RBAC-04..06.
+
+The `scripts/poc/capsule/issue-platform-owner-kubeconfig.sh` script mints a short-lived,
+platform-owner kubeconfig that routes through capsule-proxy NodePort 30443. The
+identity is the `ServiceAccount/platform-owner` in the `capsule-system` namespace
+(D-13-06), bound to the existing `capsule-platform-owner` ClusterRole via the dual-
+subject ClusterRoleBinding (Group `capsule-platform-owners` impersonation path
+preserved character-for-character alongside the new SA subject).
+
+### Platform-owner kubeconfig quickstart
+
+```bash
+bash scripts/poc/capsule/issue-platform-owner-kubeconfig.sh 2>/dev/null > /tmp/po.kubeconfig
+KUBECONFIG=/tmp/po.kubeconfig kubectl get tenants
+# alpha
+# bravo
+```
+
+### Platform-owner kubeconfig contract
+
+| Property | Value |
+|---|---|
+| Output channel default | stdout (pure YAML kubeconfig); `preflight-lib` log lines on stderr |
+| Optional file output | `--write-to <path>` — `<path>` MUST resolve under `${TMPDIR:-/tmp}/karyon-tenants/` (validated via `realpath -m` prefix check) |
+| Server URL | `https://127.0.0.1:30443` (capsule-proxy NodePort) |
+| Authentication | Bound SA token via `kubectl create token platform-owner -n capsule-system` (TokenRequest API); default `--duration=1h` |
+| TLS trust | `certificate-authority-data` embedded in cluster block (read live from `capsule-proxy` Secret on spoke-capsule via `tls.crt` jsonpath) |
+| Default namespace in context | UNSET (platform-owner ops are cluster-scoped — Tenant CR LIST, namespaces LIST through proxy) |
+| Issued context name | `platform-owner-via-proxy` |
+
+### Mandatory invariants
+
+- **P29 leak defense** — same `.gitignore` glob `karyon-tenants/` covers `platform-owner.kubeconfig` under tmpdir-root; `.gitleaks.toml` kubeconfig-bearer-token rule active.
+- **P31 isolation** — script lives under `scripts/poc/capsule/`; zero new `spoke-capsule` mentions in v0.18 default-path scripts (regression-gated by `bats tests/bats/poc-isolation-01-static.bats`).
+
+### Cross-references
+
+- **REQ:** RBAC-04 (platform-owner ceiling — no cluster-admin); RBAC-05 (Tenant CR CRUD); RBAC-06 (co-owner LIST/EXEC across tenant namespaces).
+- **Decisions:** D-13-06 (SA + dual-subject CRB), D-13-09 (script), D-13-10 (proxy routing).
+- **Forward-pointer:** Phase 14 `docs/poc-capsule-demo.md` runbook act 2 expands this into the full demo narrative (platform-owner kubeconfig + Tenant CR LIST + at least one Forbidden cluster-admin action — DEMO-06 ceiling). See Phase 14.
+- **EKS-translation:** in EKS, the Group `capsule-platform-owners` binds to an IRSA-backed IdP group identity — see [`docs/capsule-on-eks.md`](capsule-on-eks.md).
