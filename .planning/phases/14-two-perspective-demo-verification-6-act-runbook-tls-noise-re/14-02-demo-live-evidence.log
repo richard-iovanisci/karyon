@@ -1,0 +1,55 @@
+=== Preflight (Plan 14-02 / 2026-05-19T20:50:45-04:00) ===
+Note: bats 1.11.0 uses -T/--timing (not --duration); runner flag adjusted accordingly (Drift-C: flag-only, no test content).
+Drift-C bats content adjustments (commit fix(14-02):):
+  - demo-05: namespace-GET regex expanded to accept NotFound (capsule-proxy LIST-filter hides cross-tenant ns).
+  - demo-06: nodes-read assertion routed direct-to-apiserver (proxy:30443 surfaces nodes by design; apiserver enforces Tier-2 RBAC ceiling).
+
+tenant.capsule.clastix.io/alpha
+tenant.capsule.clastix.io/bravo
+clusterrole.rbac.authorization.k8s.io/tenant-workload-editor
+clusterrole.rbac.authorization.k8s.io/capsule-platform-owner
+globaltenantresource.capsule.clastix.io/hello-world-seeded
+
+=== bats -T tests/bats/demo-01-live-platform-owner-list.bats ===
+1..3
+ok 1 DEMO-01 (Tier-2 platform-owner): kubectl get tenants returns alpha + bravo in 164ms
+ok 2 DEMO-01 (Tier-2 platform-owner): kubectl get namespaces sees tenant-alpha + tenant-bravo in 770ms
+ok 3 DEMO-01 (Tier-2 platform-owner): kubectl get pods -A across tenant namespaces succeeds in 1075ms
+
+=== bats -T tests/bats/demo-02-live-tenant-owner-scoped-list.bats ===
+1..4
+ok 1 DEMO-02 (alpha scoped LIST): tenant-owner via proxy:30443 sees only own tenant ns in 206ms
+ok 2 DEMO-02 (bravo scoped LIST): tenant-owner via proxy:30443 sees only own tenant ns in 176ms
+ok 3 DEMO-02 (alpha scoped LIST): kubectl get tenants returns only alpha in 215ms
+ok 4 DEMO-02 (bravo scoped LIST): kubectl get tenants returns only bravo in 144ms
+
+=== bats -T tests/bats/demo-03-live-pod-ops.bats ===
+1..6
+ok 1 DEMO-03 (tenant-owner alpha exec): kubectl exec hello-world -- sh -c 'echo ok-from-shell' in 272ms
+ok 2 DEMO-03 (tenant-owner bravo exec): kubectl exec hello-world -- sh -c 'echo ok-from-shell' in 189ms
+ok 3 DEMO-03 (tenant-owner alpha logs): kubectl logs hello-world --tail=3 contains 'worker process' in 160ms
+ok 4 DEMO-03 (tenant-owner bravo logs): kubectl logs hello-world --tail=3 contains 'worker process' in 158ms
+ok 5 DEMO-03 (platform-owner cross-tenant exec into tenant-alpha): succeeds (RBAC-06 co-owner) in 189ms
+ok 6 DEMO-03 (platform-owner cross-tenant logs against tenant-bravo): succeeds in 189ms
+
+=== bats -T tests/bats/demo-04-live-tenant-secret-forbidden.bats ===
+1..2
+ok 1 DEMO-04 (alpha boundary): tenant-owner cannot create secret in own namespace in 250ms
+ok 2 DEMO-04 (bravo boundary): tenant-owner cannot create secret in own namespace in 240ms
+
+=== bats -T tests/bats/demo-05-live-cross-tenant-forbidden.bats ===
+1..4
+ok 1 DEMO-05 (alpha→bravo): cross-tenant pod LIST denied in 152ms
+ok 2 DEMO-05 (bravo→alpha): cross-tenant pod LIST denied (symmetric mirror) in 198ms
+ok 3 DEMO-05 (alpha→bravo): cross-tenant namespace GET denied in 176ms
+ok 4 DEMO-05 (bravo→alpha): cross-tenant namespace GET denied (symmetric mirror) in 174ms
+
+=== bats -T tests/bats/demo-06-live-platform-owner-cluster-admin-denials.bats ===
+1..3
+ok 1 DEMO-06 (Tier-2 ceiling): platform-owner cannot create ClusterRoleBinding (headline) in 499ms
+ok 2 DEMO-06 (Tier-2 ceiling): platform-owner cannot read nodes -o yaml (apiserver RBAC) in 173ms
+ok 3 DEMO-06 (Tier-2 ceiling): platform-owner cannot list certificatesigningrequests in 178ms
+
+=== Plan 14-02 summary ===
+Failed file count: 0
+All 6 demo-* bats GREEN against live spoke-capsule.
