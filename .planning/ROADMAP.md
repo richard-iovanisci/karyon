@@ -129,7 +129,17 @@ Plans:
   3. **Three-tier model regression-verified** — Full Phase 13 + Phase 14 bats suite re-run GREEN against the live `spoke-capsule` cluster; `kubectl auth can-i '*' '*'` returns `no` for both platform-owner and tenant-workload-editor identities; existing alpha + bravo Flux reconciliation continues unbroken (RBAC-03 + DELIVERY-03 regression gates); v0.18 `task rebuild` SLO < 230s preserved (DELIVERY-02 regression gate, full live rerun).
   4. **Milestone audit passes** — `/gsd-audit-milestone v0.20` returns `passed` (zero `tech_debt`, all 23 REQs satisfied, all Nyquist VALIDATION ledgers closed for Phases 13/14 with `status: final` + `nyquist_compliant: true` + `wave_0_complete: true`).
   5. **Retrospective captured** — `RETROSPECTIVE-v0.20.md` (or equivalent) documents: lessons from the lean / additive milestone framing, OQ-1..5 resolutions and outcomes, any deviations from the original briefing, items added to or cleared from the carry-forward parking lot, suggested patterns for future lean milestones. Milestone is `ready_to_archive`.
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+**Wave 1**
+- [ ] 15-01-PLAN.md — REQUIREMENTS.md reconciliation: 11 DEMO+RUNBOOK [ ]→[x] flips + 4 OQ lock-in amendments inline (RBAC-01/SEED-03/DELIVERY-01/RUNBOOK-05) + Traceability table refresh
+- [ ] 15-02-PLAN.md — STATE.md mid-phase advance: frontmatter + Current Position + Performance Metrics By-Phase rows for Phase 13/14/15
+- [ ] 15-03-PLAN.md — ROADMAP.md mid-phase refresh: Phase 14 row → Complete; Phase Summary Phase 14 [ ]→[x]; within-document contradictions swept
+- [ ] 15-04-PLAN.md — Live regression rerun: Phase 13+14 bats subset GREEN + 3/3 cluster-admin denials + task rebuild SLO <230s + task health-check exit 0; evidence log committed
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 15-05-PLAN.md — Wave 2 sequential: /gsd-audit-milestone v0.20 + RETROSPECTIVE.md v0.20 append + PROJECT.md parking lot reconcile + 15-VALIDATION final + 15-VERIFICATION written + STATE ready_to_archive + ROADMAP Phase 15 Complete
 
 ## Progress
 
@@ -149,7 +159,7 @@ Plans:
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
 | 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 5/5 | Complete    | 2026-05-19 |
 | 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/4 | Not started | - |
-| 15. v0.20 Close-out + Retrospective | v0.20 | 0/TBD | Not started | - |
+| 15. v0.20 Close-out + Retrospective | v0.20 | 0/5 | In progress | - |
 
 ---
 
