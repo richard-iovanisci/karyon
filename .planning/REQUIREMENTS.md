@@ -42,7 +42,7 @@ R1 + R3 + R4 each carry pieces of this model. RBAC-04..06 below make Tier 2's "p
 
 A custom `tenant-workload-editor` ClusterRole replaces `admin` for **human-exercised tenant owners** — narrower than k8s' `edit`. The existing Flux SA owner pattern (`clusterRoles: [admin]` for GitOps reconciliation) is **preserved** with talk-track explanation of why automation gets broader scope than humans.
 
-- [x] **RBAC-01** — A `tenant-workload-editor` ClusterRole exists with scope narrower than upstream k8s `edit`: NO Secret create / edit, NO RoleBinding, NO ResourceQuota, NO LimitRange. Final Secrets policy (read-only / no-access / upstream-edit-equivalent) resolved in discuss-phase per OQ-2.
+- [x] **RBAC-01** — A `tenant-workload-editor` ClusterRole exists with scope narrower than upstream k8s `edit`: NO Secret create / edit, NO RoleBinding, NO ResourceQuota, NO LimitRange. Final Secrets policy resolved as **read-only** per Phase 13 D-13-01 (Secrets `get`/`list`/`watch` only; explicit deny on `create`/`update`/`patch`/`delete`).
 - [x] **RBAC-02** — Human-exercised tenant-owner kubeconfigs minted via `issue-tenant-kubeconfig.sh` use `tenant-workload-editor` (NOT `admin`). `kubectl auth can-i '*' '*'` returns `no` for the resulting tenant-owner identity.
 - [x] **RBAC-03** — Existing Flux SA owner pattern preserved: alpha + bravo Tenant CRs continue to carry `clusterRoles: [admin]` for the per-tenant Flux ServiceAccount that handles GitOps reconciliation. v0.19 Flux reconciliation continues unbroken (regression gate).
 - [x] **RBAC-04** — Platform-owner identity (`capsule-platform-owners` group) demonstrably lacks `cluster-admin`: `kubectl auth can-i '*' '*'` returns `no` under the platform-owner kubeconfig. Platform-owner has only the scoped privileges defined by RBAC-05 + RBAC-06 + the Capsule-required cluster-scoped read on Tenant CRs — no wildcard, no PV/PVC across namespaces, no Node access, no CRD authoring.
@@ -55,7 +55,7 @@ A `GlobalTenantResource` CR auto-propagates a hello-world workload into **every 
 
 - [x] **SEED-01** — A `GlobalTenantResource` CR (or equivalent Capsule mechanism) is reconciled into `spoke-capsule` and auto-propagates a hello-world workload into every existing tenant namespace (alpha-app1, tenant-alpha, bravo-app1, tenant-bravo).
 - [x] **SEED-02** — Propagation latency ≤ 60 seconds: from a new tenant namespace appearing on the cluster, the seeded hello workload reaches Ready state in that namespace within 60s. Measured via `kubectl wait --for=condition=Ready` or equivalent verifiable bats falsifier.
-- [x] **SEED-03** — Hello-world workload shape is the OQ-3-resolved choice (Pod + Service / ConfigMap-only / Deployment + Service + ConfigMap) — final selection lightweight enough to land alongside ≤230s SLO and visually meaningful enough for the demo narrative.
+- [x] **SEED-03** — Hello-world workload shape resolved as **Pod + Service** per Phase 13 D-13-02 (FQCI `docker.io/library/nginx:alpine` per Pitfall 13-P1; lightweight enough to land alongside ≤230s SLO and visually meaningful enough for the demo narrative).
 
 ### DEMO — Capsule-Proxy Two-Perspective View (Demo R3)
 
@@ -76,13 +76,13 @@ The demo demonstrates LIST / WATCH / RBAC behavior from **two distinct kubeconfi
 - [x] **RUNBOOK-02** — Runbook includes a pre-demo checklist: cluster reachable (`kubectl --context k3d-spoke-capsule get nodes`), `task fix-dns-poc-capsule` if needed, both kubeconfigs staged, both tenant-owner identities pre-minted (or scripted-on-demand) — checklist is executable, not narrative.
 - [x] **RUNBOOK-03** — Runbook includes known-noise notes: capsule-controller `tls: bad certificate` 1Hz chatter (per OQ-1 resolution — document-only is the recommended default), cross-link to ADR-008 (POC-graduation = DEFER framing), cross-link to `docs/capsule-on-eks.md` for the production-translation forward-pointer (and specifically how the three-tier model maps onto an actual EKS-on-AWS scenario — Cloud Ops = AWS account / IAM admin; Karyon Platform Team = EKS IRSA-bound role + cluster-scoped RBAC; Tenants = Capsule-scoped workload-editors).
 - [x] **RUNBOOK-04** — Runbook is executable end-to-end against a `spoke-capsule` cluster in **≤ 15 minutes** by a human reading it cold (no prior context required beyond the README). UAT verification by milestone owner before milestone close.
-- [x] **RUNBOOK-05** — New-tenant name selection (per OQ-5: "charlie" / "demo" / "team-foo" / other) is reflected verbatim in the runbook's act-3 "provision a new tenant live" step, with the chosen name canonical across runbook + delivery mechanism + any scripted helpers.
+- [x] **RUNBOOK-05** — New-tenant name selected as **`charlie`** per Phase 14 D-14-02 (provision style = **live** per Phase 14 D-14-03); appears verbatim in the runbook's act-3 "provision a new tenant live" step, canonical across runbook + delivery mechanism + scripted helpers (`scripts/poc/capsule/new-tenant.sh`).
 
 ### DELIVERY — Self-Contained Delivery Path (Demo R5)
 
 The demo resources (ClusterRole, GlobalTenantResource, any hello-world workload manifests) land via a clearly-named delivery mechanism — decision deferred to discuss-phase per OQ-4.
 
-- [x] **DELIVERY-01** — New demo resources (`tenant-workload-editor` ClusterRole, `GlobalTenantResource` CR, hello-world workload manifest) land via the OQ-4-resolved delivery mechanism — either GitOps under `pocs/capsule/` (production-correct, slower because of push-and-reconcile cycle) or a `task seed-capsule-demo` Taskfile entry (fast, self-contained). Single canonical path documented in RUNBOOK-01.
+- [x] **DELIVERY-01** — New demo resources (`tenant-workload-editor` ClusterRole, `GlobalTenantResource` CR, hello-world workload manifest) land via **GitOps under `pocs/capsule/`** per Phase 13 D-13-03 (production-correct, slower because of push-and-reconcile cycle; NO `task seed-capsule-demo` Taskfile entry — declined for P31 isolation). Single canonical path documented in RUNBOOK-01.
 - [x] **DELIVERY-02** — Delivery mechanism preserves P31 invariant: zero new `spoke-capsule` mentions in any v0.18 default-path script (anything outside `scripts/poc/`). Verified by the existing static bats P31 grep + a fresh-run `task rebuild` post-deployment showing SLO < 230s holds.
 - [x] **DELIVERY-03** — Delivery mechanism is **additive only**: existing alpha + bravo Tenant CRs unchanged, existing Flux reconciliation paths unchanged, `task rebuild` exit-code 0 with v0.18 health-check unchanged.
 
