@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 14 — COMPLETE
-Plan: 1 of 4
-Status: Ready to execute
-Last activity: 2026-05-20 -- Phase 15 planning complete
+Phase: 15 (v0-20-close-out-retrospective) — EXECUTING
+Plan: 1 of 5 (Wave 1: 15-01 REQUIREMENTS / 15-02 STATE / 15-03 ROADMAP / 15-04 live regression rerun — file-disjoint parallel; Wave 2: 15-05 audit + retrospective + parking-lot + VALIDATION + VERIFICATION)
+Status: Phase 15 close-out reconciliation (book-keeping; mutates `.planning/*.md` + writes 15-04 evidence log)
+Last activity: 2026-05-20 -- Phase 15 entered
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Last activity: 2026-05-20 -- Phase 15 planning complete
 
 - Total plans completed (v0.18): 35
 - Total plans completed (v0.19): 18
+- Total plans completed (v0.20): 14
 - Average duration: -
 - Total execution time: -
 
@@ -73,9 +74,9 @@ Last activity: 2026-05-20 -- Phase 15 planning complete
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 13 (RBAC + SEED + DELIVERY) | TBD | — | — |
-| 14 (DEMO + RUNBOOK) | TBD | — | — |
-| 15 (Close-out + Retrospective) | TBD | — | — |
+| 13 (RBAC + SEED + DELIVERY) | 5 | - | - |
+| 14 (DEMO + RUNBOOK) | 4 | - | - |
+| 15 (Close-out + Retrospective) | 5 | - | - |
 
 **Recent Trend:**
 
