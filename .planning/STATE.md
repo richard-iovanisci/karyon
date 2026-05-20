@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.20
 milestone_name: — Capsule POC Demo & RBAC Polish
 status: executing
-stopped_at: Phase 15 context gathered
-last_updated: "2026-05-20T10:15:00.560Z"
-last_activity: 2026-05-20 -- Phase 15 planning complete
+stopped_at: Phase 15 in flight — v0.20 close-out reconciliation (Wave 1)
+last_updated: "2026-05-20T12:00:00.000Z"
+last_activity: 2026-05-20 -- Phase 15 entered (Wave 1: 15-01 REQUIREMENTS / 15-02 STATE / 15-03 ROADMAP / 15-04 live regression rerun in flight)
 progress:
   total_phases: 3
   completed_phases: 2
