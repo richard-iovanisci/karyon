@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.20
-milestone_name: Capsule POC Demo & RBAC Polish
-status: executing
+milestone_name: — Capsule POC Demo & RBAC Polish
+status: completed
 stopped_at: Phase 14 context gathered
-last_updated: "2026-05-20T00:31:37.681Z"
-last_activity: 2026-05-20 -- Phase 14 execution started
+last_updated: "2026-05-20T01:32:41.136Z"
+last_activity: 2026-05-20 -- Phase 14 marked complete
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 5
-  percent: 56
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 14 (Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution) — EXECUTING
+Phase: 14 — COMPLETE
 Plan: 1 of 4
-Status: Executing Phase 14
-Last activity: 2026-05-20 -- Phase 14 execution started
+Status: Phase 14 complete
+Last activity: 2026-05-20 -- Phase 14 marked complete
 
 ## Performance Metrics
 
