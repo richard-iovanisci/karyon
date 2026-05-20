@@ -42,7 +42,7 @@ R1 + R3 + R4 each carry pieces of this model. RBAC-04..06 below make Tier 2's "p
 
 A custom `tenant-workload-editor` ClusterRole replaces `admin` for **human-exercised tenant owners** — narrower than k8s' `edit`. The existing Flux SA owner pattern (`clusterRoles: [admin]` for GitOps reconciliation) is **preserved** with talk-track explanation of why automation gets broader scope than humans.
 
-- [x] **RBAC-01** — A `tenant-workload-editor` ClusterRole exists with scope narrower than upstream k8s `edit`: NO Secret create / edit, NO RoleBinding, NO ResourceQuota, NO LimitRange. Final Secrets policy (read-only / no-access / upstream-edit-equivalent) resolved in discuss-phase per OQ-2.
+- [x] **RBAC-01** — A `tenant-workload-editor` ClusterRole exists with scope narrower than upstream k8s `edit`: NO Secret create / edit, NO RoleBinding, NO ResourceQuota, NO LimitRange. Final Secrets policy resolved as **read-only** per Phase 13 D-13-01 (Secrets `get`/`list`/`watch` only; explicit deny on `create`/`update`/`patch`/`delete`).
 - [x] **RBAC-02** — Human-exercised tenant-owner kubeconfigs minted via `issue-tenant-kubeconfig.sh` use `tenant-workload-editor` (NOT `admin`). `kubectl auth can-i '*' '*'` returns `no` for the resulting tenant-owner identity.
 - [x] **RBAC-03** — Existing Flux SA owner pattern preserved: alpha + bravo Tenant CRs continue to carry `clusterRoles: [admin]` for the per-tenant Flux ServiceAccount that handles GitOps reconciliation. v0.19 Flux reconciliation continues unbroken (regression gate).
 - [x] **RBAC-04** — Platform-owner identity (`capsule-platform-owners` group) demonstrably lacks `cluster-admin`: `kubectl auth can-i '*' '*'` returns `no` under the platform-owner kubeconfig. Platform-owner has only the scoped privileges defined by RBAC-05 + RBAC-06 + the Capsule-required cluster-scoped read on Tenant CRs — no wildcard, no PV/PVC across namespaces, no Node access, no CRD authoring.
@@ -55,34 +55,34 @@ A `GlobalTenantResource` CR auto-propagates a hello-world workload into **every 
 
 - [x] **SEED-01** — A `GlobalTenantResource` CR (or equivalent Capsule mechanism) is reconciled into `spoke-capsule` and auto-propagates a hello-world workload into every existing tenant namespace (alpha-app1, tenant-alpha, bravo-app1, tenant-bravo).
 - [x] **SEED-02** — Propagation latency ≤ 60 seconds: from a new tenant namespace appearing on the cluster, the seeded hello workload reaches Ready state in that namespace within 60s. Measured via `kubectl wait --for=condition=Ready` or equivalent verifiable bats falsifier.
-- [x] **SEED-03** — Hello-world workload shape is the OQ-3-resolved choice (Pod + Service / ConfigMap-only / Deployment + Service + ConfigMap) — final selection lightweight enough to land alongside ≤230s SLO and visually meaningful enough for the demo narrative.
+- [x] **SEED-03** — Hello-world workload shape resolved as **Pod + Service** per Phase 13 D-13-02 (FQCI `docker.io/library/nginx:alpine` per Pitfall 13-P1; lightweight enough to land alongside ≤230s SLO and visually meaningful enough for the demo narrative).
 
 ### DEMO — Capsule-Proxy Two-Perspective View (Demo R3)
 
 The demo demonstrates LIST / WATCH / RBAC behavior from **two distinct kubeconfigs**: platform-owner (sees all tenants) and tenant-owner (sees only their own, routed through capsule-proxy on NodePort 30443).
 
-- [ ] **DEMO-01** — Platform-owner kubeconfig (`capsule-platform-owners` group) provides cluster-scoped Tenant CR visibility AND co-owner access into every tenant namespace through capsule-proxy: `kubectl get tenants` returns both `alpha` and `bravo` (and any new tenant); `kubectl get namespaces` (routed through capsule-proxy) returns all tenant namespaces the platform-owner co-owns; `kubectl get pods -A` returns workloads across every tenant namespace.
-- [ ] **DEMO-02** — Tenant-owner kubeconfig (minted via `issue-tenant-kubeconfig.sh`, routed through capsule-proxy on NodePort 30443) sees ONLY their own tenant's namespaces — verified for both alpha-owner and bravo-owner via `kubectl get namespaces` + `kubectl get tenants` (both return only the caller's tenant).
-- [ ] **DEMO-03** — Tenant-owner can `kubectl get / kubectl logs / kubectl exec` on the SEED-01 hello-world workload in their own namespaces (positive control — proves the RBAC boundary is "narrow but functional", not "broken"). Platform-owner can perform the same actions across ALL tenant namespaces (RBAC-06 co-owner privilege demonstrated).
-- [ ] **DEMO-04** — Tenant-owner is REJECTED on `kubectl create secret` (RBAC-01 boundary enforcement). Rejection is observable + scriptable for the demo runbook. Platform-owner's Secrets behavior in the same namespace contrasts per OQ-2 resolution (the talk-track of "broader than tenant, narrower than cluster-admin").
-- [ ] **DEMO-05** — Tenant-owner is REJECTED on cross-tenant access: alpha-owner cannot read bravo namespaces / resources, and vice versa. Capsule-proxy LIST filter + tenant home-namespace ownership wiring (inherited from v0.19 Phase 10) demonstrably holds.
-- [ ] **DEMO-06** — Platform-owner is REJECTED on cluster-admin-only actions: `kubectl get nodes -o yaml` (or equivalent) returns Forbidden / 403; `kubectl get csr` returns Forbidden; `kubectl create clusterrolebinding ...` returns Forbidden. This is the "Karyon Platform Team is NOT cluster-admin" assertion made falsifiable — the demo includes at least one Forbidden action from the platform-owner kubeconfig so the audience sees the ceiling.
+- [x] **DEMO-01** — Platform-owner kubeconfig (`capsule-platform-owners` group) provides cluster-scoped Tenant CR visibility AND co-owner access into every tenant namespace through capsule-proxy: `kubectl get tenants` returns both `alpha` and `bravo` (and any new tenant); `kubectl get namespaces` (routed through capsule-proxy) returns all tenant namespaces the platform-owner co-owns; `kubectl get pods -A` returns workloads across every tenant namespace.
+- [x] **DEMO-02** — Tenant-owner kubeconfig (minted via `issue-tenant-kubeconfig.sh`, routed through capsule-proxy on NodePort 30443) sees ONLY their own tenant's namespaces — verified for both alpha-owner and bravo-owner via `kubectl get namespaces` + `kubectl get tenants` (both return only the caller's tenant).
+- [x] **DEMO-03** — Tenant-owner can `kubectl get / kubectl logs / kubectl exec` on the SEED-01 hello-world workload in their own namespaces (positive control — proves the RBAC boundary is "narrow but functional", not "broken"). Platform-owner can perform the same actions across ALL tenant namespaces (RBAC-06 co-owner privilege demonstrated).
+- [x] **DEMO-04** — Tenant-owner is REJECTED on `kubectl create secret` (RBAC-01 boundary enforcement). Rejection is observable + scriptable for the demo runbook. Platform-owner's Secrets behavior in the same namespace contrasts per OQ-2 resolution (the talk-track of "broader than tenant, narrower than cluster-admin").
+- [x] **DEMO-05** — Tenant-owner is REJECTED on cross-tenant access: alpha-owner cannot read bravo namespaces / resources, and vice versa. Capsule-proxy LIST filter + tenant home-namespace ownership wiring (inherited from v0.19 Phase 10) demonstrably holds.
+- [x] **DEMO-06** — Platform-owner is REJECTED on cluster-admin-only actions: `kubectl get nodes -o yaml` (or equivalent) returns Forbidden / 403; `kubectl get csr` returns Forbidden; `kubectl create clusterrolebinding ...` returns Forbidden. This is the "Karyon Platform Team is NOT cluster-admin" assertion made falsifiable — the demo includes at least one Forbidden action from the platform-owner kubeconfig so the audience sees the ceiling.
 
 ### RUNBOOK — Polished Demo Runbook (Demo R4)
 
 `docs/poc-capsule-demo.md` captures the 6-act walkthrough end-to-end so a teammate can execute it cold.
 
-- [ ] **RUNBOOK-01** — `docs/poc-capsule-demo.md` exists as a 6-act walkthrough: (1) architecture overview — explicit articulation of the **three-tier permission model** (Tier 1 EKS Cloud Ops out-of-scope / Tier 2 Karyon Platform Team / Tier 3 Tenant Devs) and where each tier acts → (2) platform-owner role — show platform-owner kubeconfig, demonstrate Tenant CR LIST + at least one Forbidden cluster-admin action (DEMO-06) so audience sees the ceiling → (3) provision a new tenant live (RBAC-05; tenant name per OQ-5) — show platform-owner CREATE + observe Capsule materializing the tenant + new tenant namespace appearing in platform-owner LIST → (4) GlobalTenantResource auto-seed observation (SEED-02 ≤ 60s) — watch hello-world workload appear in the new tenant namespace → (5) two perspectives — switch to tenant-owner kubeconfig, demonstrate scoped LIST + DEMO-04 Forbidden create-secret + DEMO-05 cross-tenant rejection; switch back to platform-owner to show co-owner LIST/EXEC into the same tenant → (6) cleanup — platform-owner deletes the new tenant + observe Capsule unmaterializing it (RBAC-05 delete half). Each act has a concrete `kubectl` / `task` step + expected output.
-- [ ] **RUNBOOK-02** — Runbook includes a pre-demo checklist: cluster reachable (`kubectl --context k3d-spoke-capsule get nodes`), `task fix-dns-poc-capsule` if needed, both kubeconfigs staged, both tenant-owner identities pre-minted (or scripted-on-demand) — checklist is executable, not narrative.
-- [ ] **RUNBOOK-03** — Runbook includes known-noise notes: capsule-controller `tls: bad certificate` 1Hz chatter (per OQ-1 resolution — document-only is the recommended default), cross-link to ADR-008 (POC-graduation = DEFER framing), cross-link to `docs/capsule-on-eks.md` for the production-translation forward-pointer (and specifically how the three-tier model maps onto an actual EKS-on-AWS scenario — Cloud Ops = AWS account / IAM admin; Karyon Platform Team = EKS IRSA-bound role + cluster-scoped RBAC; Tenants = Capsule-scoped workload-editors).
-- [ ] **RUNBOOK-04** — Runbook is executable end-to-end against a `spoke-capsule` cluster in **≤ 15 minutes** by a human reading it cold (no prior context required beyond the README). UAT verification by milestone owner before milestone close.
-- [ ] **RUNBOOK-05** — New-tenant name selection (per OQ-5: "charlie" / "demo" / "team-foo" / other) is reflected verbatim in the runbook's act-3 "provision a new tenant live" step, with the chosen name canonical across runbook + delivery mechanism + any scripted helpers.
+- [x] **RUNBOOK-01** — `docs/poc-capsule-demo.md` exists as a 6-act walkthrough: (1) architecture overview — explicit articulation of the **three-tier permission model** (Tier 1 EKS Cloud Ops out-of-scope / Tier 2 Karyon Platform Team / Tier 3 Tenant Devs) and where each tier acts → (2) platform-owner role — show platform-owner kubeconfig, demonstrate Tenant CR LIST + at least one Forbidden cluster-admin action (DEMO-06) so audience sees the ceiling → (3) provision a new tenant live (RBAC-05; tenant name per OQ-5) — show platform-owner CREATE + observe Capsule materializing the tenant + new tenant namespace appearing in platform-owner LIST → (4) GlobalTenantResource auto-seed observation (SEED-02 ≤ 60s) — watch hello-world workload appear in the new tenant namespace → (5) two perspectives — switch to tenant-owner kubeconfig, demonstrate scoped LIST + DEMO-04 Forbidden create-secret + DEMO-05 cross-tenant rejection; switch back to platform-owner to show co-owner LIST/EXEC into the same tenant → (6) cleanup — platform-owner deletes the new tenant + observe Capsule unmaterializing it (RBAC-05 delete half). Each act has a concrete `kubectl` / `task` step + expected output.
+- [x] **RUNBOOK-02** — Runbook includes a pre-demo checklist: cluster reachable (`kubectl --context k3d-spoke-capsule get nodes`), `task fix-dns-poc-capsule` if needed, both kubeconfigs staged, both tenant-owner identities pre-minted (or scripted-on-demand) — checklist is executable, not narrative.
+- [x] **RUNBOOK-03** — Runbook includes known-noise notes: capsule-controller `tls: bad certificate` 1Hz chatter (per OQ-1 resolution — document-only is the recommended default), cross-link to ADR-008 (POC-graduation = DEFER framing), cross-link to `docs/capsule-on-eks.md` for the production-translation forward-pointer (and specifically how the three-tier model maps onto an actual EKS-on-AWS scenario — Cloud Ops = AWS account / IAM admin; Karyon Platform Team = EKS IRSA-bound role + cluster-scoped RBAC; Tenants = Capsule-scoped workload-editors).
+- [x] **RUNBOOK-04** — Runbook is executable end-to-end against a `spoke-capsule` cluster in **≤ 15 minutes** by a human reading it cold (no prior context required beyond the README). UAT verification by milestone owner before milestone close.
+- [x] **RUNBOOK-05** — New-tenant name selected as **`charlie`** per Phase 14 D-14-02 (provision style = **live** per Phase 14 D-14-03); appears verbatim in the runbook's act-3 "provision a new tenant live" step, canonical across runbook + delivery mechanism + scripted helpers (`scripts/poc/capsule/new-tenant.sh`).
 
 ### DELIVERY — Self-Contained Delivery Path (Demo R5)
 
 The demo resources (ClusterRole, GlobalTenantResource, any hello-world workload manifests) land via a clearly-named delivery mechanism — decision deferred to discuss-phase per OQ-4.
 
-- [x] **DELIVERY-01** — New demo resources (`tenant-workload-editor` ClusterRole, `GlobalTenantResource` CR, hello-world workload manifest) land via the OQ-4-resolved delivery mechanism — either GitOps under `pocs/capsule/` (production-correct, slower because of push-and-reconcile cycle) or a `task seed-capsule-demo` Taskfile entry (fast, self-contained). Single canonical path documented in RUNBOOK-01.
+- [x] **DELIVERY-01** — New demo resources (`tenant-workload-editor` ClusterRole, `GlobalTenantResource` CR, hello-world workload manifest) land via **GitOps under `pocs/capsule/`** per Phase 13 D-13-03 (production-correct, slower because of push-and-reconcile cycle; NO `task seed-capsule-demo` Taskfile entry — declined for P31 isolation). Single canonical path documented in RUNBOOK-01.
 - [x] **DELIVERY-02** — Delivery mechanism preserves P31 invariant: zero new `spoke-capsule` mentions in any v0.18 default-path script (anything outside `scripts/poc/`). Verified by the existing static bats P31 grep + a fresh-run `task rebuild` post-deployment showing SLO < 230s holds.
 - [x] **DELIVERY-03** — Delivery mechanism is **additive only**: existing alpha + bravo Tenant CRs unchanged, existing Flux reconciliation paths unchanged, `task rebuild` exit-code 0 with v0.18 health-check unchanged.
 
@@ -144,17 +144,17 @@ Which phases cover which requirements. Filled by roadmapper.
 | SEED-01 | Phase 13 | Complete |
 | SEED-02 | Phase 13 | Complete |
 | SEED-03 | Phase 13 | Complete |
-| DEMO-01 | Phase 14 | Pending |
-| DEMO-02 | Phase 14 | Pending |
-| DEMO-03 | Phase 14 | Pending |
-| DEMO-04 | Phase 14 | Pending |
-| DEMO-05 | Phase 14 | Pending |
-| DEMO-06 | Phase 14 | Pending |
-| RUNBOOK-01 | Phase 14 | Pending |
-| RUNBOOK-02 | Phase 14 | Pending |
-| RUNBOOK-03 | Phase 14 | Pending |
-| RUNBOOK-04 | Phase 14 | Pending |
-| RUNBOOK-05 | Phase 14 | Pending |
+| DEMO-01 | Phase 14 | Complete |
+| DEMO-02 | Phase 14 | Complete |
+| DEMO-03 | Phase 14 | Complete |
+| DEMO-04 | Phase 14 | Complete |
+| DEMO-05 | Phase 14 | Complete |
+| DEMO-06 | Phase 14 | Complete |
+| RUNBOOK-01 | Phase 14 | Complete |
+| RUNBOOK-02 | Phase 14 | Complete |
+| RUNBOOK-03 | Phase 14 | Complete |
+| RUNBOOK-04 | Phase 14 | Complete |
+| RUNBOOK-05 | Phase 14 | Complete |
 | DELIVERY-01 | Phase 13 | Complete |
 | DELIVERY-02 | Phase 13 | Complete |
 | DELIVERY-03 | Phase 13 | Complete |
