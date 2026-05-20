@@ -69,7 +69,7 @@
 #### Phase Summary
 
 - [x] **Phase 13: RBAC Narrowing + GlobalTenantResource Seed + Delivery Mechanism** — Custom `tenant-workload-editor` ClusterRole replaces `admin` for humans (Tier 3); platform-owner identity + co-ownership on alpha/bravo Tenant CRs land (Tier 2); `GlobalTenantResource` auto-propagates a hello-world workload into every tenant namespace within 60s; OQ-2/3/4 resolved in discuss-phase; delivery path lands via OQ-4-chosen mechanism (GitOps or Taskfile). Wave 0 RED bats scaffolds for ClusterRole grant matrix + GlobalTenantResource propagation + platform-owner co-owner LIST/EXEC. (completed 2026-05-19)
-- [ ] **Phase 14: Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution** — Verifies platform-owner (sees all tenants + co-owner access) vs tenant-owner (own-tenant-only via capsule-proxy NodePort 30443) using 2 distinct live kubeconfigs; writes `docs/poc-capsule-demo.md` 6-act walkthrough with pre-demo checklist + known-noise notes; resolves OQ-1 TLS noise treatment; resolves OQ-5 new-tenant name + live-provisioning style.
+- [x] **Phase 14: Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution** — Verifies platform-owner (sees all tenants + co-owner access) vs tenant-owner (own-tenant-only via capsule-proxy NodePort 30443) using 2 distinct live kubeconfigs; writes `docs/poc-capsule-demo.md` 6-act walkthrough with pre-demo checklist + known-noise notes; resolves OQ-1 TLS noise treatment; resolves OQ-5 new-tenant name + live-provisioning style.
 - [ ] **Phase 15: v0.20 Milestone Close-out + Retrospective** — Pattern-mirrors v0.19 Phase 12 close-out at smaller scale: flips REQ checkboxes against live evidence, updates STATE.md, runs `/gsd-audit-milestone v0.20`, writes RETROSPECTIVE-v0.20.md, prepares milestone for clean archival.
 
 ## Phase Details
@@ -158,7 +158,7 @@ Plans:
 | 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
 | 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 5/5 | Complete    | 2026-05-19 |
-| 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/4 | Not started | - |
+| 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 4/4 | Complete | 2026-05-19 |
 | 15. v0.20 Close-out + Retrospective | v0.20 | 0/5 | In progress | - |
 
 ---
