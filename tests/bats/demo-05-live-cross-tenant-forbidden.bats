@@ -45,13 +45,17 @@ setup() {
 }
 
 @test "DEMO-05 (alpha→bravo): cross-tenant namespace GET denied" {
+  # capsule-proxy scoping: the namespace is hidden, surfacing as NotFound rather than
+  # an explicit Forbidden (LIST-filter semantics — see Phase 11 D-11-02 inheritance).
+  # Either form is a valid scoping-denied response; the load-bearing assertion is that
+  # the cross-tenant namespace is UNREACHABLE.
   run kubectl --kubeconfig="$ALPHA_KUBECONFIG" get namespace tenant-bravo
   [ "$status" -ne 0 ]
-  echo "$output" | grep -qE "(Forbidden|forbidden|cannot get|cannot list)"
+  echo "$output" | grep -qE "(Forbidden|forbidden|NotFound|not found|could not find|cannot get|cannot list)"
 }
 
 @test "DEMO-05 (bravo→alpha): cross-tenant namespace GET denied (symmetric mirror)" {
   run kubectl --kubeconfig="$BRAVO_KUBECONFIG" get namespace tenant-alpha
   [ "$status" -ne 0 ]
-  echo "$output" | grep -qE "(Forbidden|forbidden|cannot get|cannot list)"
+  echo "$output" | grep -qE "(Forbidden|forbidden|NotFound|not found|could not find|cannot get|cannot list)"
 }
