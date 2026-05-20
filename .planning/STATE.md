@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.20
 milestone_name: — Capsule POC Demo & RBAC Polish
 status: completed
-stopped_at: Phase 14 context gathered
-last_updated: "2026-05-20T01:32:41.136Z"
+stopped_at: Phase 15 context gathered
+last_updated: "2026-05-20T09:10:11.765Z"
 last_activity: 2026-05-20 -- Phase 14 marked complete
 progress:
   total_phases: 3
@@ -177,6 +177,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-19T23:48:37.751Z
-Stopped at: Phase 14 context gathered
-Resume file: .planning/phases/14-two-perspective-demo-verification-6-act-runbook-tls-noise-re/14-CONTEXT.md
+Last session: 2026-05-20T09:10:11.758Z
+Stopped at: Phase 15 context gathered
+Resume file: .planning/phases/15-v0-20-milestone-close-out-retrospective/15-CONTEXT.md
