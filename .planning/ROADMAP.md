@@ -105,7 +105,18 @@ Plans:
   3. **Tier 2 ceiling demonstrably bounded** — Platform-owner is REJECTED on at least 2 cluster-admin-only actions surfaced in the demo: `kubectl get nodes -o yaml` (or equivalent) returns Forbidden / 403; `kubectl get csr` returns Forbidden; `kubectl create clusterrolebinding ...` returns Forbidden. At least one Forbidden action lands in RUNBOOK-01 act 2 so the audience sees the ceiling in the live walkthrough.
   4. **6-act runbook ships end-to-end executable** — `docs/poc-capsule-demo.md` exists as the 6-act walkthrough (1: architecture + three-tier model articulation; 2: platform-owner role + Forbidden cluster-admin action; 3: provision new tenant live, name per OQ-5; 4: GlobalTenantResource auto-seed observation ≤ 60s; 5: two perspectives + scoped LIST + Forbidden create-secret + cross-tenant rejection + platform-owner co-owner LIST/EXEC into the same tenant; 6: cleanup — platform-owner deletes new tenant, observe Capsule unmaterialization). Includes executable pre-demo checklist (cluster reachable, fix-dns if needed, kubeconfigs staged) and known-noise notes (OQ-1 resolution for `tls: bad certificate` chatter, cross-link to ADR-008, cross-link to `docs/capsule-on-eks.md` for production-translation forward-pointer with three-tier-on-EKS mapping). UAT-verified executable in ≤ 15 minutes cold.
   5. **Runbook-driven demo is cohesive and reproducible** — The new-tenant name selected per OQ-5 appears verbatim in act-3 and across the delivery mechanism + any scripted helpers (single canonical name across runbook + scripts + bats). Every act has a concrete `kubectl` / `task` step + expected output. Pre-demo checklist is executable (not narrative).
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+- [ ] 14-00-PLAN.md — Wave 0 RED bats scaffold (11 NEW bats files: DEMO-01..06 live + RUNBOOK-01/02/03/05 static; Nyquist gate; Phase 13 inheritance preflight)
+- [ ] 14-01-PLAN.md — docs/poc-capsule-demo.md 6-act runbook + docs/capsule-on-eks.md three-tier append (RUNBOOK-01 + RUNBOOK-02 + RUNBOOK-03 + RUNBOOK-05 GREEN)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 14-02-PLAN.md — DEMO-01..06 live bats GREEN against spoke-capsule + full-suite regression-clean + Tier-2 ceiling human-verify
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 14-03-PLAN.md — Milestone-owner UAT cold-read ≤ 15 min + 14-VALIDATION.md final (RUNBOOK-04; Phase 14 close)
 
 ### Phase 15: v0.20 Milestone Close-out + Retrospective
 **Goal**: Reconcile v0.20 milestone artifacts to match implementation reality, flip all REQ checkboxes against live evidence, run the milestone audit, capture lessons learned, and prepare the milestone for clean archival via `/gsd-complete-milestone`. Pattern-mirrors v0.19 Phase 12 close-out at smaller scale.
@@ -137,7 +148,7 @@ Plans:
 | 11. Validation + Graduation ADR-008 | v0.19 | 8/8 | Complete | 2026-05-07 |
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
 | 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 5/5 | Complete    | 2026-05-19 |
-| 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/TBD | Not started | - |
+| 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 0/4 | Not started | - |
 | 15. v0.20 Close-out + Retrospective | v0.20 | 0/TBD | Not started | - |
 
 ---
