@@ -4,8 +4,8 @@ milestone: v0.20
 milestone_name: Capsule POC Demo & RBAC Polish
 status: executing
 stopped_at: Phase 14 context gathered
-last_updated: "2026-05-20T00:30:30.097Z"
-last_activity: 2026-05-20 -- Phase 14 planning complete
+last_updated: "2026-05-20T00:31:37.681Z"
+last_activity: 2026-05-20 -- Phase 14 execution started
 progress:
   total_phases: 3
   completed_phases: 1
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** `task rebuild` performs a scorched-earth teardown and reaches a healthy hub-spoke Flux lab — with a CUDA-capable spoke — in under 20 minutes, every time.
-**Current focus:** Phase 13 — RBAC Narrowing + GlobalTenantResource Seed + Delivery Mechanism
+**Current focus:** Phase 14 — Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution
 
 **Milestone framing (v0.20):** Lean / additive — Smallest viable phase count to ship the Capsule POC demo runbook and the least-privilege tenant ClusterRole. 3 phases total: Phase 13 (RBAC narrowing + GlobalTenantResource seed + delivery mechanism — 12 REQs), Phase 14 (two-perspective demo verification + 6-act runbook + TLS-noise resolution — 11 REQs), Phase 15 (v0.20 close-out + retrospective — 0 new REQs). Anti-scope guard active: no exploratory side-quests; existing alpha/bravo tenants + Flux reconciliation stay untouched.
 
 ## Current Position
 
-Phase: 14
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-20 -- Phase 14 planning complete
+Phase: 14 (Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 14
+Last activity: 2026-05-20 -- Phase 14 execution started
 
 ## Performance Metrics
 
