@@ -41,6 +41,18 @@ Capsule installs 7 cluster-scoped CRDs. The POC validates only `Tenant` directly
 
 **Admin-required step:** install Capsule's CRDs cluster-wide BEFORE any tenant Kustomization references them — Phase 9 enforces this with `dependsOn` + `wait: true` on the operator Kustomization.
 
+## Three-tier permission model on EKS
+
+The Phase 13 three-tier model translates to EKS as follows. Each tier preserves the same RBAC shape as the k3d POC; the platform-specific carriers change.
+
+| Tier | k3d POC carrier | EKS carrier | Permission ceiling |
+|---|---|---|---|
+| **Tier 1 — Cloud Ops** | k3d host operator (full cluster control) | AWS account / IAM admin holding `cluster-admin` on the EKS cluster | `cluster-admin` (nodes, csr, clusterrolebindings) |
+| **Tier 2 — Karyon Platform Team** | `capsule-platform-owners` group + `platform-owner@capsule-system` SA | EKS IRSA-bound IAM role + cluster-scoped `capsule-platform-owner` ClusterRole | Tenant CR CRUD + namespace LIST; NO cluster-admin, NO nodes, NO csr, NO clusterrolebinding writes |
+| **Tier 3 — Tenant Developers** | `human-tenant-owner@tenant-<name>` SA + Tenant `spec.owners[]` co-ownership | IRSA-bound IAM role per tenant SA (existing pattern above) | `tenant-workload-editor` ClusterRole scoped to own tenant namespaces |
+
+The IRSA TrustPolicy YAML (Tier 3 carrier) appears verbatim below in §"Verbatim YAML #1". Tier 2's IRSA shape is identical except the role's namespace-scope is cluster-wide and the bound ClusterRole is `capsule-platform-owner` (NOT `tenant-workload-editor`).
+
 ## Topology (EKS target)
 
 The diagram below is the EKS-target equivalent of the karyon k3d POC. Source-of-truth ASCII: `.planning/research/SUMMARY.md` §"Mental Model".
