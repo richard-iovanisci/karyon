@@ -1,0 +1,51 @@
+=== Plan 15-04 Live Regression Rerun Evidence Log ===
+Start UTC: 2026-05-20T10:19:04Z
+Operator: riovanisci0722@gmail.com
+Branch: worktree-agent-adc905aa25f09c946
+HEAD: e989979 docs(15): create phase plan
+origin/main: 49e264a docs(v0.20): add milestone briefing — Capsule POC Demo & RBAC Polish
+Cluster context: k3d-spoke-capsule + k3d-hub-flux
+Runner: bats -T (Bats 1.11.0)
+
+--- Check 1 — origin/main currency (Pitfall 15-P8 — operator-gated) ---
+HEAD..origin/main count: 0
+origin/main..HEAD count: 65
+(HEAD: e989979 docs(15): create phase plan)
+(origin/main: 49e264a docs(v0.20): add milestone briefing — Capsule POC Demo & RBAC Polish)
+
+--- Pre-flight Check 1 evaluation ---
+Plan literal PASS condition (LAG == 0 where LAG = HEAD..origin/main count): MET (LAG=0)
+
+HOWEVER — operationally, origin/main LAGS local HEAD by 65 commits:
+  HEAD                : e989979 docs(15): create phase plan
+  origin/main         : 49e264a docs(v0.20): add milestone briefing — Capsule POC Demo & RBAC Polish
+  origin/main..HEAD   : 65 commits (origin/main is 65 commits BEHIND HEAD)
+
+Pitfall 15-P8 intent: the live spoke-capsule cluster reconciles from origin/main via Flux.
+If origin/main lags HEAD by 65 commits, the live cluster will NOT have:
+  - All v0.20 Phase 13 artifacts (RBAC narrowing, GlobalTenantResource seed, additive delivery
+    under pocs/capsule/) — these are the very artifacts the bats subset will assert against.
+  - All v0.20 Phase 14 artifacts (two-perspective demo verification, runbook, TLS-noise fix).
+  - Any of the Phase 15 close-out artifacts.
+
+Consequence: a bats subset run against the live cluster RIGHT NOW would assert against
+state that does NOT yet exist on the cluster (the cluster reconciles from 49e264a, but the
+plans tests target artifacts landed at 71a0a44 onward). This produces FALSE-NEGATIVE REDs
+unrelated to any Phase 13/14 regression — exactly the scenario Pitfall 15-P8 names.
+
+Plan 15-04 HALT decision:
+This is a PREFLIGHT_HALT — operator action required: `git push origin main` before Plan
+15-04 can produce trustworthy live regression evidence. Plan 15-04 does NOT push (Git Safety
+Protocol per orchestrator instructions); the operator (or a separately authorized agent)
+must push origin/main forward to at-or-past HEAD, then re-run Plan 15-04 cold from Task 1.
+
+This matches the disposition Phase 14 Plan 14-03 took (auto-attested-with-carry-forward
+blocked by origin/main drift) — Plan 15-04 inherits the same blocker until resolved.
+
+HALT: origin/main lags HEAD by 65 commits operationally; operator must `git push origin main` before Plan 15-04 proceeds (Pitfall 15-P8)
+
+Plan 15-04 status: PREFLIGHT_HALT (Check 1 — origin/main currency)
+Bats subset: NOT RUN (would yield false-negative REDs against drifted cluster state)
+Cluster-admin denials: NOT RUN (deferred until cluster is reconciled at-or-past HEAD)
+task rebuild SLO: NOT RUN (destructive; operator-gated; deferred behind HALT)
+End UTC: 2026-05-20T10:19:46Z
