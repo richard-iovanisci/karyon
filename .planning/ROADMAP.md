@@ -70,7 +70,7 @@
 
 - [x] **Phase 13: RBAC Narrowing + GlobalTenantResource Seed + Delivery Mechanism** — Custom `tenant-workload-editor` ClusterRole replaces `admin` for humans (Tier 3); platform-owner identity + co-ownership on alpha/bravo Tenant CRs land (Tier 2); `GlobalTenantResource` auto-propagates a hello-world workload into every tenant namespace within 60s; OQ-2/3/4 resolved in discuss-phase; delivery path lands via OQ-4-chosen mechanism (GitOps or Taskfile). Wave 0 RED bats scaffolds for ClusterRole grant matrix + GlobalTenantResource propagation + platform-owner co-owner LIST/EXEC. (completed 2026-05-19)
 - [x] **Phase 14: Two-Perspective Demo Verification + 6-Act Runbook + TLS-Noise Resolution** — Verifies platform-owner (sees all tenants + co-owner access) vs tenant-owner (own-tenant-only via capsule-proxy NodePort 30443) using 2 distinct live kubeconfigs; writes `docs/poc-capsule-demo.md` 6-act walkthrough with pre-demo checklist + known-noise notes; resolves OQ-1 TLS noise treatment; resolves OQ-5 new-tenant name + live-provisioning style.
-- [ ] **Phase 15: v0.20 Milestone Close-out + Retrospective** — Pattern-mirrors v0.19 Phase 12 close-out at smaller scale: flips REQ checkboxes against live evidence, updates STATE.md, runs `/gsd-audit-milestone v0.20`, writes RETROSPECTIVE-v0.20.md, prepares milestone for clean archival.
+- [x] **Phase 15: v0.20 Milestone Close-out + Retrospective** — Closed 2026-05-20 (5/5 plans). Pattern-mirrored v0.19 Phase 12 close-out compressed to 5 plans / 2 waves (no prior-VERIFICATION supersedure needed). Plan 15-01 flipped 11 v0.20 mandatory REQs (DEMO-01..06 + RUNBOOK-01..05) + 4 OQ lock-in amendments (RBAC-01 / SEED-03 / DELIVERY-01 / RUNBOOK-05). Plan 15-02 advanced STATE.md mid-phase + populated Performance Metrics By-Phase. Plan 15-03 refreshed ROADMAP.md (Phase 14 → Complete 2026-05-19). Plan 15-04 ran Phase 13 + Phase 14 live bats subset (203 GREEN + 12 pre-existing inheritance REDs; zero new regressions) + 3/3 `auth can-i '*' '*' = no` denials + `task health-check` exit 0 baseline; `task rebuild` SLO measurement = PATH-B-deferred under Phase 14 14-02 VAL-04 inheritance (architectural worktree-vs-origin/main conflict; v0.21 carry-forward). Plan 15-05 ran `/gsd-audit-milestone v0.20` → `passed` (1 operator-accepted tech_debt for DELIVERY-02 v0.21 carry-forward per D-15-06 Path-X-with-tech_debt lenient reading), appended v0.20 retrospective to `.planning/RETROSPECTIVE.md` (D-15-04 living-doc), reconciled carry-forward parking lot in PROJECT.md (D-15-05; +5 entries: TLS-fix-at-cert-layer + `task demo-capsule` wrapper + DELIVERY-02 SLO re-attestation + `task rebuild`-vs-worktree architectural reconciliation + `KARYON_REBUILD_APPROVED` value drift), finalized 15-VALIDATION.md (vacuous-Nyquist book-keeping per D-15-07), wrote 15-VERIFICATION.md (status: passed; 5/5 SC; 1 override for DELIVERY-02 PATH-B inheritance). Milestone ready_to_archive via /gsd-complete-milestone v0.20.
 
 ## Phase Details
 
@@ -159,7 +159,7 @@ Plans:
 | 12. v0.19 Close-out Reconciliation | v0.19 | 7/7 | Complete | 2026-05-13 |
 | 13. RBAC Narrowing + GlobalTenantResource Seed + Delivery | v0.20 | 5/5 | Complete    | 2026-05-19 |
 | 14. Two-Perspective Demo + 6-Act Runbook + TLS-Noise | v0.20 | 4/4 | Complete | 2026-05-19 |
-| 15. v0.20 Close-out + Retrospective | v0.20 | 0/5 | In progress | - |
+| 15. v0.20 Close-out + Retrospective | v0.20 | 5/5 | Complete | 2026-05-20 |
 
 ---
 
