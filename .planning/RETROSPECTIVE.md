@@ -107,6 +107,81 @@ Generic POC onboarding seam (`KARYON POC MOUNT` sentinel in `clusters/hub-flux/f
 
 ---
 
+## Milestone: v0.20 — Capsule POC Demo & RBAC Polish
+
+**Shipped:** 2026-05-20
+**Phases:** 3 (13-15) | **Plans:** 14 | **Tasks:** ~32 | **Timeline:** 2026-05-19 → 2026-05-20
+
+### What Was Built
+
+- `tenant-workload-editor` ClusterRole + per-tenant human-tenant-owner ServiceAccounts + Tenant CR additive `spec.owners[]` co-ownership (Phase 13 RBAC-01..03; D-13-01 read-only Secrets policy)
+- Platform-owner SA + dual-subject ClusterRoleBinding + `issue-platform-owner-kubeconfig.sh` + `new-tenant.sh` provisioning helper (Phase 13 RBAC-04..06)
+- `GlobalTenantResource` CR + hello-world Pod + Service propagation across all tenant namespaces within 60s (Phase 13 SEED-01..03; D-13-02 Pod+Service shape; FQCI `docker.io/library/nginx:alpine` per Pitfall 13-P1)
+- GitOps delivery under `pocs/capsule/` + `docs/poc-capsule.md` platform-owner H2 append (Phase 13 DELIVERY-01..03; D-13-03 — NO `task seed-capsule-demo` Taskfile entry, declined for P31 isolation)
+- Two-perspective demo verification (platform-owner kubeconfig + tenant-owner kubeconfigs via capsule-proxy NodePort 30443) end-to-end bats GREEN against `spoke-capsule` (Phase 14 DEMO-01..06)
+- `docs/poc-capsule-demo.md` 6-act demo runbook + pre-demo checklist + Known Noise appendix + `docs/capsule-on-eks.md` three-tier-on-EKS append (Phase 14 RUNBOOK-01..05; D-14-01 TLS noise = document-only; D-14-02 marquee tenant = `charlie`; D-14-03 provision style = live)
+- OQ-1..5 resolutions landed against falsifiable evidence: TLS noise document-only, Secrets policy read-only, hello-world Pod+Service, GitOps delivery (no Taskfile), `charlie` marquee tenant with live provisioning
+
+### What Worked
+
+- **Lean / additive milestone framing held** (per `v0.20-MILESTONE-BRIEFING.md`): 3-phase decomposition + anti-scope guard rejected every "while we're at it" addition during discuss-phase; ADDON-01/02 + G-04 + KARYON_PHASE11_STRICT_LIVE all stayed deferred to v0.21
+- **Additive-only constraint** preserved alpha + bravo Flux reconciliation across all three phases (RBAC-03 + DELIVERY-03 regression gates GREEN at Phase 15 close); existing Flux SA owner pattern intact; `spec.owners[]` additive append only
+- **Wave 0 RED bats Nyquist gate** carried forward verbatim from v0.18 + v0.19 to Phase 13 (19 NEW bats files locked the RBAC + SEED + DELIVERY contracts BEFORE Plan 13-01 implementation) and Phase 14 (11 NEW bats files locked DEMO + RUNBOOK contracts BEFORE Plan 14-01 implementation)
+- **UAT cold-read caught actual runbook friction** (Phase 14 Plan 14-03 auto-attested-with-carry-forward UAT pattern): the runbook was executable cold in ≤ 15 min, and Plan 15-04 live regression rerun + Plan 15-05 audit gate retired the UAT carry-forward cleanly
+- **Phase 12 close-out template scaled cleanly to Phase 15 compressed form** (5 plans / 2 waves vs Phase 12's 7 plans / 2 waves) — supersedure-of-prior-VERIFICATION work was unnecessary because Phase 13 + Phase 14 VERIFICATION ledgers were already final at Phase 15 open
+- **Three-tier permission model** as a load-bearing architectural concept proved falsifiable end-to-end via 3 distinct `kubectl auth can-i '*' '*' = no` denials (platform-owner + alpha-owner + bravo-owner) — the conceptual model maps 1:1 to falsifiable bats + visceral kubectl assertions
+
+### What Was Inefficient
+
+- **Plan 15-04 retry chain** — 3 attempts (origin/main lag on attempt 1 → spoke-ml GPU=0 / inotify EMFILE on attempt 2 first try → `task rebuild`-vs-worktree architectural conflict on attempt 2 second try) consumed substantial operator time. The first two were environmental and resolved by operator action; the third surfaced a real architectural conflict between `task rebuild`'s Flux-reconciles-from-origin/main contract and the parallel-executor-worktree pattern. This conflict is worth a dedicated remediation in v0.21 (spec amendment candidate: either teach `task rebuild` to handle in-worktree branches, or amend the parallel-executor pattern so close-out plans that need `task rebuild` run sequentially on main).
+- **`KARYON_REBUILD_APPROVED=yes` spec drift** — Plan 15-04 docs + plan spec said `=1`, but `scripts/rebuild.sh` line 30 requires literal `=yes`. Plan 15-04 Rule 3 fix applied at exec time; the spec ↔ script alignment direction is a v0.21 docs hygiene candidate.
+- **capsule-controller TLS noise** (`tls: bad certificate` 1Hz chatter) treated as cosmetic per OQ-1 D-14-01 (document-only); cert-rotation layer fix deferred to graduation. The right architectural fix is cert-manager wiring or proper CA distribution, but neither is in scope for a POC demo.
+- **`spoke-capsule` cluster state-recovery dance** (Phase 14 destroy-poc → Plan 15-04 pre-flight needed `flux resume kustomization poc-capsule-spoke{,-rbac,-tenants}` recovery + `task fix-dns-poc-capsule` invocation): the rebuild + resume + DNS-fix sequence is operator-knowledge-heavy and would benefit from a `task spoke-capsule-recover` wrapper — but that wrapper itself was declined for P31 isolation, so the workaround is documented-only.
+- **Two `delivery-05-live-slo-regression.bats` execution paths** (env-gated bats vs direct `time task rebuild`) both satisfied DELIVERY-02 but added ambiguity about which is canonical; Plan 15-04 chose the direct path for explicit wall-clock measurement clarity (then hit the architectural worktree conflict).
+
+### Patterns Established
+
+- **Three-tier permission model** as a falsifiable architectural articulation: Tier 1 (Cloud Ops, out-of-scope/talk-track only) / Tier 2 (Karyon Platform Team, platform-owner role; `kubectl auth can-i '*' '*' = no` + Tenant CR CRUD CAN + co-owner LIST/WATCH/GET/LOGS/EXEC) / Tier 3 (Tenant Devs, tenant-owner role via capsule-proxy NodePort 30443; `kubectl auth can-i '*' '*' = no` + own-tenant-only LIST + cross-tenant Forbidden + `kubectl create secret` Forbidden)
+- **Co-owner ClusterRoleBinding pattern** for platform-owner LIST/WATCH/GET/LOGS/EXEC across every tenant namespace (additive append to existing `spec.owners[]` — preserves v0.19 Flux SA owner)
+- **`new-tenant.sh` provisioning template** (per OQ-5 D-14-02 + D-14-03 — marquee tenant `charlie` with live provisioning style) — default-includes `capsule-platform-owners` in every newly-created Tenant CR's `spec.owners[]`
+- **6-act demo runbook cadence** with executable pre-demo checklist + Known Noise appendix + production-translation forward-pointer to `docs/capsule-on-eks.md` (three-tier-on-EKS mapping)
+- **`k3d cluster stop`/`start` as P31-preserving way to free POC-4 ports for v0.18 rebuild testing** (new pattern from Plan 15-04 retry-#2; pauses container without deleting it, preserving spoke-capsule state for graceful resume post-test)
+- **Phase 15 5-plan compressed close-out** (vs Phase 12's 7-plan template): omits Plan 12-03 (Phase-11 VERIFICATION supersedure) entirely; collapses Plan 12-04 (4 VALIDATION ledgers close) into Plan 15-05 Task 4 since only the Phase 15 ledger needs flipping (Phase 13 + Phase 14 ledgers were already final at phase-open)
+- **Living-doc retrospective convention** (D-15-04): single `.planning/RETROSPECTIVE.md` with sequential `## Milestone: vX.YZ` section appends rather than per-milestone standalone files — preserves cross-milestone scroll-comparison for future readers
+- **Audit-gate + Path-X/Path-Y Contingency** (D-15-06; inherited from Plan 12-07): hard-block on audit failure; lenient Path-X-with-tech-debt acceptable for ADDON-pattern Future-Requirements drift OR (new in v0.20) PATH-B architectural-conflict deferral with carry-forward justification
+
+### OQ Resolutions
+
+| OQ | Briefing-recommended default | Landed Decision | Phase / D-code |
+|----|------------------------------|----------------|----------------|
+| OQ-1 (TLS noise treatment) | document-only | document-only (cert-rotation-layer fix deferred to graduation) | Phase 14 D-14-01 |
+| OQ-2 (`tenant-workload-editor` Secrets policy) | read-only | read-only (`get`/`list`/`watch` only; explicit deny on `create`/`update`/`patch`/`delete`) | Phase 13 D-13-01 |
+| OQ-3 (hello-world workload shape) | Pod + Service | Pod + Service (FQCI `docker.io/library/nginx:alpine` per Pitfall 13-P1) | Phase 13 D-13-02 |
+| OQ-4 (delivery path) | GitOps `pocs/capsule/` | GitOps `pocs/capsule/` (NO `task seed-capsule-demo` Taskfile entry — declined for P31 isolation) | Phase 13 D-13-03 |
+| OQ-5 (new-tenant name + provision style) | `charlie` + live | `charlie` + live (single canonical name across runbook + `new-tenant.sh` + bats fixtures) | Phase 14 D-14-02 + D-14-03 |
+
+### Carry-forward updates
+
+- **Closed by v0.20:** (none) — v0.20 was purely additive; no v0.19 carry-forward items were closed. ADDON-01/02 stay deferred to v0.21; G-04 PostBuild workaround stays; KARYON_PHASE11_STRICT_LIVE remains optional; slo-regression-live env-gate stays; markdownlint + gitleaks-proxy-06 + Phase 1-5 shellcheck + first-push CI + real secret management + frontmatter reconciliation all stay deferred per `v0.20-MILESTONE-BRIEFING.md` "Out of Scope".
+- **Added to parking lot by v0.20:** (a) Fix `tls: bad certificate` capsule-controller chatter at the cert-rotation layer (cert-manager wiring or proper CA distribution) — was OQ-1 `document-only` per D-14-01; cross-linked to ADR-008 (DEFER) and `docs/poc-capsule-demo.md` Known Noise appendix; revisit at capsule graduation or production EKS cut. (b) `task demo-capsule` Taskfile wrapper — tempting ergonomics but breaks P31 isolation (would add a `spoke-capsule` mention to the default-path Taskfile); revisit at graduation or in a POC-ergonomics milestone. (c) **DELIVERY-02 live `task rebuild` SLO re-attestation** — Plan 15-04 retry-#2 elected PATH-B (partial evidence) because of architectural rebuild-vs-worktree conflict; Plan 15-04 Tasks 1-3 GREEN + Phase 14 14-02 inheritance precedent + post-rebuild `task health-check` exit 0 baseline captured; full SLO measurement carry-forward to v0.21. (d) **`task rebuild` vs parallel-executor-worktree pattern architectural reconciliation** — spec amendment candidate for v0.21 (either teach `task rebuild` to handle in-worktree branches via push-to-test-branch + Flux test-revision pin, OR amend parallel-executor pattern so close-out plans run sequentially on main rather than in worktrees). (e) **`KARYON_REBUILD_APPROVED` env-gate value drift** — Plan 15-04 docs + plan spec say `=1`, but `scripts/rebuild.sh` line 30 requires literal `=yes`; single-line fix; alignment direction to be decided in v0.21 docs hygiene pass.
+
+### Key Lessons
+
+1. **Lean / additive milestone framing scales.** v0.20's 3-phase decomposition (RBAC + SEED + DELIVERY → DEMO + RUNBOOK → close-out) with anti-scope guard active during discuss-phase shipped 23 mandatory REQs across 14 plans without any "while we're at it" scope creep. Future lean milestones should preserve the briefing's "in-scope / out-of-scope" lists as enforceable contracts during discuss-phase.
+2. **Three-tier permission model is the right articulation for Capsule POC demos.** Tier 1/2/3 maps cleanly to Cloud-Ops / Platform-Team / Tenant-Devs roles and lets each tier's ceiling be falsified by a distinct `kubectl auth can-i '*' '*' = no` assertion + a positive control. The articulation is reusable for any future multi-tenancy demo (Capsule, vCluster, kiosk, etc.).
+3. **Phase 12 close-out template compresses cleanly when no prior-VERIFICATION supersedure work is needed.** v0.19 Phase 12 needed 7 plans because Plan 12-03 superseded Phase 11's pre-fix VERIFICATION artifact; v0.20 Phase 15 needed only 5 plans because Phase 13 + Phase 14 VERIFICATION ledgers were already final at phase-open. Future close-out phases should estimate plan count by counting (a) artifact reconciliation surfaces + (b) VERIFICATION supersedure needs + (c) live regression rerun gates separately, not by analogy to prior milestones.
+4. **Living-doc retrospective is the right convention.** Single `.planning/RETROSPECTIVE.md` with sequential `## Milestone: vX.YZ` sections preserves cross-milestone scroll-comparison (a future reader compares v0.18 → v0.19 → v0.20 patterns + lessons in one file). Per-milestone standalone files would fragment that signal.
+5. **OQ-resolution table is the cleanest format for retrospective OQ closure.** The 4-column table (OQ # | briefing default | landed decision | Phase/D-code) makes the briefing-vs-landed delta scannable and auditable without prose. Future milestones with open questions should adopt this table format verbatim.
+6. **Architectural conflicts surface late and are best documented as PATH-B carry-forward when they don't compromise the milestone's core value.** Plan 15-04's `task rebuild`-vs-worktree conflict is a real architectural seam (rebuild's Flux contract assumes pushed origin/main; parallel-executor pattern intentionally puts plan-in-progress commits on unpushed feature branches). Inline reconciliation would violate Git Safety Protocol. PATH-B disposition + carry-forward to v0.21 is the right answer when the partial evidence + precedent inheritance satisfy the audit gate's lenient reading.
+
+### Cost Observations
+
+- **Model mix:** Opus 4.7 (1M context) for orchestration + planning + most executor agents; occasional Sonnet for shorter executor agents. No deviation from v0.18 + v0.19 pattern.
+- **Sessions:** ~2-3 sessions across 2 days (2026-05-19 → 2026-05-20); STATE.md + per-phase CONTEXT.md + per-plan SUMMARY.md anchored cross-session handoffs.
+- **Notable:** Phase 15 compressed close-out (5 plans / 2 waves) executed in significantly less wall-time than Phase 12 (7 plans / 2 waves) — the no-supersedure-needed shortcut is real. Plan 15-04 (live regression rerun) was the longest single plan due to `task rebuild` cold-run wall-time + the retry chain (origin/main lag → GPU/inotify EMFILE → architectural worktree conflict on attempts 1-3 respectively); the architectural conflict accounted for the largest share of operator time and surfaced a v0.21 spec-amendment candidate.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
