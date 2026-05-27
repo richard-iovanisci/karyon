@@ -593,3 +593,672 @@ cluster while NOT deleting it preserves the spirit of P31 (container survives).
 This forward-look is recorded BEFORE Task 4 approval so the orchestrator's continuation
 can pre-stage the resolution path. Task 5 itself will surface a decision-checkpoint if
 the port conflict materializes during execution.
+
+================================================================================
+Task 5: task rebuild SLO cold-run + post-rebuild health-check
+         (DELIVERY-02 + DELIVERY-03 regression gates)
+================================================================================
+
+Continuation context (orchestrator pre-staged):
+  - spoke-capsule cluster: k3d cluster stop spoke-capsule run cleanly (P31-preserved; container Exited but not deleted)
+  - Port 30443: FREE (verified pre-Task-5 by orchestrator + this executor)
+  - KARYON_REBUILD_APPROVED env-gate: set to 'yes' (script literal per scripts/rebuild.sh L30; plan spec text said '=1' but rebuild.sh requires '=yes' literal — deviation Rule 3 fix-blocking-issue)
+  - Continuation agent: a9157b57c26d1b50e (Tasks 5-6 only)
+
+Pre-Task-5 spoke-capsule container state (P31 invariant verification):
+k3d-spoke-capsule-serverlb: Exited (137) 3 minutes ago
+k3d-spoke-capsule-server-0: Exited (143) 3 minutes ago
+
+Pre-Task-5 port 30443 binding state:
+  PASS: port 30443 FREE
+
+--- task rebuild SLO cold-run (DELIVERY-02 gate; < 230s required) ---
+Start: 2026-05-27T11:58:54Z
+task: [rebuild] bash scripts/rebuild.sh
+  · KARYON_REBUILD_APPROVED=yes set; skipping interactive confirmation
+>>> step preflight
+
+== WSL environment (PRE-01/02/03) ==
+  ✓ WSL2 kernel detected: 6.6.87.2-microsoft-standard-WSL2
+  ✓ Ubuntu 24.04 confirmed (ID=ubuntu, VERSION_ID=24.04)
+/home/rich/code/gsd/karyon/.claude/worktrees/agent-a9157b57c26d1b50e/scripts/lib/preflight-lib.sh: line 179: warning: command substitution: ignored null byte in input
+  ! Mirrored-mode heuristic fired for Windows host 192.168.1.1 inside WSL CIDR 192.168.1.184/24, but wsl.exe --status does not confirm mirrored mode. Likely false positive from shared home-router subnet.
+      To silence: set networkingMode=NAT explicitly in %USERPROFILE%\.wslconfig per D-03, and run 'wsl --shutdown'.
+      If you believe this is actually mirrored mode, see docs/wsl-networking.md.
+  ✓ systemd is active
+  · systemctl state: running
+  · Interface IPs: eth0=100.86.42.13/32 eth1=192.168.1.184/24 br-659b847d0ef2=172.30.0.1/16 docker0=172.17.0.1/16 
+
+== System resources ==
+  · Memory visible to WSL: 51.0 GB
+  · CPU cores visible to WSL: 20
+  ✓ Memory >= 40GB (have 51.0GB; project plan pins 52GB via .wslconfig)
+  ✓ CPU cores >= 16 (have 20; project plan pins 20)
+  · Free space in $HOME fs: 921 GB
+  ✓ Free space >= 100GB
+
+== Docker ==
+  ✓ docker CLI present: Docker version 29.4.1, build 055a478
+  ✓ docker daemon reachable
+  · Docker server version: 29.4.1
+  ✓ User 'rich' in 'docker' group
+
+== NVIDIA / GPU ==
+  ✓ WSL libcuda stub present at /usr/lib/wsl/lib/ (Windows driver bridge)
+  ✓ nvidia-smi works — NVIDIA GeForce RTX 5090
+  · Driver: 596.49, reported CUDA: 596.49
+  ✓ RTX 5090 detected (Blackwell, sm_120 — requires CUDA 12.8+)
+  ✓ nvidia-container-toolkit installed
+  ✓ docker has nvidia runtime registered
+  ✓ docker default-runtime is nvidia
+
+== Network / ports (k3d will want these) ==
+  ! Port 6443 is in use
+      LISTEN 0      4096          0.0.0.0:6443      0.0.0.0:*          
+  ! Port 6444 is in use
+      LISTEN 0      4096          0.0.0.0:6444      0.0.0.0:*          
+  ! Port 6445 is in use
+      LISTEN 0      4096          0.0.0.0:6445      0.0.0.0:*          
+  ✓ Port 8080 free
+  ✓ Port 8081 free
+  ✓ Port 8082 free
+
+== Network / ports (PRE-15: POC-reserved) ==
+  ✓ Port 30443 free (POC-04 fail-fast)
+
+== Existing container / k8s state ==
+  · Docker containers: 6 running, 8 total
+  ! 8 existing k3d containers — consider cleaning before fresh start
+k3d-spoke-capsule-serverlb (Exited (137) 3 minutes ago)
+k3d-spoke-capsule-server-0 (Exited (143) 3 minutes ago)
+k3d-spoke-apps-serverlb (Up 34 minutes)
+k3d-spoke-apps-server-0 (Up 34 minutes)
+k3d-spoke-ml-serverlb (Up 34 minutes)
+k3d-spoke-ml-server-0 (Up 34 minutes)
+k3d-hub-flux-serverlb (Up 34 minutes)
+k3d-hub-flux-server-0 (Up 34 minutes)
+  ! Docker network 'k8s-net' already exists — will be reused or need manual removal
+  ! 1 existing k3d cluster(s)
+      NAME            SERVERS   AGENTS   LOADBALANCER
+      hub-flux        1/1       0/0      true
+      spoke-apps      1/1       0/0      true
+      spoke-capsule   0/1       0/0      true
+      spoke-ml        1/1       0/0      true
+
+== Tools (version pins from .tool-versions) ==
+  ✓ git: git version 2.43.0
+  ✓ curl: curl 8.5.0 (x86_64-pc-linux-gnu) libcurl/8.5.0 OpenSSL/3.0.13 zlib/1.3 brotli/1.1.0 zstd/1.5.5 libidn2/2.3.7 libpsl/0.21.2 (+libidn2/2.3.7) libssh/0.10.6/openssl/zlib nghttp2/1.59.0 librtmp/2.3 OpenLDAP/2.6.7
+  ✓ jq: jq-1.8.1
+  · Checking tool versions against /home/rich/code/gsd/karyon/.claude/worktrees/agent-a9157b57c26d1b50e/.tool-versions
+  ✓ kubectl: v1.35.0 (matches 1.35.0)
+  ✓ helm: v3.20.2+g8fb76d6 (matches 3.20.2)
+  ✓ flux: flux version 2.8.6 (matches 2.8.6)
+  ✓ k3d: k3d version v5.8.3 (matches 5.8.3)
+  ✓ k9s: v0.50.18 (matches 0.50.18)
+  ✓ task: 3.50.0 (matches 3.50.0)
+  ✓ jq: jq-1.8.1 (matches 1.8.1)
+  ✓ yq: yq (https://github.com/mikefarah/yq/) version v4.53.2 (matches 4.53.2)
+  ✓ asdf: asdf version v0.18.1 (revision 6a97697) (matches 0.18.1)
+  ✓ gitleaks: gitleaks version 8.30.1 (matches 8.30.1)
+  ✓ asdf: asdf version v0.18.1 (revision 6a97697)
+
+== .env secrets presence (PRE-09) ==
+  ✗ .env not found — run: cp .env.example .env && edit it (fill in GITHUB_OWNER, GITHUB_REPO, GITHUB_TOKEN)
+
+== Tool shim precedence (PRE-10) ==
+  ✓ kubectl resolves via asdf shim (/home/rich/.asdf/shims/kubectl)
+  ✓ helm resolves via asdf shim (/home/rich/.asdf/shims/helm)
+  ✓ k3d resolves via asdf shim (/home/rich/.asdf/shims/k3d)
+
+== systemd-resolved DNS stub (PRE-11) ==
+  ✓ resolv.conf nameserver is not 127.0.0.53 stub
+
+== Clock skew check (PRE-12) ==
+  ✓ PRE-12 clock skew within 0s (threshold 30s)
+
+== cgroup v2 purity (PRE-13) ==
+  ✓ cgroup v2 pure (cgroup2fs)
+
+== Bridge networking probe (PRE-14) ==
+  ✓ bridge-curl probe: container DNS resolution on preflight-pre14-net works
+
+== Summary ==
+  39 passed, 7 warnings, 1 failed
+
+Blockers:
+  • .env not found — run: cp .env.example .env && edit it (fill in GITHUB_OWNER, GITHUB_REPO, GITHUB_TOKEN)
+
+Warnings:
+  • Mirrored-mode heuristic fired for Windows host 192.168.1.1 inside WSL CIDR 192.168.1.184/24, but wsl.exe --status does not confirm mirrored mode. Likely false positive from shared home-router subnet.
+      To silence: set networkingMode=NAT explicitly in %USERPROFILE%\.wslconfig per D-03, and run 'wsl --shutdown'.
+      If you believe this is actually mirrored mode, see docs/wsl-networking.md.
+  • Port 6443 is in use
+  • Port 6444 is in use
+  • Port 6445 is in use
+  • 8 existing k3d containers — consider cleaning before fresh start
+  • Docker network 'k8s-net' already exists — will be reused or need manual removal
+  • 1 existing k3d cluster(s)
+
+Fix blockers above before continuing.
+  ✗ preflight failed; aborting before destructive rebuild
+task: Failed to run task "rebuild": exit status 1
+End: 2026-05-27T11:59:02Z
+task rebuild exit: 201
+task rebuild duration: 8s
+REBUILD_END=1779883142
+REBUILD_DURATION=8
+
+--- DEVIATION (Rule 3 fix-blocking-issue): Attempt #1 task rebuild aborted at preflight (.env absent in worktree cwd) ---
+
+Root cause:
+  - Worktree at .claude/worktrees/agent-a9157b57c26d1b50e/ has no .env file.
+  - .env is gitignored (per .gitignore) so 'git worktree add' did NOT propagate it.
+  - 'task rebuild' invokes 'bash scripts/preflight.sh' from worktree cwd.
+  - Preflight's PRE-09 check (.env presence) fails because worktree cwd has no .env.
+  - 'task rebuild' aborts with exit 201 before reaching destroy/create-clusters steps.
+
+Discrepancy with orchestrator pre-Task-5 preflight result:
+  - Orchestrator ran 'bash scripts/preflight.sh' in MAIN REPO (/home/rich/code/gsd/karyon/), which has .env (713 bytes, dated Apr 27).
+  - That preflight passed with 43 passed / 7 warnings / 0 failed (no blockers).
+  - This executor runs in the worktree cwd where .env is absent.
+
+Resolution applied (deviation Rule 3 — fix blocking issue):
+  - Copied .env from main repo to worktree: cp /home/rich/code/gsd/karyon/.env ./.env
+  - Same env-var content; preserves GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN required by bootstrap-flux step.
+  - .env remains gitignored — no working-tree change, no commit risk.
+
+Attempt #1 outcome (recorded for forensic completeness; not the SLO measurement):
+  Exit: 201 (preflight aborted before destroy step)
+  Duration: 8s (preflight-only; not the rebuild SLO)
+
+Attempt #2 will reuse the rebuild's internal start_epoch and report the actual SLO.
+
+--- task rebuild attempt #2 (after .env worktree-fix) ---
+Start: 2026-05-27T12:00:01Z
+task: [rebuild] bash scripts/rebuild.sh
+  · KARYON_REBUILD_APPROVED=yes set; skipping interactive confirmation
+>>> step preflight
+
+== WSL environment (PRE-01/02/03) ==
+  ✓ WSL2 kernel detected: 6.6.87.2-microsoft-standard-WSL2
+  ✓ Ubuntu 24.04 confirmed (ID=ubuntu, VERSION_ID=24.04)
+/home/rich/code/gsd/karyon/.claude/worktrees/agent-a9157b57c26d1b50e/scripts/lib/preflight-lib.sh: line 179: warning: command substitution: ignored null byte in input
+  ! Mirrored-mode heuristic fired for Windows host 192.168.1.1 inside WSL CIDR 192.168.1.184/24, but wsl.exe --status does not confirm mirrored mode. Likely false positive from shared home-router subnet.
+      To silence: set networkingMode=NAT explicitly in %USERPROFILE%\.wslconfig per D-03, and run 'wsl --shutdown'.
+      If you believe this is actually mirrored mode, see docs/wsl-networking.md.
+  ✓ systemd is active
+  · systemctl state: running
+  · Interface IPs: eth0=100.86.42.13/32 eth1=192.168.1.184/24 br-659b847d0ef2=172.30.0.1/16 docker0=172.17.0.1/16 
+
+== System resources ==
+  · Memory visible to WSL: 51.0 GB
+  · CPU cores visible to WSL: 20
+  ✓ Memory >= 40GB (have 51.0GB; project plan pins 52GB via .wslconfig)
+  ✓ CPU cores >= 16 (have 20; project plan pins 20)
+  · Free space in $HOME fs: 921 GB
+  ✓ Free space >= 100GB
+
+== Docker ==
+  ✓ docker CLI present: Docker version 29.4.1, build 055a478
+  ✓ docker daemon reachable
+  · Docker server version: 29.4.1
+  ✓ User 'rich' in 'docker' group
+
+== NVIDIA / GPU ==
+  ✓ WSL libcuda stub present at /usr/lib/wsl/lib/ (Windows driver bridge)
+  ✓ nvidia-smi works — NVIDIA GeForce RTX 5090
+  · Driver: 596.49, reported CUDA: 596.49
+  ✓ RTX 5090 detected (Blackwell, sm_120 — requires CUDA 12.8+)
+  ✓ nvidia-container-toolkit installed
+  ✓ docker has nvidia runtime registered
+  ✓ docker default-runtime is nvidia
+
+== Network / ports (k3d will want these) ==
+  ! Port 6443 is in use
+      LISTEN 0      4096          0.0.0.0:6443      0.0.0.0:*          
+  ! Port 6444 is in use
+      LISTEN 0      4096          0.0.0.0:6444      0.0.0.0:*          
+  ! Port 6445 is in use
+      LISTEN 0      4096          0.0.0.0:6445      0.0.0.0:*          
+  ✓ Port 8080 free
+  ✓ Port 8081 free
+  ✓ Port 8082 free
+
+== Network / ports (PRE-15: POC-reserved) ==
+  ✓ Port 30443 free (POC-04 fail-fast)
+
+== Existing container / k8s state ==
+  · Docker containers: 6 running, 8 total
+  ! 8 existing k3d containers — consider cleaning before fresh start
+k3d-spoke-capsule-serverlb (Exited (137) 4 minutes ago)
+k3d-spoke-capsule-server-0 (Exited (143) 4 minutes ago)
+k3d-spoke-apps-serverlb (Up 35 minutes)
+k3d-spoke-apps-server-0 (Up 35 minutes)
+k3d-spoke-ml-serverlb (Up 35 minutes)
+k3d-spoke-ml-server-0 (Up 35 minutes)
+k3d-hub-flux-serverlb (Up 35 minutes)
+k3d-hub-flux-server-0 (Up 35 minutes)
+  ! Docker network 'k8s-net' already exists — will be reused or need manual removal
+  ! 1 existing k3d cluster(s)
+      NAME            SERVERS   AGENTS   LOADBALANCER
+      hub-flux        1/1       0/0      true
+      spoke-apps      1/1       0/0      true
+      spoke-capsule   0/1       0/0      true
+      spoke-ml        1/1       0/0      true
+
+== Tools (version pins from .tool-versions) ==
+  ✓ git: git version 2.43.0
+  ✓ curl: curl 8.5.0 (x86_64-pc-linux-gnu) libcurl/8.5.0 OpenSSL/3.0.13 zlib/1.3 brotli/1.1.0 zstd/1.5.5 libidn2/2.3.7 libpsl/0.21.2 (+libidn2/2.3.7) libssh/0.10.6/openssl/zlib nghttp2/1.59.0 librtmp/2.3 OpenLDAP/2.6.7
+  ✓ jq: jq-1.8.1
+  · Checking tool versions against /home/rich/code/gsd/karyon/.claude/worktrees/agent-a9157b57c26d1b50e/.tool-versions
+  ✓ kubectl: v1.35.0 (matches 1.35.0)
+  ✓ helm: v3.20.2+g8fb76d6 (matches 3.20.2)
+  ✓ flux: flux version 2.8.6 (matches 2.8.6)
+  ✓ k3d: k3d version v5.8.3 (matches 5.8.3)
+  ✓ k9s: v0.50.18 (matches 0.50.18)
+  ✓ task: 3.50.0 (matches 3.50.0)
+  ✓ jq: jq-1.8.1 (matches 1.8.1)
+  ✓ yq: yq (https://github.com/mikefarah/yq/) version v4.53.2 (matches 4.53.2)
+  ✓ asdf: asdf version v0.18.1 (revision 6a97697) (matches 0.18.1)
+  ✓ gitleaks: gitleaks version 8.30.1 (matches 8.30.1)
+  ✓ asdf: asdf version v0.18.1 (revision 6a97697)
+
+== .env secrets presence (PRE-09) ==
+  ✓ .env file exists
+  ✓ GITHUB_OWNER is set (value hidden)
+  ✓ GITHUB_REPO is set (value hidden)
+  ✓ GITHUB_TOKEN is set (value hidden)
+
+== Tool shim precedence (PRE-10) ==
+  ✓ kubectl resolves via asdf shim (/home/rich/.asdf/shims/kubectl)
+  ✓ helm resolves via asdf shim (/home/rich/.asdf/shims/helm)
+  ✓ k3d resolves via asdf shim (/home/rich/.asdf/shims/k3d)
+
+== systemd-resolved DNS stub (PRE-11) ==
+  ✓ resolv.conf nameserver is not 127.0.0.53 stub
+
+== Clock skew check (PRE-12) ==
+  ✓ PRE-12 clock skew within 0s (threshold 30s)
+
+== cgroup v2 purity (PRE-13) ==
+  ✓ cgroup v2 pure (cgroup2fs)
+
+== Bridge networking probe (PRE-14) ==
+  ✓ bridge-curl probe: container DNS resolution on preflight-pre14-net works
+
+== Summary ==
+  43 passed, 7 warnings, 0 failed
+
+Warnings:
+  • Mirrored-mode heuristic fired for Windows host 192.168.1.1 inside WSL CIDR 192.168.1.184/24, but wsl.exe --status does not confirm mirrored mode. Likely false positive from shared home-router subnet.
+      To silence: set networkingMode=NAT explicitly in %USERPROFILE%\.wslconfig per D-03, and run 'wsl --shutdown'.
+      If you believe this is actually mirrored mode, see docs/wsl-networking.md.
+  • Port 6443 is in use
+  • Port 6444 is in use
+  • Port 6445 is in use
+  • 8 existing k3d containers — consider cleaning before fresh start
+  • Docker network 'k8s-net' already exists — will be reused or need manual removal
+  • 1 existing k3d cluster(s)
+
+No blockers — review warnings and proceed.
+>>> step destroy
+  · KARYON_DESTROY_APPROVED=yes set; skipping interactive confirmation
+
+== k3d clusters ==
+  · deleting: cluster hub-flux
+  ✓ deleted: cluster hub-flux
+  · deleting: cluster spoke-ml
+  ✓ deleted: cluster spoke-ml
+  · deleting: cluster spoke-apps
+  ✓ deleted: cluster spoke-apps
+
+== k8s-net network ==
+  ✓ deleted: k8s-net
+
+== Build cache defense ==
+  ✓ karyon/k3s-cuda image survived teardown (expected: karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1)
+
+== Summary ==
+  5 passed, 0 warnings, 0 failed
+
+Teardown complete. Build cache preserved.
+>>> step create-clusters
+
+== Preflight gate ==
+  ✓ preflight green
+
+== k8s-net network ==
+  ✓ creating: k8s-net (subnet=172.30.0.0/16, driver=bridge)
+
+== CUDA image ==
+  · already done, skipping: karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1 present
+
+== hub-flux cluster ==
+  · creating: cluster hub-flux on :6443 (network=k8s-net)
+[36mINFO[0m[0000] Prep: Network                                
+[36mINFO[0m[0000] Re-using existing network 'k8s-net' (5da832e6bdb0ac23d9a738cc780328ea63cf616664276c76071bc4b448567f2d) 
+[36mINFO[0m[0000] Created image volume k3d-hub-flux-images     
+[36mINFO[0m[0000] Starting new tools node...                   
+[36mINFO[0m[0000] Starting node 'k3d-hub-flux-tools'           
+[36mINFO[0m[0001] Creating node 'k3d-hub-flux-server-0'        
+[36mINFO[0m[0001] Creating LoadBalancer 'k3d-hub-flux-serverlb' 
+[36mINFO[0m[0001] Using the k3d-tools node to gather environment information 
+[36mINFO[0m[0002] HostIP: using network gateway 172.30.0.1 address 
+[36mINFO[0m[0002] Starting cluster 'hub-flux'                  
+[36mINFO[0m[0002] Starting servers...                          
+[36mINFO[0m[0002] Starting node 'k3d-hub-flux-server-0'        
+[36mINFO[0m[0008] All agents already running.                  
+[36mINFO[0m[0008] Starting helpers...                          
+[36mINFO[0m[0008] Starting node 'k3d-hub-flux-serverlb'        
+[36mINFO[0m[0016] Injecting records for hostAliases (incl. host.k3d.internal) and for 2 network members into CoreDNS configmap... 
+[36mINFO[0m[0018] Cluster 'hub-flux' created successfully!     
+[36mINFO[0m[0018] You can now use it like this:                
+kubectl cluster-info
+  ✓ created: cluster hub-flux
+  ✓ SAN verified: cluster hub-flux cert includes DNS:k3d-hub-flux-server-0
+
+== spoke-ml cluster ==
+  · creating: cluster spoke-ml on :6444 (network=k8s-net)
+[36mINFO[0m[0000] Prep: Network                                
+[36mINFO[0m[0000] Re-using existing network 'k8s-net' (5da832e6bdb0ac23d9a738cc780328ea63cf616664276c76071bc4b448567f2d) 
+[36mINFO[0m[0000] Created image volume k3d-spoke-ml-images     
+[36mINFO[0m[0000] Starting new tools node...                   
+[36mINFO[0m[0000] Starting node 'k3d-spoke-ml-tools'           
+[36mINFO[0m[0001] Creating node 'k3d-spoke-ml-server-0'        
+[36mINFO[0m[0001] Creating LoadBalancer 'k3d-spoke-ml-serverlb' 
+[36mINFO[0m[0001] Using the k3d-tools node to gather environment information 
+[36mINFO[0m[0002] HostIP: using network gateway 172.30.0.1 address 
+[36mINFO[0m[0002] Starting cluster 'spoke-ml'                  
+[36mINFO[0m[0002] Starting servers...                          
+[36mINFO[0m[0003] Starting node 'k3d-spoke-ml-server-0'        
+[36mINFO[0m[0008] All agents already running.                  
+[36mINFO[0m[0008] Starting helpers...                          
+[36mINFO[0m[0009] Starting node 'k3d-spoke-ml-serverlb'        
+[36mINFO[0m[0017] Injecting records for hostAliases (incl. host.k3d.internal) and for 4 network members into CoreDNS configmap... 
+[36mINFO[0m[0019] Cluster 'spoke-ml' created successfully!     
+[36mINFO[0m[0019] You can now use it like this:                
+kubectl cluster-info
+  ✓ created: cluster spoke-ml
+  ✓ SAN verified: cluster spoke-ml cert includes DNS:k3d-spoke-ml-server-0
+
+== spoke-apps cluster ==
+  · creating: cluster spoke-apps on :6445 (network=k8s-net)
+[36mINFO[0m[0000] Prep: Network                                
+[36mINFO[0m[0000] Re-using existing network 'k8s-net' (5da832e6bdb0ac23d9a738cc780328ea63cf616664276c76071bc4b448567f2d) 
+[36mINFO[0m[0000] Created image volume k3d-spoke-apps-images   
+[36mINFO[0m[0000] Starting new tools node...                   
+[36mINFO[0m[0000] Starting node 'k3d-spoke-apps-tools'         
+[36mINFO[0m[0001] Creating node 'k3d-spoke-apps-server-0'      
+[36mINFO[0m[0001] Creating LoadBalancer 'k3d-spoke-apps-serverlb' 
+[36mINFO[0m[0002] Using the k3d-tools node to gather environment information 
+[36mINFO[0m[0003] HostIP: using network gateway 172.30.0.1 address 
+[36mINFO[0m[0003] Starting cluster 'spoke-apps'                
+[36mINFO[0m[0003] Starting servers...                          
+[36mINFO[0m[0004] Starting node 'k3d-spoke-apps-server-0'      
+[36mINFO[0m[0012] All agents already running.                  
+[36mINFO[0m[0012] Starting helpers...                          
+[36mINFO[0m[0013] Starting node 'k3d-spoke-apps-serverlb'      
+[36mINFO[0m[0022] Injecting records for hostAliases (incl. host.k3d.internal) and for 6 network members into CoreDNS configmap... 
+[36mINFO[0m[0025] Cluster 'spoke-apps' created successfully!   
+[36mINFO[0m[0025] You can now use it like this:                
+kubectl cluster-info
+  ✓ created: cluster spoke-apps
+  ✓ SAN verified: cluster spoke-apps cert includes DNS:k3d-spoke-apps-server-0
+
+== Summary ==
+  8 passed, 0 warnings, 0 failed
+
+All three clusters ready on k8s-net.
+  kubectl contexts: k3d-hub-flux, k3d-spoke-ml, k3d-spoke-apps
+>>> pin context k3d-hub-flux
+Switched to context "k3d-hub-flux".
+>>> step bootstrap-flux
+
+== Preflight gate ==
+  ✓ preflight green
+
+== Gitleaks pre-commit advisory ==
+  ! gitleaks pre-commit hook not detected — Phase 6 (REPO-04) lands gitleaks before first 'git push'. PAT in .env is gitignored; this is a belt-and-suspenders advisory.
+
+== Context + idempotency checks ==
+  ✓ kubectl context: k3d-hub-flux
+
+== flux bootstrap ==
+► connecting to github.com
+► cloning branch "main" from Git repository "https://github.com/richard-iovanisci/karyon.git"
+✔ cloned repository
+► generating component manifests
+✔ generated component manifests
+✔ component manifests are up to date
+► installing components in "flux-system" namespace
+✔ installed components
+✔ reconciled components
+► determining if source secret "flux-system/flux-system" exists
+► generating source secret
+► applying source secret "flux-system/flux-system"
+✔ reconciled source secret
+► generating sync manifests
+✔ generated sync manifests
+✔ sync manifests are up to date
+► applying sync manifests
+✔ reconciled sync configuration
+◎ waiting for GitRepository "flux-system/flux-system" to be reconciled
+✔ GitRepository reconciled successfully
+◎ waiting for Kustomization "flux-system/flux-system" to be reconciled
+✔ Kustomization reconciled successfully
+► confirming components are healthy
+✔ helm-controller: deployment ready
+✔ kustomize-controller: deployment ready
+✔ notification-controller: deployment ready
+✔ source-controller: deployment ready
+✔ all components are healthy
+  ✓ flux bootstrap complete
+
+== Post-bootstrap verification ==
+  ✓ flux check: ok
+  ✓ 4 flux controllers Available within 120s
+  ✓ Kustomization flux-system: Ready=True
+
+== Patch-surface marker ==
+  · already done, skipping: patch-surface marker present
+  · patch-surface marker already in HEAD — no commit needed
+
+== Summary ==
+  6 passed, 1 warnings, 0 failed
+
+flux hub bootstrap complete — k3d-hub-flux is now GitOps-managed from richard-iovanisci/karyon (clusters/hub-flux).
+>>> step register-spokes
+
+== Preflight gate ==
+  ✓ preflight green
+
+== Context check ==
+  ✓ kubectl context: k3d-hub-flux
+
+== spoke-ml ==
+namespace/flux-system created
+serviceaccount/flux-reconciler created
+clusterrolebinding.rbac.authorization.k8s.io/flux-reconciler-cluster-admin created
+secret/flux-reconciler-token created
+  ✓ applied: spoke-ml RBAC in flux-system
+  ✓ credential data populated for spoke-ml
+secret/spoke-ml-kubeconfig created
+  ✓ applied: spoke-ml hub Secret
+  ✓ repaired: clusters/hub-flux/spokes/spoke-ml.yaml
+  · already done, skipping: clusters/spoke-ml/kustomization.yaml
+  · already done, skipping: clusters/spoke-ml/namespace.yaml
+  · already done, skipping: clusters/spoke-ml/configmap.yaml
+  ✓ presence ok: spoke-ml hub Secret data.value.yaml populated
+  ✓ decode ok: spoke-ml server + bearer + CA equality verified
+  · kustomize-controller lacks openssl; using temporary karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1 verifier pod
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+  ✓ tls ok: spoke-ml certificate validates k3d-spoke-ml-server-0
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+  ✓ auth roundtrip ok: spoke-ml /readyz returned ok
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "karyon-openssl-probe-spoke-ml-65879" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+  ✓ node-name proof ok: spoke-ml routes to k3d-spoke-ml-server-0
+
+== spoke-apps ==
+namespace/flux-system created
+serviceaccount/flux-reconciler created
+clusterrolebinding.rbac.authorization.k8s.io/flux-reconciler-cluster-admin created
+secret/flux-reconciler-token created
+  ✓ applied: spoke-apps RBAC in flux-system
+  ✓ credential data populated for spoke-apps
+secret/spoke-apps-kubeconfig created
+  ✓ applied: spoke-apps hub Secret
+  ✓ repaired: clusters/hub-flux/spokes/spoke-apps.yaml
+  · already done, skipping: clusters/spoke-apps/kustomization.yaml
+  · already done, skipping: clusters/spoke-apps/namespace.yaml
+  · already done, skipping: clusters/spoke-apps/configmap.yaml
+  ✓ presence ok: spoke-apps hub Secret data.value.yaml populated
+  ✓ decode ok: spoke-apps server + bearer + CA equality verified
+  · kustomize-controller lacks openssl; using temporary karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1 verifier pod
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+  ✓ tls ok: spoke-apps certificate validates k3d-spoke-apps-server-0
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+  ✓ auth roundtrip ok: spoke-apps /readyz returned ok
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "karyon-openssl-probe-spoke-apps-65879" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+  ✓ node-name proof ok: spoke-apps routes to k3d-spoke-apps-server-0
+
+== Hub-side Kustomization wire-up ==
+  · already done, skipping: clusters/hub-flux/spokes/kustomization.yaml
+  · already done, skipping: spokes mount resource present in /home/rich/code/gsd/karyon/.claude/worktrees/agent-a9157b57c26d1b50e/clusters/hub-flux/flux-system/kustomization.yaml
+
+== Summary ==
+  20 passed, 0 warnings, 0 failed
+  · Next: commit + push the new files so Flux reconciles them.
+  ·   git add clusters/hub-flux/spokes clusters/hub-flux/flux-system/kustomization.yaml \
+  ·           clusters/spoke-ml clusters/spoke-apps Taskfile.yml docs/flux-hub-spoke.md \
+  ·           scripts/register-spokes-for-flux.sh tests/bats/register-spokes-*.bats
+  ·   git commit -m 'feat(04): register spokes for Flux reconciliation (SPOKE-01..06)'
+  ·   git push
+  ·   flux --context k3d-hub-flux reconcile source git flux-system
+
+Spoke registration complete. k3d-hub-flux can now reconcile to spoke-ml and spoke-apps.
+>>> step deploy-examples
+
+== Preflight gate ==
+  ✓ preflight green
+
+== Static manifest check ==
+  ✓ example manifests and spoke references present
+
+== Git visibility gate ==
+  ✗ uncommitted changes detected in paths Flux watches.
+     Flux reconciles from origin/main, not the working tree, so the new
+     deploy-examples reconcile would silently apply the OLD pushed state
+     and kubectl wait for podinfo/nvidia-smi would time out.
+     Inspect:  git status -- examples clusters
+     Fix:      commit and push: git add examples clusters && git commit -m '<msg>' && git push
+     Then rerun: bash scripts/deploy-examples.sh
+task: Failed to run task "rebuild": exit status 1
+
+End: 2026-05-27T12:05:53Z
+task rebuild exit: 201
+task rebuild duration: 352s
+
+--- DEVIATION (Rule 4 architectural — worktree-vs-origin/main Flux Git visibility gate) ---
+
+Attempt #2 outcome:
+  Exit: 201 (deploy-examples step hard-failed at Git visibility gate)
+  Duration: 352s (preflight + destroy + create-clusters + bootstrap-flux + register-spokes; pre-deploy-examples)
+  Note: This duration does NOT represent the v0.18 SLO-comparable wall-clock — the run aborted mid-pipeline.
+
+Root cause analysis:
+  1. Worktree branch (worktree-agent-a9157b57c26d1b50e) is 4 commits ahead of origin/main.
+     - 030e291 + 1c38779 + 690da83 + 4c17981 (Plan 15-04 retry-#2 evidence commits, Tasks 1-4)
+  2. register-spokes-for-flux.sh 'repaired' clusters/hub-flux/spokes/{spoke-ml,spoke-apps}.yaml
+     by REMOVING 'serviceAccountName: flux-reconciler' from both spec.kubeConfig blocks.
+     - These are uncommitted worktree changes after rebuild's register-spokes step.
+  3. deploy-examples.sh enforces Git visibility gate (Phase 6 D-?? — Flux reconciles from
+     origin/main, not the working tree; uncommitted worktree changes silently apply OLD pushed
+     state and kubectl wait for podinfo/nvidia-smi times out).
+  4. Even WITHOUT step 2's spoke-file delta, the worktree-branch-ahead-of-origin/main state
+     means Flux on the freshly-bootstrapped k3d-hub-flux would reconcile to origin/main HEAD
+     (which does NOT contain the Plan 15-04 commits) — silent state divergence.
+
+Same failure mode previously documented:
+  Phase 14 14-02-full-suite-evidence.log test 628:
+    not ok 628 VAL-04 a -- task rebuild completes < 230s in 6634ms
+    task rebuild failed (status=201; rebuild includes health-check internally per scripts/rebuild.sh L78-79)
+  Phase 14 14-02 disposition (line 808): classified as 'Pre-existing inheritance RED'
+    grouped under 'P31/N9/N10/N11/TEN-01..06/VAL-04/D-08-05/etc: 28' inheritance count.
+
+Why this is architectural (Rule 4, not Rule 1/2/3):
+  - Rule 1 (bug-fix): the rebuild scripts work as designed; there is no bug to fix inline.
+  - Rule 2 (missing-critical): the worktree isolation is intentional (parallel executor pattern);
+    .env + branch-isolation are features, not gaps.
+  - Rule 3 (blocking-issue): .env fix was Rule 3 (worked); the worktree-branch-ahead issue
+    cannot be fixed inline by this executor without violating Git Safety Protocol:
+    (a) git push of plan-execution-in-progress branch is unsafe (incomplete state to main);
+    (b) git rebase or reset to discard plan commits destroys Tasks 1-4 evidence;
+    (c) any approach that mutates origin/main mid-plan-execution is destructive.
+  - Rule 4 (architectural): the rebuild contract (Flux reconciles from origin/main HEAD) is
+    fundamentally incompatible with the parallel-executor-worktree pattern. The orchestrator
+    must decide the resolution pathway.
+
+Path-B disposition recorded (per Task 4 SUMMARY forward-look offer):
+  Task 4 SUMMARY explicitly named two acceptable Path-B and Path-X alternatives:
+    (B) accept partial evidence (Tasks 1-3 GREEN + 'task rebuild' deferred-with-justification)
+    (C) document 'task rebuild' SLO as carry-forward to v0.21
+  Both Path-B and Path-C are consistent with Phase 14 14-02's existing VAL-04 inheritance disposition.
+
+DELIVERY-02 disposition (this run):
+  PATH-B-ELECTED: task rebuild SLO measurement NOT obtained for this retry.
+  Justification: architectural worktree-isolation conflict — rebuild requires worktree branch == origin/main HEAD;
+    this prerequisite cannot be satisfied during in-progress plan execution without violating Git Safety Protocol.
+  Carry-forward: Phase 14 14-02 VAL-04 inheritance disposition continues; Plan 15-05 audit gate may accept
+    Path-B with citation to Phase 14 14-02 line 808 and this evidence log.
+
+DELIVERY-03 disposition (this run):
+  DEFERRED-CONSEQUENT: task health-check exit 0 post-rebuild is the DELIVERY-03 regression gate.
+  Since rebuild did not complete to the health-check step, the post-rebuild gate cannot be evaluated this run.
+  However: standalone 'task health-check' against the partially-rebuilt cluster state (hub-flux + spoke-ml + spoke-apps freshly created;
+    spoke-capsule still Exited; deploy-examples step never ran so podinfo and nvidia-smi workloads absent) would fail
+    on '== Workload proofs ==' checks. The Task 1 pre-flight 'task health-check exit 0' result (against the v0.20 baseline
+    that Tasks 2-3 asserted against) remains the authoritative DELIVERY-03 evidence for this rerun.
+
+Working-tree restoration (Rule 3 — no leftover noise for next executor):
+  Will restore clusters/hub-flux/spokes/{spoke-ml,spoke-apps}.yaml via 'git checkout -- <specific files>'
+  per Git Safety Protocol scope (only files this rebuild attempt modified, NOT a blanket reset).
+
+
+--- Worktree restoration (specific files only, per Git Safety Protocol) ---
+  git checkout -- clusters/hub-flux/spokes/spoke-ml.yaml
+  git checkout -- clusters/hub-flux/spokes/spoke-apps.yaml
+  (Only the two files modified by register-spokes during attempt #2 — NO blanket reset)
+
+Post-restoration git status (clusters/):
+On branch worktree-agent-a9157b57c26d1b50e
+nothing to commit, working tree clean
+
+Post-Task-5 cluster state (after rebuild attempt #2 created hub-flux + spoke-ml + spoke-apps,
+but never reached deploy-examples; spoke-capsule remains Exited from orchestrator pre-stage):
+k3d-spoke-apps-serverlb: Up 6 minutes
+k3d-spoke-apps-server-0: Up 6 minutes
+k3d-spoke-ml-serverlb: Up 6 minutes
+k3d-spoke-ml-server-0: Up 6 minutes
+k3d-hub-flux-serverlb: Up 6 minutes
+k3d-hub-flux-server-0: Up 6 minutes
+k3d-spoke-capsule-serverlb: Exited (137) 12 minutes ago
+k3d-spoke-capsule-server-0: Exited (143) 11 minutes ago
+
+--- Task 5 final disposition (PATH-B-ELECTED) ---
+
+DELIVERY-02 PATH-B-ELECTED: task rebuild SLO measurement deferred — architectural worktree-isolation conflict
+DELIVERY-03 PATH-B-CONSEQUENT: post-rebuild health-check deferred (rebuild aborted at deploy-examples step)
+
+DELIVERY-02 carry-forward citation: Phase 14 14-02-full-suite-evidence.log line 808 (28 inheritance REDs incl. VAL-04)
+DELIVERY-03 evidence substitute: Task 1 Check 4 captured 'task health-check exit: 0' (19 passed, 0 warnings, 0 failed)
+  against the pre-rebuild v0.20 baseline — this attests that alpha+bravo Flux reconciliation is unbroken
+  prior to any rebuild attempt. Post-rebuild evaluation deferred to next clean cold-rerun.
+
+task rebuild exit: 201 (attempt #2; attempt #1 also 201 from .env-absent preflight)
+task rebuild duration: 352s (attempt #2; partial pipeline through register-spokes; NOT a v0.18 SLO-comparable wall-clock)
+
+Task 5 status: PATH-B-ELECTED — Tasks 1-3 + cluster-admin denials remain authoritative;
+  DELIVERY-02/03 evidence carried forward under Phase 14 14-02 VAL-04 inheritance disposition.
+
+Task 5 end: 2026-05-27T12:07:59Z
