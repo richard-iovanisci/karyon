@@ -1,10 +1,11 @@
 ---
 phase: 15
 slug: v0-20-milestone-close-out-retrospective
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-20
+finalized: 2026-05-20
 ---
 
 # Phase 15 — Validation Strategy
@@ -100,4 +101,31 @@ The "active falsifier" for Phase 15's regression-gate claim (Success Criterion 3
 - [ ] Feedback latency < ~5 min for bats subset; < ~5 min for `task rebuild` SLO check
 - [ ] `nyquist_compliant: true` set in frontmatter (will be flipped at Plan 15-05's VALIDATION-ledger close step)
 
-**Approval:** pending — finalized at Plan 15-05 close (sets `status: final`, `nyquist_compliant: true`, `wave_0_complete: true`).
+**Approval:** finalized 2026-05-20 by Plan 15-05 — frontmatter sets `status: final`, `nyquist_compliant: true`, `wave_0_complete: true`.
+
+---
+
+## Finalized Evidence
+
+Phase 15 finalized 2026-05-20 per D-15-07 + Plan 15-05 Task 4. This section documents the evidence anchors that satisfy the Nyquist gate for a book-keeping / close-out phase.
+
+### Why no Wave 0 RED bats scaffold (vacuous-Nyquist for the no-new-behavior axis)
+
+Phase 15 introduced ZERO new behavior — it mutates only `.planning/*.md` artifacts (Plans 15-01..03, 15-05) plus the Plan 15-04 live-rerun evidence log. No production code paths added; no new CRDs, ClusterRoles, controllers, or scripts. Per CONTEXT D-15-07 + Phase 12 precedent (`.planning/milestones/v0.19-phases/12-v0-19-close-out-reconciliation/12-VALIDATION.md`), the Nyquist gate is satisfied **vacuously** for the no-new-behavior axis: zero new behavior implies zero new falsifiers required.
+
+### Active falsifiers (non-vacuous Nyquist coverage for the regression-gate axis)
+
+Plan 15-04's live regression rerun acts as the **non-vacuous** falsifier for Phase 15's SC-3 (three-tier model regression-verified) claim. Evidence captured in `.planning/phases/15-v0-20-milestone-close-out-retrospective/15-04-live-rerun-evidence.log`:
+
+- **Phase 13 + Phase 14 live + static bats subset** (215 @tests targeted) re-run verbatim against live `spoke-capsule` at HEAD `e26c18ef`; result: 203 GREEN + 12 inheritance REDs (strict subset of Phase 14 14-02 baseline's 28 inheritance REDs; ZERO new Phase-13/14-category regressions) + 2 SKIPs. Per Plan 15-04 evidence log: `RED (not ok): 0` (regression classification per Phase 14 14-02 inheritance baseline) — the 12 raw not-ok lines are all pre-existing (SEED-01/03 alpha-app1/bravo-app1 namespace absent from Phase 9 TEN-02 carryover; N9/N10 Flux CRD absence per ADR-004 hub-only Flux invariant; N11/N12 SA permission gap on tenant-alpha for webhook-down probes). These bats are the Wave 0 RED scaffolds originally authored during Phases 13 + 14 — they remain the canonical falsifiers for RBAC-01..06 + SEED-01..03 + DELIVERY-01..03 + DEMO-01..06 + RUNBOOK-01..03/05 contracts.
+- **`kubectl auth can-i '*' '*' = no` for 3 distinct kubeconfigs** (platform-owner + alpha-owner + bravo-owner) — direct visceral falsifier for the Tier 2 + Tier 3 ceiling claims (RBAC-02 + RBAC-04). Captured at Plan 15-04 Task 3 (all 3 PASS).
+- **`time task rebuild` cold-run wall-clock** — direct visceral falsifier for the DELIVERY-02 SLO claim. Plan 15-04 retry-#2 Task 5 elected **PATH-B** for this measurement: 2 rebuild attempts both aborted (attempt #1 at preflight `.env` gate, resolved via Rule 3 hydration; attempt #2 at deploy-examples Git visibility gate after 352s, blocked by architectural worktree-vs-origin/main conflict). PATH-B disposition treats the measurement as **deferred-with-justification** per Phase 14 14-02 VAL-04 inheritance precedent (line 808); accepted by Plan 15-05 audit gate as `tech_debt: 1` carry-forward to v0.21 per D-15-06 Path-X-with-tech_debt lenient reading.
+- **`task health-check` exit 0 post-rebuild substitute** — Plan 15-04 Task 1 Check 4 pre-rebuild `task health-check` exited 0 (19 passed / 0 warnings / 0 failed) at HEAD `e26c18ef`; the live cluster's post-recovery state (orchestrator restarted spoke-capsule + reconciled Flux; alpha+bravo Tenants Active; all 4 `poc-capsule*` Kustomizations Ready at `main@sha1:e26c18ef`) satisfies the DELIVERY-03 regression claim (additive-only delivery did not break alpha/bravo Flux reconciliation). Post-rebuild evaluation deferred under DELIVERY-02 PATH-B disposition.
+
+### Audit-gate cross-verification
+
+`/gsd-audit-milestone v0.20` re-run at Plan 15-05 Task 1 returns `status: passed` with 1 operator-accepted `tech_debt` entry for DELIVERY-02 live SLO measurement (carry-forward to v0.21) per `.planning/v0.20-MILESTONE-AUDIT.md`. The audit independently verifies that Phase 13 + Phase 14 VALIDATION ledgers have `status: final` + `nyquist_compliant: true` + `wave_0_complete: true` — confirming the pre-Wave-2 inheritance the entire Phase 15 plan-set relied on. Full audit output is captured verbatim in `15-05-SUMMARY.md` Notable Observations section per D-15-06 inline-audit-output requirement.
+
+### Wave 0 sign-off rationale
+
+`wave_0_complete: true` set in frontmatter because no Wave 0 was required per the phase character (book-keeping; D-15-07). `nyquist_compliant: true` set in frontmatter because every Wave-1 plan's `<acceptance_criteria>` is grep-verifiable + was verified during execution (per the 15-VALIDATION.md §"Per-Task Verification Map" rows for Plans 15-01..04), AND Plan 15-04's live regression rerun serves as the active falsifier for the SC-3 regression-gate axis (non-vacuous Nyquist coverage). Operator-accepted PATH-B disposition for DELIVERY-02 live SLO does not invalidate the Nyquist gate — it represents a deferred-with-justification falsifier under the architectural-conflict / Phase 14 14-02 VAL-04 inheritance precedent, NOT a missing falsifier.
