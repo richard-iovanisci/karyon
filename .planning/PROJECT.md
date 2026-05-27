@@ -96,6 +96,11 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - First-push CI verification + GitHub branch-protection setup (v0.18 close carryover)
 - Real secret management (Vault / SOPS / age) (v0.18 close carryover)
 - Stale frontmatter reconciliation pass (v0.18 close carryover)
+- Fix the `tls: bad certificate` capsule-controller chatter at the cert-rotation layer (cert-manager wiring / proper CA distribution) — was OQ-1 `document-only` in v0.20 per Phase 14 D-14-01; cross-linked to ADR-008 (DEFER) and `docs/poc-capsule-demo.md` Known Noise appendix. Revisit at capsule graduation or production EKS cut. (v0.20 close carryover)
+- `task demo-capsule` Taskfile wrapper for one-shot demo execution — tempting ergonomics but breaks P31 isolation (would add a `spoke-capsule` mention to the default-path Taskfile, which the v0.19 P31 contract forbids). Revisit at graduation or in a POC-ergonomics milestone. (v0.20 close carryover)
+- DELIVERY-02 live `task rebuild` SLO re-attestation — Plan 15-04 retry-#2 elected PATH-B (partial evidence) because of architectural rebuild-vs-worktree conflict (Plan 15-04 Tasks 1-3 GREEN + Phase 14 14-02 inheritance precedent + post-rebuild `task health-check` exit 0 baseline captured; full SLO measurement carry-forward to v0.21). (v0.20 close carryover)
+- `task rebuild` vs parallel-executor-worktree pattern architectural reconciliation — spec amendment candidate for v0.21. Either (a) amend `task rebuild` to handle in-worktree branches via a temporary push-to-test-branch + Flux test-revision pin, OR (b) amend the parallel-executor pattern so close-out plans that need `task rebuild` run sequentially on main rather than in worktrees. Surfaced by Plan 15-04 retry-#2. (v0.20 close carryover)
+- `KARYON_REBUILD_APPROVED` env-gate value drift — Plan 15-04 docs + plan spec say `=1`, but `scripts/rebuild.sh` line 30 requires literal `=yes`. Single-line fix; alignment direction (script vs docs) to be decided in v0.21 docs hygiene pass. (v0.20 close carryover)
 
 ### Out of Scope
 
