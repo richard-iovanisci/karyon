@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.20
 milestone_name: — Capsule POC Demo & RBAC Polish
-status: executing
-stopped_at: Phase 15 in flight — v0.20 close-out reconciliation (Wave 1)
+status: ready_to_archive
+stopped_at: Phase 15 complete — v0.20 milestone close-out done; ready for /gsd-complete-milestone v0.20
 last_updated: "2026-05-20T12:00:00.000Z"
-last_activity: 2026-05-20 -- Phase 15 entered (Wave 1: 15-01 REQUIREMENTS / 15-02 STATE / 15-03 ROADMAP / 15-04 live regression rerun in flight)
+last_activity: 2026-05-20 -- Phase 15 complete; v0.20 ready_to_archive
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 14
-  completed_plans: 9
-  percent: 64
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 15 (v0-20-close-out-retrospective) — EXECUTING
-Plan: 1 of 5 (Wave 1: 15-01 REQUIREMENTS / 15-02 STATE / 15-03 ROADMAP / 15-04 live regression rerun — file-disjoint parallel; Wave 2: 15-05 audit + retrospective + parking-lot + VALIDATION + VERIFICATION)
-Status: Phase 15 close-out reconciliation (book-keeping; mutates `.planning/*.md` + writes 15-04 evidence log)
-Last activity: 2026-05-20 -- Phase 15 entered
+Phase: 15 (v0-20-close-out-retrospective) — COMPLETE
+Plan: 5 of 5 (all plans landed; Wave 1 + Wave 2 complete)
+Status: v0.20 milestone ready to archive via /gsd-complete-milestone v0.20
+Last activity: 2026-05-20 -- Phase 15 complete; v0.20-MILESTONE-AUDIT.md regenerated to `passed` (1 operator-accepted tech_debt for DELIVERY-02 v0.21 carry-forward); RETROSPECTIVE.md v0.20 section appended; PROJECT.md parking lot reconciled (+5); 15-VALIDATION.md finalized; 15-VERIFICATION.md written; STATE.md ready_to_archive
 
 ## Performance Metrics
 
