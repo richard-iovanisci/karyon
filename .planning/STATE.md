@@ -4,7 +4,7 @@ milestone: v0.20
 milestone_name: — Capsule POC Demo & RBAC Polish
 status: ready_to_archive
 stopped_at: Phase 15 complete — v0.20 milestone close-out done; ready for /gsd-complete-milestone v0.20
-last_updated: "2026-05-20T12:00:00.000Z"
+last_updated: "2026-05-27T12:36:56.157Z"
 last_activity: 2026-05-20 -- Phase 15 complete; v0.20 ready_to_archive
 progress:
   total_phases: 3
@@ -178,6 +178,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-20T09:10:11.758Z
+Last session: 2026-05-27T12:36:56.150Z
 Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-v0-20-milestone-close-out-retrospective/15-CONTEXT.md
+Resume file: None

@@ -133,13 +133,13 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 15-01-PLAN.md — REQUIREMENTS.md reconciliation: 11 DEMO+RUNBOOK [ ]→[x] flips + 4 OQ lock-in amendments inline (RBAC-01/SEED-03/DELIVERY-01/RUNBOOK-05) + Traceability table refresh
-- [ ] 15-02-PLAN.md — STATE.md mid-phase advance: frontmatter + Current Position + Performance Metrics By-Phase rows for Phase 13/14/15
-- [ ] 15-03-PLAN.md — ROADMAP.md mid-phase refresh: Phase 14 row → Complete; Phase Summary Phase 14 [ ]→[x]; within-document contradictions swept
-- [ ] 15-04-PLAN.md — Live regression rerun: Phase 13+14 bats subset GREEN + 3/3 cluster-admin denials + task rebuild SLO <230s + task health-check exit 0; evidence log committed
+- [x] 15-01-PLAN.md — REQUIREMENTS.md reconciliation: 11 DEMO+RUNBOOK [ ]→[x] flips + 4 OQ lock-in amendments inline (RBAC-01/SEED-03/DELIVERY-01/RUNBOOK-05) + Traceability table refresh
+- [x] 15-02-PLAN.md — STATE.md mid-phase advance: frontmatter + Current Position + Performance Metrics By-Phase rows for Phase 13/14/15
+- [x] 15-03-PLAN.md — ROADMAP.md mid-phase refresh: Phase 14 row → Complete; Phase Summary Phase 14 [ ]→[x]; within-document contradictions swept
+- [x] 15-04-PLAN.md — Live regression rerun: Phase 13+14 bats subset GREEN + 3/3 cluster-admin denials + task rebuild SLO <230s + task health-check exit 0; evidence log committed
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 15-05-PLAN.md — Wave 2 sequential: /gsd-audit-milestone v0.20 + RETROSPECTIVE.md v0.20 append + PROJECT.md parking lot reconcile + 15-VALIDATION final + 15-VERIFICATION written + STATE ready_to_archive + ROADMAP Phase 15 Complete
+- [x] 15-05-PLAN.md — Wave 2 sequential: /gsd-audit-milestone v0.20 + RETROSPECTIVE.md v0.20 append + PROJECT.md parking lot reconcile + 15-VALIDATION final + 15-VERIFICATION written + STATE ready_to_archive + ROADMAP Phase 15 Complete (completed 2026-05-27)
 
 ## Progress
 
