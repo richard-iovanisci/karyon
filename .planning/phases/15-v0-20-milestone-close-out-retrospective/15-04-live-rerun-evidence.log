@@ -547,3 +547,13 @@ Breakdown of all 12 inheritance REDs:
 
 Total inheritance REDs: 12 — ALL present in Phase 14 14-02 baseline classification.
 Plan-13/14-category regression REDs: 0
+
+================================================================================
+Task 3: Cluster-admin denial assertions (RBAC-02 + RBAC-04 regression gates)
+================================================================================
+
+platform-owner auth can-i '*' '*': no
+tenant-alpha-owner auth can-i '*' '*': no
+tenant-bravo-owner auth can-i '*' '*': no
+
+All 3 cluster-admin denial assertions PASS (RBAC-02 + RBAC-04 ceilings preserved)
