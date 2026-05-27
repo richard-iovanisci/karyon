@@ -57,10 +57,21 @@ spec:
       generateCertificates: false
     crds:
       install: true
-    # D-08-03 — failurePolicy: Ignore per-hook (P26 belt-and-suspenders).
+    # D-08-03 — failurePolicy: Ignore per-hook (P26 belt-and-suspenders) for MOST hooks.
     # RESEARCH-verified key path: webhooks.hooks.<hook>.failurePolicy
     # (NOT webhooks.validatingWebhookConfiguration.failurePolicy as 08-CONTEXT.md guessed).
     # Verified by `helm show values oci://ghcr.io/projectcapsule/charts/capsule --version 0.12.4` (2026-04-29).
+    #
+    # D-debug-2026-05-27 — SURGICAL OVERRIDE for `namespaces` to Fail.
+    # See .planning/debug/capsule-tenant-ns-claim.md for full root cause.
+    # The `namespaces` mutation hook is the path that ADDS ownerReferences during namespace CREATE,
+    # claiming the namespace for its labeled Tenant. With `failurePolicy: Ignore`, a brief
+    # webhook-unreachable window at cold-bootstrap (capsule-webhook-service Endpoint not yet Ready)
+    # allows Flux's apply to succeed WITHOUT the ownerRef mutation — leaving the namespace
+    # labeled-but-unowned. The validating webhook then blocks all subsequent modifications,
+    # producing an unrecoverable state (no RoleBindings created; tenant-owner LIST returns empty).
+    # Failing closed (Fail) makes Flux retry until the webhook is reachable, preserving the
+    # bootstrap-safe behavior the other hooks rely on `Ignore` for. Other hooks keep `Ignore` per D-08-03.
     webhooks:
       hooks:
         tenants:
@@ -70,7 +81,7 @@ spec:
         customresources:
           failurePolicy: Ignore
         namespaces:
-          failurePolicy: Ignore
+          failurePolicy: Fail
         pods:
           failurePolicy: Ignore
         services:

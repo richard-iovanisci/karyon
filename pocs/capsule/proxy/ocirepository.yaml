@@ -7,7 +7,9 @@
 #
 # D-08-02 — per-chart OCIRepository (NOT shared with operator; operator has its own at pocs/capsule/operator/ocirepository.yaml)
 # Milestone-open: capsule-proxy is a SEPARATE chart, NOT the umbrella's `proxy.enabled: true` (umbrella pins capsule-proxy at 0.10.0)
-# CAP-02 — tag literal "0.12.0" tracks Capsule v0.12.4 (release notes confirm `update module github.com/projectcapsule/capsule to v0.12.4`)
+# CAP-02 — digest-pinned (matching the operator pattern; see .planning/debug/capsule-tenant-ns-claim.md):
+#   tag "0.12.0" tracks Capsule v0.12.4 but is MUTABLE; digest is authoritative per OCI spec.
+#   Current digest captured 2026-05-27 from `kubectl -n capsule-system get ocirepository capsule-proxy -o jsonpath='{.status.artifact.revision}'`.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
@@ -18,5 +20,6 @@ spec:
   url: oci://ghcr.io/projectcapsule/charts/capsule-proxy
   ref:
     tag: "0.12.0"
+    digest: "sha256:0b8c6ef4a74425c8bd4c0e383cf1847042580ca4071db2ed07b3c26bc0b0d02d"
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
