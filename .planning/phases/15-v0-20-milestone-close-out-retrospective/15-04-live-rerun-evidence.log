@@ -557,3 +557,39 @@ tenant-alpha-owner auth can-i '*' '*': no
 tenant-bravo-owner auth can-i '*' '*': no
 
 All 3 cluster-admin denial assertions PASS (RBAC-02 + RBAC-04 ceilings preserved)
+
+================================================================================
+Task 4: CHECKPOINT (type: human-verify) — operator gate for destructive task rebuild
+================================================================================
+
+Status: AWAITING_OPERATOR_APPROVAL
+Reason: Pitfall 11-P5 — task rebuild requires KARYON_REBUILD_APPROVED=1 env-gate.
+Plan 15-04 autonomous: false — executor stops at this checkpoint by spec.
+
+Pre-gate evidence summary so far:
+  Task 1 preflight 6/6: PASS
+  Task 2 bats subset:    203 GREEN + 0 Phase-13/14-category regressions
+                         (12 pre-existing inheritance REDs per Phase 14 14-02 baseline)
+  Task 3 cluster-admin denials: 3/3 PASS
+
+Awaiting orchestrator continuation with user_response=approved + KARYON_REBUILD_APPROVED=1 set.
+
+--- Forward-look evidence: Port 30443 binding state (Task 5 risk surface) ---
+State  Recv-Q Send-Q  Local Address:Port  Peer Address:PortProcess
+LISTEN 0      4096          0.0.0.0:30443      0.0.0.0:*          
+LISTEN 0      4096             [::]:30443         [::]:*          
+
+Conclusion: Port 30443 IS bound (by k3d-spoke-capsule serverlb per Phase 7 D-10).
+task rebuild -> bash scripts/preflight.sh has hard fail at check_port_strict 30443
+(scripts/preflight.sh line 209). Phase 14 14-02 evidence test 628 (VAL-04 a) recorded
+this exact mode: 'task rebuild failed (status=201)'.
+
+Therefore Task 5 (task rebuild cold-run) is expected to HALT at preflight unless
+operator deconflicts port 30443 (e.g., temporarily stops spoke-capsule via
+'k3d cluster stop spoke-capsule' for the duration of the SLO measurement, then restarts).
+P31 invariant says task rebuild MUST NOT touch spoke-capsule — temporarily stopping the
+cluster while NOT deleting it preserves the spirit of P31 (container survives).
+
+This forward-look is recorded BEFORE Task 4 approval so the orchestrator's continuation
+can pre-stage the resolution path. Task 5 itself will surface a decision-checkpoint if
+the port conflict materializes during execution.
