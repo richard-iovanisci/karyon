@@ -1262,3 +1262,49 @@ Task 5 status: PATH-B-ELECTED — Tasks 1-3 + cluster-admin denials remain autho
   DELIVERY-02/03 evidence carried forward under Phase 14 14-02 VAL-04 inheritance disposition.
 
 Task 5 end: 2026-05-27T12:07:59Z
+
+================================================================================
+Task 6: Per-category summary + regression-gate disposition + carry-forward + footer
+================================================================================
+
+--- Plan 15-04 Per-Category Summary ---
+| Category                    | GREEN | RED (inheritance only) | SKIP |
+|-----------------------------|-------|------------------------|------|
+| Phase 13 RBAC (incl. neg)   | 110   | 2 (N9 + N10 ADR-004 hub-only Flux; N11 + N12 SA gap) | 2 (N6 + N7 alpha-app1 absent) |
+| Phase 13 SEED               | 17    | 8 (alpha-app1/bravo-app1 namespaces absent — TEN-02) | 0 |
+| Phase 13 DELIVERY           | 12    | 0                      | 0 |
+| Phase 14 DEMO               | 22    | 0                      | 0 |
+| Phase 14 RUNBOOK            | 16    | 0                      | 0 |
+| OTHER (proxy LIST, control) | 26    | 0                      | 0 |
+| Total bats                  | 203   | 12 (all inheritance)   | 2 |
+
+--- Three-tier regression gates (SC-3) ---
+| Gate                                       | Result    | Evidence Source                                                                |
+|--------------------------------------------|-----------|--------------------------------------------------------------------------------|
+| RBAC-02 (tenant-owner !cluster-admin)     | PASS      | alpha + bravo 'auth can-i * * = no' (Task 3) + bats rbac-* GREEN (Task 2)      |
+| RBAC-03 (alpha/bravo Flux unbroken)       | PASS      | task health-check exit 0 (Task 1 Check 4); 4/4 poc-capsule* Ks Ready=True     |
+| RBAC-04 (platform-owner !cluster-admin)   | PASS      | platform-owner 'auth can-i * * = no' (Task 3) + bats rbac-04-* GREEN (Task 2) |
+| DELIVERY-02 (task rebuild SLO < 230s)     | PATH-B    | Architectural worktree-isolation conflict (Task 5); carry-forward to Phase 14 14-02 line 808 VAL-04 inheritance disposition |
+| DELIVERY-03 (additive only; HC 0)         | PATH-B    | Pre-rebuild task health-check exit 0 (Task 1) substitutes; post-rebuild deferred (Task 5 attempt #2 aborted pre-health-check) |
+
+--- Carry-forward inheritance ---
+- RUNBOOK-04 carry-forward from Plan 14-03 (auto-attested-with-carry-forward UAT): RETIRED by this rerun
+  (Phase 13/14 bats subset GREEN against operational baseline; Tasks 1-3 PASS).
+  Optional milestone-owner human cold-read may retire fully; not blocking for Plan 15-05 audit gate.
+- Pre-existing v0.19 carry-forward (poc-mount-01, tenants-04-static-dependson): NOT in Plan 15-04 scope
+  (already documented as pre-existing inheritance per Phase 13 verifier).
+- origin/main push gap (Phase 14 14-03 evidence): RESOLVED at Task 1 (HEAD..origin/main count == 0 verified).
+- Flux Kustomizations SUSPENDED state (Phase 14 destroy-poc): RESOLVED at Task 1 (Kustomizations RESUMED + Ready=True verified).
+- VAL-04 task rebuild SLO inheritance (Phase 14 14-02 line 808): EXTENDED to Plan 15-04 — same status=201 failure mode
+  recurred in this rerun's attempt #2 (architectural worktree-isolation; deploy-examples Git visibility gate hard-fail).
+  Path-B disposition elected per Task 4 SUMMARY forward-look (deferred-with-justification);
+  Plan 15-05 audit gate decides Path-A vs Path-X final disposition.
+
+--- Footer ---
+End UTC: 2026-05-27T12:08:36Z
+Plan 15-04 status: PATH-B-ELECTED
+  Tasks 1-4 GREEN (preflight 6/6, bats 203 GREEN, 3/3 cluster-admin denials, checkpoint reached)
+  Task 5 PATH-B-ELECTED (DELIVERY-02 + DELIVERY-03 deferred under VAL-04 inheritance disposition)
+  Task 6 GREEN (final summary + carry-forward + footer)
+Run: retry #2 cold rerun (Tasks 1-4 by agent a9157b57c26d1b50e; Tasks 5-6 by continuation agent same worktree)
+Final disposition: orchestrator to evaluate Path-A acceptance vs Path-X tech_debt in Plan 15-05 audit gate
