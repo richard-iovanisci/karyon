@@ -1,51 +1,166 @@
 === Plan 15-04 Live Regression Rerun Evidence Log ===
-Start UTC: 2026-05-20T10:19:04Z
+Start UTC: 2026-05-27T11:41:35Z
 Operator: riovanisci0722@gmail.com
-Branch: worktree-agent-adc905aa25f09c946
-HEAD: e989979 docs(15): create phase plan
-origin/main: 49e264a docs(v0.20): add milestone briefing — Capsule POC Demo & RBAC Polish
+Branch: worktree-agent-a9157b57c26d1b50e
+HEAD: e26c18e chore: merge executor worktree (worktree-agent-adc905aa25f09c946) — Plan 15-04 PREFLIGHT_HALT live regression rerun
+origin/main: e26c18e chore: merge executor worktree (worktree-agent-adc905aa25f09c946) — Plan 15-04 PREFLIGHT_HALT live regression rerun
 Cluster context: k3d-spoke-capsule + k3d-hub-flux
-Runner: bats -T (Bats 1.11.0)
+Runner: bats -T (1.11.0)
+Run: retry #2 (cold rerun after PREFLIGHT_HALT v1 resolved by operator git push origin main, and PREFLIGHT_HALT v2 resolved by inotify-max-user-instances bump + nvidia-device-plugin pod restart + spoke-ml gpu-smoke Job re-creation)
+Plan Spec Amendment (Carried Forward): Check 1 origin/main currency uses BOTH directions:
+  (a) HEAD..origin/main count == 0 (origin not ahead — plan literal)
+  (b) origin/main..HEAD count == 0 (origin not behind — plan operational intent per Pitfall 15-P8)
+Both MUST be zero for Check 1 PASS.
 
---- Check 1 — origin/main currency (Pitfall 15-P8 — operator-gated) ---
+--- Check 1 — origin/main currency (Pitfall 15-P8 — operator-gated; amended bidirectional check) ---
 HEAD..origin/main count: 0
-origin/main..HEAD count: 65
-(HEAD: e989979 docs(15): create phase plan)
-(origin/main: 49e264a docs(v0.20): add milestone briefing — Capsule POC Demo & RBAC Polish)
+origin/main..HEAD count: 0
+(HEAD: e26c18e chore: merge executor worktree (worktree-agent-adc905aa25f09c946) — Plan 15-04 PREFLIGHT_HALT live regression rerun)
+(origin/main: e26c18e chore: merge executor worktree (worktree-agent-adc905aa25f09c946) — Plan 15-04 PREFLIGHT_HALT live regression rerun)
+PASS: origin/main == HEAD (both directions zero); cluster Flux can reconcile against same revision worktree asserts against
 
---- Pre-flight Check 1 evaluation ---
-Plan literal PASS condition (LAG == 0 where LAG = HEAD..origin/main count): MET (LAG=0)
+--- Check 2 — cluster reachable (Pitfall 15-P7) ---
+NAME                         STATUS   ROLES           AGE   VERSION
+k3d-spoke-capsule-server-0   Ready    control-plane   27d   v1.34.6+k3s1
+PASS: k3d-spoke-capsule cluster reachable
 
-HOWEVER — operationally, origin/main LAGS local HEAD by 65 commits:
-  HEAD                : e989979 docs(15): create phase plan
-  origin/main         : 49e264a docs(v0.20): add milestone briefing — Capsule POC Demo & RBAC Polish
-  origin/main..HEAD   : 65 commits (origin/main is 65 commits BEHIND HEAD)
+--- Check 3 — Flux Kustomizations NOT SUSPENDED + READY=True (poc-capsule*) ---
+NAME                     	REVISION          	SUSPENDED	READY	MESSAGE                              
+poc-capsule              	main@sha1:e26c18ef	False    	True 	Applied revision: main@sha1:e26c18ef	
+poc-capsule-spoke        	main@sha1:e26c18ef	False    	True 	Applied revision: main@sha1:e26c18ef	
+poc-capsule-spoke-rbac   	main@sha1:e26c18ef	False    	True 	Applied revision: main@sha1:e26c18ef	
+poc-capsule-spoke-tenants	main@sha1:e26c18ef	False    	True 	Applied revision: main@sha1:e26c18ef	
+---
+SUSPENDED count among poc-capsule*: 0
+PASS: 0 Flux Kustomizations SUSPENDED among poc-capsule*
 
-Pitfall 15-P8 intent: the live spoke-capsule cluster reconciles from origin/main via Flux.
-If origin/main lags HEAD by 65 commits, the live cluster will NOT have:
-  - All v0.20 Phase 13 artifacts (RBAC narrowing, GlobalTenantResource seed, additive delivery
-    under pocs/capsule/) — these are the very artifacts the bats subset will assert against.
-  - All v0.20 Phase 14 artifacts (two-perspective demo verification, runbook, TLS-noise fix).
-  - Any of the Phase 15 close-out artifacts.
+--- Check 4 — task health-check exit 0 (v0.18/v0.19 contract) ---
+task: [health-check] bash scripts/health-check.sh
 
-Consequence: a bats subset run against the live cluster RIGHT NOW would assert against
-state that does NOT yet exist on the cluster (the cluster reconciles from 49e264a, but the
-plans tests target artifacts landed at 71a0a44 onward). This produces FALSE-NEGATIVE REDs
-unrelated to any Phase 13/14 regression — exactly the scenario Pitfall 15-P8 names.
+== Clusters and nodes ==
+  ✓ cluster exists: hub-flux
+  ✓ cluster exists: spoke-ml
+  ✓ cluster exists: spoke-apps
+node/k3d-hub-flux-server-0 condition met
+  ✓ nodes Ready=True: k3d-hub-flux
+node/k3d-spoke-ml-server-0 condition met
+  ✓ nodes Ready=True: k3d-spoke-ml
+node/k3d-spoke-apps-server-0 condition met
+  ✓ nodes Ready=True: k3d-spoke-apps
 
-Plan 15-04 HALT decision:
-This is a PREFLIGHT_HALT — operator action required: `git push origin main` before Plan
-15-04 can produce trustworthy live regression evidence. Plan 15-04 does NOT push (Git Safety
-Protocol per orchestrator instructions); the operator (or a separately authorized agent)
-must push origin/main forward to at-or-past HEAD, then re-run Plan 15-04 cold from Task 1.
+== Flux controllers ==
+  ✓ Flux controller deployment count ok: 4
+deployment.apps/helm-controller condition met
+deployment.apps/kustomize-controller condition met
+deployment.apps/notification-controller condition met
+deployment.apps/source-controller condition met
+  ✓ Flux controller deployments Available=True
+► checking prerequisites
+✗ flux 2.8.6 <2.8.8 (new CLI version is available, please upgrade)
+✔ Kubernetes 1.34.6+k3s1 >=1.33.0-0
+► checking version in cluster
+✔ distribution: flux-v2.8.6
+✔ bootstrapped: true
+► checking controllers
+✔ helm-controller: deployment ready
+► ghcr.io/fluxcd/helm-controller:v1.5.4
+✔ kustomize-controller: deployment ready
+► ghcr.io/fluxcd/kustomize-controller:v1.8.4
+✔ notification-controller: deployment ready
+► ghcr.io/fluxcd/notification-controller:v1.8.4
+✔ source-controller: deployment ready
+► ghcr.io/fluxcd/source-controller:v1.8.3
+► checking crds
+✔ alerts.notification.toolkit.fluxcd.io/v1beta3
+✔ buckets.source.toolkit.fluxcd.io/v1
+✔ externalartifacts.source.toolkit.fluxcd.io/v1
+✔ gitrepositories.source.toolkit.fluxcd.io/v1
+✔ helmcharts.source.toolkit.fluxcd.io/v1
+✔ helmreleases.helm.toolkit.fluxcd.io/v2
+✔ helmrepositories.source.toolkit.fluxcd.io/v1
+✔ kustomizations.kustomize.toolkit.fluxcd.io/v1
+✔ ocirepositories.source.toolkit.fluxcd.io/v1
+✔ providers.notification.toolkit.fluxcd.io/v1beta3
+✔ receivers.notification.toolkit.fluxcd.io/v1
+✔ all checks passed
+  ✓ flux check: ok
 
-This matches the disposition Phase 14 Plan 14-03 took (auto-attested-with-carry-forward
-blocked by origin/main drift) — Plan 15-04 inherits the same blocker until resolved.
+== Spoke Kustomizations ==
+  ✓ Kustomization spoke-ml: Ready=True
+  ✓ Kustomization spoke-apps: Ready=True
 
-HALT: origin/main lags HEAD by 65 commits operationally; operator must `git push origin main` before Plan 15-04 proceeds (Pitfall 15-P8)
+== Hub DNS probe ==
+  ✓ in-hub DNS probe ok: k3d-spoke-ml-server-0
+  ✓ in-hub DNS probe ok: hub-flux can resolve k3d-spoke-{ml,apps}-server-0
 
-Plan 15-04 status: PREFLIGHT_HALT (Check 1 — origin/main currency)
-Bats subset: NOT RUN (would yield false-negative REDs against drifted cluster state)
-Cluster-admin denials: NOT RUN (deferred until cluster is reconciled at-or-past HEAD)
-task rebuild SLO: NOT RUN (destructive; operator-gated; deferred behind HALT)
-End UTC: 2026-05-20T10:19:46Z
+== GPU capacity ==
+  ✓ spoke-ml nvidia.com/gpu capacity: 1
+
+== TLS SANs ==
+  ✓ SAN verified: k3d-spoke-ml-server-0
+  ✓ SAN verified: k3d-spoke-apps-server-0
+
+== Workload proofs ==
+deployment.apps/podinfo condition met
+  ✓ podinfo Deployment Available=True
+job.batch/nvidia-smi condition met
+  ✓ gpu-smoke/nvidia-smi Job Complete=True
+  ✓ nvidia-smi log contains NVIDIA-SMI
+
+== Summary ==
+  19 passed, 0 warnings, 0 failed
+
+health check green: clusters, Flux, spokes, DNS, GPU, TLS, and workloads verified.
+task health-check exit: 0
+PASS: task health-check GREEN
+
+--- Check 5 — tenants Active (Phase 14 destroy-poc inheritance) ---
+NAME    STATE    NAMESPACE QUOTA   NAMESPACE COUNT   NODE SELECTOR   READY   STATUS       AGE
+alpha   Active   3                 1                                 True    reconciled   7d10h
+bravo   Active   3                 1                                 True    reconciled   7d10h
+alpha+bravo tenant rows: 2
+PASS: both alpha and bravo tenants present
+
+--- Check 6 — idempotent demo-tenant reset (best-effort; not a HALT gate) ---
+== Tool gate ==
+  ok  required commands present (kubectl, jq, realpath)
+== Context check ==
+  ok  context 'k3d-spoke-capsule' present
+== platform-owner SA check (D-13-06) ==
+  ok  SA 'platform-owner' exists in capsule-system
+== ClusterRoleBinding check (D-13-06) ==
+  ok  ClusterRoleBinding 'capsule-platform-owner' exists
+== CRB subjects[] dual-subject check (D-13-06) ==
+  ok  CRB subjects[] includes SA 'platform-owner@capsule-system'
+== --write-to validation (T-13-02 mitigation) ==
+  ok  write target '/tmp/karyon-tenants/preflight-po.kubeconfig' inside /tmp/karyon-tenants/
+INFO: preflight kubeconfig not created — skipping demo-tenant reset (non-blocking)
+
+--- Check 6 retry — duration 10m (TokenRequest min) ---
+== Tool gate ==
+  ok  required commands present (kubectl, jq, realpath)
+== Context check ==
+  ok  context 'k3d-spoke-capsule' present
+== platform-owner SA check (D-13-06) ==
+  ok  SA 'platform-owner' exists in capsule-system
+== ClusterRoleBinding check (D-13-06) ==
+  ok  ClusterRoleBinding 'capsule-platform-owner' exists
+== CRB subjects[] dual-subject check (D-13-06) ==
+  ok  CRB subjects[] includes SA 'platform-owner@capsule-system'
+== --write-to validation (T-13-02 mitigation) ==
+  ok  write target '/tmp/karyon-tenants/preflight-po.kubeconfig' inside /tmp/karyon-tenants/
+== Read proxy CA cert (D-13-10 / Pitfall 10-P1: tls.crt only) ==
+  ok  tls.crt read (chart-self-signed CA root)
+== Emit kubeconfig ==
+  ok  kubeconfig written to /tmp/karyon-tenants/preflight-po.kubeconfig (mode 0600)
+Kubeconfig written (size 2277 bytes; contents redacted)
+PASS: idempotent demo-tenant reset complete (charlie tenant deleted-or-absent)
+
+--- Task 1 PREFLIGHT: ALL 6/6 CHECKS PASS ---
+Check 1: origin/main currency (HEAD..origin/main count: 0, origin/main..HEAD count: 0) PASS
+Check 2: cluster reachable PASS
+Check 3: 4/4 poc-capsule* Kustomizations SUSPENDED=False READY=True at main@sha1:e26c18ef PASS
+Check 4: task health-check 19 passed, 0 warnings, 0 failed PASS
+Check 5: alpha + bravo tenants Active+Ready PASS
+Check 6: demo-tenant reset idempotent PASS (10m TokenRequest)
+
