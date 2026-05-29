@@ -1,10 +1,11 @@
 ---
 slug: capsule-tenant-ns-claim
-status: root_cause_found
+status: resolved
 trigger: capsule-tenant-namespace-claim-regression
 created: 2026-05-27
 updated: 2026-05-27
-tags: [capsule, multi-tenancy, webhook, ownership, supply-chain, v0.21-carryforward]
+resolved: 2026-05-27
+tags: [capsule, multi-tenancy, webhook, ownership, failure-policy, v0.20]
 ---
 
 # Capsule Tenant Namespace Claim Regression
@@ -185,17 +186,45 @@ rules:
 
 ## Resolution
 
-### Root Cause
+### Root Cause (empirically proven; supersedes the earlier "upstream repackage" draft)
 
-**Upstream OCI chart at mutable tag `oci://ghcr.io/projectcapsule/charts/capsule:0.12.4` was repackaged between 2026-05-19 (Phase 14 GREEN) and 2026-05-27 (this debug session).** The new chart build (`+56638ab8bf45`) ships a stricter validation webhook (`namespaces.projectcapsule.dev`) that enforces label↔ownerReferences consistency on UPDATE/DELETE. Combined with the existing mutation webhook (`namespaces.tenants.projectcapsule.dev`) being configured with `failurePolicy: Ignore`, the cold-bootstrap path now has a fatal race:
+> **CORRECTION (2026-05-27, post-fix):** A mid-investigation draft of this section blamed an upstream
+> chart repackage. That hypothesis was DISPROVEN — the chart build `+56638ab8bf45` dates 2025-12-19 and
+> is stable; digest pinning confirmed zero drift. A controlled `helm template --set` experiment + a live
+> A/B on the cluster proved the true cause is a repo-side webhook-policy weakening. Corrected analysis:
 
-1. Flux applies `tenant-alpha` namespace as `system:serviceaccount:flux-system:flux-reconciler`
-2. The mutation webhook is briefly unreachable (Endpoint not yet ready, or kube-proxy not yet converged in k3d/WSL2). With `failurePolicy: Ignore`, the namespace is admitted **without the ownerRef mutation**
-3. The Capsule controller's tenant reconciler skips this namespace because it has no ownerRefs claiming Tenant alpha → `status.size` stays 0
-4. The validation webhook now blocks any UPDATE/DELETE of the unowned tenant-labeled namespace (the "Denied patch request for this namespace" + "namespace label \"alpha\" does not match owner reference \"\"" errors we hit during recovery attempts)
-5. Flux retries on subsequent reconciles fail with the same denial; the cluster is in an unrecoverable webhook-deadlock state
+**The repo's `pocs/capsule/operator/helmrelease.yaml` (Phase 8 D-08-03, "P26 belt-and-suspenders") set
+`webhooks.hooks.namespaces.failurePolicy: Ignore`, overriding the Capsule chart DEFAULT of `Fail` for
+the `namespaces.tenants.projectcapsule.dev` mutating webhook** — the hook that ADDS the `ownerReference`
+claiming a tenant-labeled namespace for its Tenant CR. The cold-bootstrap race:
 
-**Why this didn't reproduce on Phase 14 (2026-05-19):** the prior chart build either (a) used `failurePolicy: Fail` for the mutation webhook (which would have caused the apply to retry until the webhook was reachable), (b) lacked the strict UPDATE-time validation that now blocks recovery, or (c) had different mutation logic that didn't require the requester identity to satisfy stricter checks. The chart was tag-pinned without a digest, so the upstream repackage was invisible to Flux.
+1. Flux applies `tenant-alpha` namespace as `system:serviceaccount:flux-system:flux-reconciler`.
+2. The mutation webhook is briefly unreachable (capsule-webhook-service Endpoint not yet Ready after the
+   controller starts). With `failurePolicy: Ignore`, the apiserver's failed admission call is ignored and
+   the namespace is admitted **without the ownerRef mutation**. (Chart default `Fail` would have REJECTED
+   the CREATE → Flux retries until the webhook serves → self-heals.)
+3. The Capsule reconciler skips the namespace because it has no ownerRefs claiming Tenant alpha →
+   `status.size` stays 0, no RoleBindings.
+4. The validating webhook `namespaces.projectcapsule.dev` (chart default `Fail`) then blocks every
+   UPDATE/DELETE on the labeled-but-unowned namespace ("namespace label \"alpha\" does not match owner
+   reference \"\"").
+5. Cluster is in an unrecoverable webhook-deadlock until the webhook is bypassed (scale controller to 0).
+
+**Controlled experiment proving `namespaces` is the controlling chart value key:**
+```
+helm template ... --set webhooks.hooks.namespaces.failurePolicy=Ignore     => webhook = Ignore
+helm template ... --set webhooks.hooks.namespacePatch.failurePolicy=Ignore => webhook = Fail (no-op key)
+```
+Live A/B: repo `namespaces: Ignore` → live webhook `Ignore` (bug); fix `namespaces: Fail` → live `Fail` (closed).
+
+**Why this didn't reproduce on Phase 14 (2026-05-19):** the race is timing-dependent. Under `Ignore`,
+whether the silent-skip happens depends on the webhook-readiness window vs Flux's namespace-apply timing.
+Phase 14's cold rebuild won the dice roll. The bug was always latent under `Ignore` — not an upstream change.
+
+**Other earlier claims corrected:** (a) the Flux dependency edge was NOT missing — `poc-capsule-spoke`
+already `dependsOn` `poc-capsule`; ordering was never the gap. (b) The repo's `webhooks.hooks` keys are
+NOT bogus — they are valid chart keys; D-08-03 weakened ~13 of them from chart-default `Fail` to `Ignore`,
+and only the `namespaces` one carried the unrecoverable-deadlock failure mode.
 
 ### Fix (two-part)
 
@@ -219,53 +248,77 @@ flux --context k3d-hub-flux reconcile kustomization poc-capsule-spoke --timeout=
 
 After this, `kubectl get tenant alpha -o jsonpath='{.status.size}'` should return `>0` and the demo should be GREEN.
 
-**Part B — Permanent fix (prevent recurrence on every cold rebuild):**
+**Part B — Permanent fix. APPLIED + VERIFIED LIVE in commit `c89f1b2`; written-record correction in the follow-up commit.**
 
-1. **Pin both Capsule OCIRepositories by digest, not tag** (eliminates the silent upstream-repackage failure mode). Edit `pocs/capsule/operator/ocirepository.yaml` + `pocs/capsule/proxy/ocirepository.yaml`:
-   ```yaml
-   spec:
-     ref:
-       # OLD: tag: "0.12.4"  ← mutable; upstream repackage caused this regression
-       # NEW: pin by digest (immutable)
-       digest: sha256:<digest-from-last-known-good-build>
-   ```
-   Get the digest via: `crane manifest oci://ghcr.io/projectcapsule/charts/capsule:0.12.4 | jq -r '.config.digest'` (after recovering to known-good state) OR pin the current build's digest.
-
-2. **Flip the namespaces mutation webhook `failurePolicy: Ignore → Fail`** in `pocs/capsule/operator/helmrelease.yaml`. The original D-08-03 / P26 belt-and-suspenders rationale was correct for MOST hooks (silent skip is safer than blocking unrelated operations), but for the namespace-claim webhook specifically, silent skip produces unrecoverable state. Surgical change:
+1. **[PRIMARY FIX] Flip `webhooks.hooks.namespaces.failurePolicy` `Ignore → Fail`** in
+   `pocs/capsule/operator/helmrelease.yaml`. This RESTORES the Capsule chart default; D-08-03's P26
+   belt-and-suspenders had weakened it. With `Fail`, a webhook-unavailable window at cold-bootstrap causes
+   the namespace CREATE to be REJECTED, so Flux retries until the webhook serves — self-healing, no silent
+   skip. Surgical: only the `namespaces` hook flips; the other ~13 keep their D-08-03 `Ignore` posture.
    ```yaml
    webhooks:
      hooks:
        namespaces:
-         failurePolicy: Fail   # was: Ignore — surgical override; other hooks keep Ignore
+         failurePolicy: Fail   # was: Ignore (D-08-03) — restores chart default; surgical, others keep Ignore
    ```
+   **Verified live:** `mutatingwebhookconfiguration .../namespaces.tenants.projectcapsule.dev
+   failurePolicy` = `Fail`; tenant claim restored.
 
-3. **Optional but recommended — add a healthCheck on capsule-webhook-service Endpoints to `poc-capsule-spoke` Kustomization** so Flux waits for the webhook to be ready before applying tenant namespaces. This adds a structural ordering guarantee on top of the failurePolicy fix.
+2. **[SECONDARY hardening] Pin both Capsule OCIRepositories by digest** (`operator/ocirepository.yaml` +
+   `proxy/ocirepository.yaml`). NOT the root cause (chart never repackaged — stable build 2025-12-19), but
+   good supply-chain hygiene: reproducible reconcile even if upstream re-tags. Digests from
+   `kubectl -n capsule-system get ocirepository <name> -o jsonpath='{.status.artifact.revision}'`:
+   - capsule:       `sha256:56638ab8bf455c5a1f5cf581c474681147cfe7031a0ff902a42c3715f0011fb7`
+   - capsule-proxy: `sha256:0b8c6ef4a74425c8bd4c0e383cf1847042580ca4071db2ed07b3c26bc0b0d02d`
 
-### Verification
+3. **[NOT NEEDED] healthCheck / dependsOn ordering** — investigated and rejected. `poc-capsule-spoke`
+   already `dependsOn` `poc-capsule`; a hub-targeted Kustomization can't health-check a spoke Deployment
+   under ADR-004; and with `failurePolicy: Fail` the webhook self-heals via apiserver-reject + Flux-retry,
+   so no extra ordering machinery is required.
 
-- `kubectl get tenant alpha -o jsonpath='{.status.size}'` returns `1` (claims tenant-alpha namespace)
-- `kubectl get ns tenant-alpha -o jsonpath='{.metadata.ownerReferences[0].kind}'` returns `Tenant`
-- `kubectl -n tenant-alpha get rolebindings` returns multiple RBs from spec.owners[]
-- `kubectl --kubeconfig=$TO_ALPHA_KC get namespaces` returns only `tenant-alpha`
-- Phase 14 demo flow GREEN end-to-end
+### Verification (live, 2026-05-27 — all GREEN)
 
-### Files to change (Part B)
+- `mutatingwebhookconfiguration .../namespaces.tenants.projectcapsule.dev failurePolicy` = `Fail`
+- `Tenant alpha status.size` = 1, `status.namespaces` = `["tenant-alpha"]`; bravo identical
+- `ns/tenant-alpha ownerReferences[0]` = `Tenant/alpha`; bravo = `Tenant/bravo`
+- 11 RoleBindings auto-created in each tenant namespace
+- Demo dry-run GREEN: Act2a (platform-owner LIST = alpha+bravo), Act2b (`auth can-i '*' '*'` = no),
+  Act5a (tenant-owner LIST = only own ns), Act5d (cross-tenant = Forbidden), tenant ceiling (`no`)
 
-- `pocs/capsule/operator/ocirepository.yaml` — pin by digest
-- `pocs/capsule/proxy/ocirepository.yaml` — pin by digest
-- `pocs/capsule/operator/helmrelease.yaml` — flip namespace webhook failurePolicy to Fail
-- `pocs/capsule/spoke/kustomization.yaml` (or the parent `poc-capsule-spoke` Kustomization spec) — add Endpoints healthCheck (optional)
-- `docs/adr/0008-capsule-multi-tenancy-graduation.md` — append addendum noting the supply-chain finding (mutable-tag chart repackage caused a production-blocking regression — strong additional evidence for DEFER stance)
+### Recovery runbook (if the deadlock recurs on a cluster that predates the fix)
 
-### Specialist review needed
+```bash
+flux --context k3d-hub-flux suspend kustomization poc-capsule-spoke
+kubectl --context k3d-spoke-capsule -n capsule-system scale deploy capsule-controller-manager --replicas=0
+kubectl --context k3d-spoke-capsule delete ns tenant-alpha tenant-bravo --wait=true
+kubectl --context k3d-spoke-capsule -n capsule-system scale deploy capsule-controller-manager --replicas=1
+kubectl --context k3d-spoke-capsule -n capsule-system rollout status deploy/capsule-controller-manager
+flux --context k3d-hub-flux resume kustomization poc-capsule-spoke
+flux --context k3d-hub-flux reconcile kustomization poc-capsule-spoke --timeout=2m
+```
 
-- Confirm the upstream chart repackage via `crane manifest oci://ghcr.io/projectcapsule/charts/capsule:0.12.4` and compare to any digest captured in Phase 14 evidence
-- Confirm that flipping namespace mutation webhook to `Fail` doesn't break the operator chart's own bootstrap (the webhook config is installed by the controller, which creates capsule-system NS first — but the namespace mutation hook fires on FUTURE namespaces, so this should be safe)
-- Confirm digest-pinning works through Flux `OCIRepository` for ghcr.io (some registries normalize digests differently)
+### Files changed by the fix (commit c89f1b2)
+
+- `pocs/capsule/operator/helmrelease.yaml` — `namespaces` webhook `failurePolicy: Ignore → Fail` (PRIMARY)
+- `pocs/capsule/operator/ocirepository.yaml` — pin by digest (hardening)
+- `pocs/capsule/proxy/ocirepository.yaml` — pin by digest (hardening)
+- `docs/adr/0008-capsule-multi-tenancy-graduation.md` — addendum documenting the finding + DEFER reinforcement
+
+### Residual / future (v0.21 candidates, non-blocking)
+
+- Audit the other ~12 D-08-03 `Ignore` overrides — any others masking a recoverable-only-via-bypass mode?
+  (`namespaces` was the dangerous one; the rest are likely fine for a POC.)
+- A true cold-rebuild test (`task destroy && task rebuild && create-cluster.sh && register-poc-cluster.sh`)
+  with the fix in place would prove non-recurrence end-to-end. Not run today (cluster green + demo-ready;
+  another destroy was not warranted).
 
 ## Files Changed During Investigation
 
-None — investigation was read-only. Cluster state probed with two temporary namespaces (`webhook-probe-alpha-2`, `webhook-probe-ssa`) that were cleaned up. One repair attempt failed (couldn't delete tenant-alpha because of the validation webhook deadlock — same broken state as session start, plus `poc-capsule-spoke` Kustomization now mid-retry).
+Investigation itself was read-only. Live cluster operations during recovery + fix verification:
+temporary probe namespaces (cleaned up), the Part A recovery sequence (scale-controller-to-0 + delete
+orphan ns + resume Flux — restored the cluster), and the Flux reconcile that applied commit `c89f1b2`'s
+HelmRelease values (rolled the namespaces webhook to `Fail`). Repo files changed are listed under "Files
+changed by the fix" above.
 
 ## Files relevant to investigation
 

@@ -277,11 +277,14 @@ Ready and the namespaces being labeled.
 **Root cause** (full session: `.planning/debug/capsule-tenant-ns-claim.md`):
 
 The `namespaces` mutation webhook (`namespaces.tenants.projectcapsule.dev`) was configured with
-`failurePolicy: Ignore` per D-08-03's P26 belt-and-suspenders pattern. On cold-bootstrap, the
-capsule-webhook-service Endpoint takes a few seconds to become Ready after `capsule-controller-manager`
-starts. If Flux applies the tenant namespace YAMLs during that window, the apiserver attempts
-to call the webhook, fails (Endpoint not ready), and — because of `failurePolicy: Ignore` — silently
-admits the namespaces WITHOUT the ownerReference mutation that claims them for their Tenant CR.
+`failurePolicy: Ignore` per D-08-03's P26 belt-and-suspenders pattern — which **overrode the Capsule
+chart default of `Fail`** for this hook. On cold-bootstrap, the capsule-webhook-service Endpoint takes a
+few seconds to become Ready after `capsule-controller-manager` starts. If Flux applies the tenant
+namespace YAMLs during that window, the apiserver attempts to call the webhook, fails (Endpoint not
+ready), and — because of `failurePolicy: Ignore` — silently admits the namespaces WITHOUT the
+ownerReference mutation that claims them for their Tenant CR. (A controlled `helm template --set`
+experiment confirmed `webhooks.hooks.namespaces` is the controlling value key; the chart default of
+`Fail` would have REJECTED the CREATE and let Flux retry until the webhook served — self-healing.)
 
 The namespaces then exist with `capsule.clastix.io/tenant: <name>` labels but empty `ownerReferences`.
 The companion validating webhook (`namespaces.projectcapsule.dev`) subsequently blocks every UPDATE
@@ -295,15 +298,18 @@ roll. The bug was always latent; this debug session is the first reproduction.
 
 **Mitigations applied 2026-05-27:**
 
-1. **`namespaces` hook flipped to `failurePolicy: Fail`** (`pocs/capsule/operator/helmrelease.yaml`).
-   Surgical override of D-08-03 for this single hook. Flux now retries the namespace apply until
-   the webhook is reachable — exactly the cold-bootstrap-safe behavior the other hooks rely on
-   `Ignore` for, inverted for this one because silent skip here produces unrecoverable state.
+1. **`namespaces` hook flipped to `failurePolicy: Fail`** (`pocs/capsule/operator/helmrelease.yaml`),
+   RESTORING the Capsule chart default that D-08-03 had weakened. Surgical: only this hook flips; the
+   other ~13 keep their D-08-03 `Ignore`. Flux now retries the namespace apply until the webhook is
+   reachable (self-healing), because silent skip on THIS hook produces unrecoverable state. **Verified
+   live 2026-05-27:** webhook reports `Fail`; tenant claim restored (`Tenant.status.size`=1, ownerRef
+   set, 11 RoleBindings/tenant, scoped tenant-owner LIST); demo Acts 2/5 GREEN.
 
 2. **OCIRepository chart sources pinned by digest** in addition to tag
-   (`pocs/capsule/operator/ocirepository.yaml`, `pocs/capsule/proxy/ocirepository.yaml`). Defends
-   against any future upstream chart-repackage producing webhook-config drift invisible to tag-only
-   pins. Digest is authoritative per OCI spec.
+   (`pocs/capsule/operator/ocirepository.yaml`, `pocs/capsule/proxy/ocirepository.yaml`). Secondary
+   supply-chain hygiene — NOT the root cause (the chart never repackaged; stable build 2025-12-19) —
+   but defends against any FUTURE upstream re-tag producing drift invisible to tag-only pins. Digest is
+   authoritative per OCI spec.
 
 **Reinforcement of DEFER stance:** This finding adds weight to the D-11-14 graduation rubric's
 DEFER disposition. A POC stack whose cold-bootstrap path has a webhook race that produces
