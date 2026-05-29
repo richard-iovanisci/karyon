@@ -1,5 +1,27 @@
 # Milestones
 
+## v0.20 Capsule POC Demo & RBAC Polish (Shipped: 2026-05-29)
+
+**Phases completed:** 3 phases, 14 plans, 27 tasks
+
+**Key accomplishments:**
+
+- 19 NEW bats files locking the RBAC + SEED + DELIVERY falsifier matrix BEFORE Phase 13 implementation lands; Phase 11 D-11-02 CapsuleConfiguration.userGroups inheritance + Phase 10 D-10-06 capsule-proxy cert source verified live; Plan 13-04 verifier has a pre-existing automated test command for every Wave 1+ executor task.
+- 1. [Rule 1 — Bug] Wave 0 bats `rbac-08` assertion shape broken by kubectl stderr warnings
+- GlobalTenantResource cluster-scoped CR (`hello-world-seeded`) with match-all tenantSelector auto-propagating nginx:alpine Pod + ClusterIP Service to every tenant namespace; SEED-01/02/03 GREEN end-to-end.
+- Phase 13 closed with disposition `passed_with_overrides` — all 12 REQs (RBAC-01..06 + SEED-01..03 + DELIVERY-01..03) verified live; 5/5 ROADMAP success criteria met; 159/159 Phase 13 NEW bats @tests GREEN end-to-end; 7 pre-existing inheritance bats REDs documented as NOT Phase 13 regressions; 1 env-gated DEFERRED (delivery-05 SLO bats requires `KARYON_REBUILD_APPROVED=1`).
+- 6 live DEMO bats:
+- One-liner:
+- Cluster reality (alpha→bravo + bravo→alpha):
+- Cluster reality:
+- v0.20 REQ ledger fully reconciled: 23/23 mandatory `[x]` + 4 inline OQ lock-in amendments + 23/23 Traceability `Complete` rows — 3-source matrix aligned and ready for Plan 15-02..05 downstream audit gates.
+- STATE.md ledger advanced from premature `status: completed` (Phase 14 close) to correct Wave-1 in-flight state (`executing` / 9/14 / 64%) with Current Position block, v0.20 velocity counter, and Performance Metrics By-Phase v0.20 table populated.
+- Phase 14 Phase Summary checkbox flipped `[ ] -> [x]`; Phase 14 Progress table row advanced `0/4 | Not started | -` -> `4/4 | Complete | 2026-05-19`; Phase 15 row stays mid-phase per Wave-2 self-close pattern; ROADMAP.md within-document consistency for v0.20 phases verified GREEN.
+- Plan 15-04 retry #2 completed all six tasks: Tasks 1-3 GREEN (preflight 6/6, bats subset 203/215 with 12 pre-existing inheritance REDs, 3/3 cluster-admin denials), Task 4 checkpoint reached + resumed via orchestrator continuation with `user_response="approved"`, Task 5 elected PATH-B for DELIVERY-02 + DELIVERY-03 (architectural worktree-isolation conflict prevented task rebuild from completing; carry-forward to Phase 14 14-02 VAL-04 inheritance disposition), Task 6 finalized evidence log with per-category summary + regression-gate disposition + carry-forward inheritance section + footer.
+- Plan 15-05 (Wave 2 sequential audit gate + 6 close-out artifacts) completed all 7 tasks on main working tree with normal git commits (hooks enabled; no `--no-verify`).
+
+---
+
 ## v0.19 Capsule Multi-Tenancy POC (Shipped: 2026-05-18)
 
 **Phases completed:** 6 phases, 34 plans, 76 tasks

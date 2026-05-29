@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.20
 milestone_name: — Capsule POC Demo & RBAC Polish
-status: ready_to_archive
-stopped_at: Phase 15 complete — v0.20 milestone close-out done; ready for /gsd-complete-milestone v0.20
-last_updated: "2026-05-27T12:36:56.157Z"
-last_activity: 2026-05-20 -- Phase 15 complete; v0.20 ready_to_archive
+status: completed
+stopped_at: Phase 15 context gathered
+last_updated: "2026-05-29T17:13:01.987Z"
+last_activity: 2026-05-29
 progress:
   total_phases: 3
   completed_phases: 3
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 Phase: 15 (v0-20-close-out-retrospective) — COMPLETE
 Plan: 5 of 5 (all plans landed; Wave 1 + Wave 2 complete)
 Status: v0.20 milestone ready to archive via /gsd-complete-milestone v0.20
-Last activity: 2026-05-20 -- Phase 15 complete; v0.20-MILESTONE-AUDIT.md regenerated to `passed` (1 operator-accepted tech_debt for DELIVERY-02 v0.21 carry-forward); RETROSPECTIVE.md v0.20 section appended; PROJECT.md parking lot reconciled (+5); 15-VALIDATION.md finalized; 15-VERIFICATION.md written; STATE.md ready_to_archive
+Last activity: 2026-05-29
 
 ## Performance Metrics
 
