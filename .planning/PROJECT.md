@@ -51,8 +51,8 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Capsule-proxy two-perspective demo: platform-owner kubeconfig (all-tenants visibility) vs tenant-owner kubeconfig (single-tenant; rejected on `kubectl create secret` and cross-tenant access) *(v0.20 — Demo R3)*
-- [ ] `docs/poc-capsule-demo.md` polished 6-act demo runbook with pre-demo checklist + known-noise notes *(v0.20 — Demo R4)*
+- [x] Capsule-proxy two-perspective demo: platform-owner kubeconfig (all-tenants visibility) vs tenant-owner kubeconfig (single-tenant; rejected on `kubectl create secret` and cross-tenant access) *(Validated in Phase 14 — DEMO-01..06; verified live end-to-end 2026-05-29)*
+- [x] `docs/poc-capsule-demo.md` polished 6-act demo runbook with pre-demo checklist + known-noise notes *(Validated in Phase 14 — RUNBOOK-01..05; cold-read UAT ≤ 15 min)*
 
 ## Current Milestone: v0.20 Capsule POC Demo & RBAC Polish
 
