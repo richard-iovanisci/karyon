@@ -40,7 +40,7 @@ setup() {
 @test "PROXY-03 / D-10-09: H2 section has Contract table with output channel + URL + auth + TLS rows" {
   [ -f "$DOC" ]
   for literal in \
-    '### Contract' \
+    '### Tenant kubeconfig contract' \
     'stdout' \
     'tenant-<tenant>-via-proxy' \
     'https://127.0.0.1:30443' \

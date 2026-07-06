@@ -12,9 +12,12 @@ setup() {
   PROXY_KUST="${REPO_ROOT}/pocs/capsule/proxy/kustomization.yaml"
 }
 
-@test "D-08-05: pocs/capsule/kustomization.yaml resources length=2 AND resources=[operator/, proxy/]" {
+# RECONCILED 2026-07-06: original D-08-05 asserted exactly [operator/, proxy/].
+# Phase 11 G-04 #1 (Plan 11-06) added namespace.yaml (capsule-system on hub) and
+# Phase 9 TEN-04 added tenants/ — both intentional; the guard was never updated.
+@test "D-08-05 + G-04 + TEN-04: pocs/capsule/kustomization.yaml resources=[namespace.yaml, operator/, proxy/, tenants/]" {
   [ -f "$POCS_CAPSULE_KUST" ]
-  run yq eval '(.resources | length) == 2 and .resources[0] == "operator/" and .resources[1] == "proxy/"' "$POCS_CAPSULE_KUST"
+  run yq eval '(.resources | length) == 4 and .resources[0] == "namespace.yaml" and .resources[1] == "operator/" and .resources[2] == "proxy/" and .resources[3] == "tenants/"' "$POCS_CAPSULE_KUST"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

@@ -39,6 +39,20 @@ paths = [
   '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',                 # D-11-04-revised
   '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',                  # D-11-04-revised
   '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',                # D-11-04-revised
+  # 2026-07-06: the v0.19 milestone archive (git mv .planning/phases/ ->
+  # .planning/milestones/v0.19-phases/) relocated the seven D-11-04-revised
+  # fixture-bearing files, silently un-allowlisting them (push-gate-05 @test 3
+  # went RED unnoticed). The seven entries below are the SAME files at their
+  # archived location — still file-specific per reviewer HIGH #3; the original
+  # entries above stay so `gitleaks git --log-opts=--all` history scans remain
+  # clean for pre-archive commits.
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-00-PLAN\.md$''',   # D-11-04-revised (archived)
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-RESEARCH\.md$''',  # D-11-04-revised (archived)
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-REVIEW\.md$''',    # D-11-04-revised (archived)
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-PATTERNS\.md$''',  # D-11-04-revised (archived)
+  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',           # D-11-04-revised (archived)
+  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',            # D-11-04-revised (archived)
+  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',          # D-11-04-revised (archived)
   '''^tests/bats/proxy-06-live-fixture\.bats$''',                                                                # G-06 (Plan 11-07): synthetic kubeconfig fixture (Phase 10 PROXY-03 falsifier; commit d9734486 inheritance)
 ]
 # Add per-finding entries during the one-shot scan if needed.

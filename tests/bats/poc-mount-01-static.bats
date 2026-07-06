@@ -49,9 +49,12 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
-@test "POC-01 / D-06 / D-08-12: clusters/hub-flux/pocs/kustomization.yaml is a kustomize aggregator referencing both capsule.yaml AND capsule-spoke.yaml" {
+# RECONCILED 2026-07-06: original asserted exactly [capsule.yaml, capsule-spoke.yaml].
+# G-06 gap-close added capsule-spoke-rbac.yaml and D-11-07 added
+# capsule-spoke-tenants.yaml — the 4-Kustomization DAG is the intentional shape.
+@test "POC-01 / D-06 / D-08-12 / G-06 / D-11-07: clusters/hub-flux/pocs/kustomization.yaml aggregates the 4-Kustomization POC DAG" {
   [ -f "$POCS_INDEX" ]
-  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 2 and (.resources | contains(["capsule.yaml"])) and (.resources | contains(["capsule-spoke.yaml"]))' "$POCS_INDEX"
+  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 4 and (.resources | contains(["capsule-spoke-rbac.yaml"])) and (.resources | contains(["capsule.yaml"])) and (.resources | contains(["capsule-spoke-tenants.yaml"])) and (.resources | contains(["capsule-spoke.yaml"]))' "$POCS_INDEX"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
@@ -75,12 +78,12 @@ setup() {
   [ "$output" = "true" ]
 }
 
-@test "POC-01 / Pitfall 7 / D-08-12: pocs/capsule/spoke/kustomization.yaml exists with valid Kustomize shape and resources is empty (Phase 9 placeholder)" {
+# RECONCILED 2026-07-06: the "empty placeholder" era ended when Phase 9/13 populated
+# the spoke tree (rbac/, config/, tenants/, then D-13-13 global-resources/ LAST —
+# FIFO ordering is load-bearing for Pitfall 13-P2 apply ordering).
+@test "POC-01 / Pitfall 7 / D-08-12 / D-13-13: pocs/capsule/spoke/kustomization.yaml lists rbac/, config/, tenants/, global-resources/ in FIFO order" {
   [ -f "$POCS_SPOKE_PLACEHOLDER" ]
-  # D-08-12 / Pitfall 7: this placeholder prevents the spoke-targeted outer K from reporting
-  # Ready=False ("path not found") on first reconcile. Phase 9 (TEN-01..06) populates with
-  # Tenant CRs.
-  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 0' "$POCS_SPOKE_PLACEHOLDER"
+  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 4 and .resources[0] == "rbac/" and .resources[1] == "config/" and .resources[2] == "tenants/" and .resources[3] == "global-resources/"' "$POCS_SPOKE_PLACEHOLDER"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

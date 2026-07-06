@@ -83,9 +83,12 @@ setup() {
 
 # ---- capsule-spoke.yaml (outer K) ----
 
-@test "TEN-06 / D-09-06: capsule-spoke.yaml dependsOn[0].name == poc-capsule" {
+# RECONCILED 2026-07-06: original asserted dependsOn[0] == poc-capsule only.
+# G-06 gap-close (2026-05-06) prepended poc-capsule-spoke-rbac and D-11-07
+# appended poc-capsule-spoke-tenants — the full 3-entry chain is intentional.
+@test "TEN-06 / D-09-06 / G-06 / D-11-07: capsule-spoke.yaml dependsOn == [poc-capsule-spoke-rbac, poc-capsule, poc-capsule-spoke-tenants]" {
   [ -f "$CAPSULE_SPOKE" ]
-  run yq eval '.spec.dependsOn[0].name == "poc-capsule"' "$CAPSULE_SPOKE"
+  run yq eval '(.spec.dependsOn | length) == 3 and .spec.dependsOn[0].name == "poc-capsule-spoke-rbac" and .spec.dependsOn[1].name == "poc-capsule" and .spec.dependsOn[2].name == "poc-capsule-spoke-tenants"' "$CAPSULE_SPOKE"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
@@ -104,9 +107,13 @@ setup() {
   [ "$output" = "true" ]
 }
 
-@test "TEN-06 / D-09-05: capsule-spoke.yaml spec.serviceAccountName == kustomize-controller (explicit clarity)" {
+# RECONCILED 2026-07-06: original D-09-05 guessed kustomize-controller; Plan 09-03
+# attempt 3 corrected the real spoke-side SA to flux-reconciler (RETROSPECTIVE
+# lesson: verify live identifiers before naming them — register scripts create
+# flux-reconciler, not kustomize-controller, on the target cluster).
+@test "TEN-06 / D-09-05 (Plan 09-03 attempt-3 correction): capsule-spoke.yaml spec.serviceAccountName == flux-reconciler" {
   [ -f "$CAPSULE_SPOKE" ]
-  run yq eval '.spec.serviceAccountName == "kustomize-controller"' "$CAPSULE_SPOKE"
+  run yq eval '.spec.serviceAccountName == "flux-reconciler"' "$CAPSULE_SPOKE"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
