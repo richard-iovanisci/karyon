@@ -33,9 +33,16 @@ setup() {
   [ "$output" = "true" ]
 }
 
-@test "CAP-01 / D-08-03: operator values.webhooks.hooks.namespaces.failurePolicy=Ignore" {
+# INVERTED 2026-07-06: the namespaces hook is the ONE hook that MUST stay at the
+# chart-default `Fail`. The original D-08-03 blanket-Ignore created a cold-bootstrap
+# race: a tenant-labeled Namespace admitted while capsule-webhook-service is not yet
+# Ready skips the ownerReference mutation, then the companion validating webhook
+# deadlocks all UPDATE/DELETE on the labeled-but-unowned namespace (unrecoverable
+# without scaling the controller to 0). Root cause + fix: commit c89f1b2 +
+# .planning/debug/capsule-tenant-ns-claim.md + docs/adr/0008 addendum (2026-05-27).
+@test "CAP-01 / c89f1b2 regression guard: operator values.webhooks.hooks.namespaces.failurePolicy=Fail (chart default; NEVER revert to Ignore)" {
   [ -f "$OPERATOR_HR" ]
-  run yq eval '.spec.values.webhooks.hooks.namespaces.failurePolicy == "Ignore"' "$OPERATOR_HR"
+  run yq eval '.spec.values.webhooks.hooks.namespaces.failurePolicy == "Fail"' "$OPERATOR_HR"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
