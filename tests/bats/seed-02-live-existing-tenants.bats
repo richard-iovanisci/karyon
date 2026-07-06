@@ -21,6 +21,14 @@ setup() {
   fi
 }
 
+# alpha-app1 / bravo-app1 are Phase 13 fixture namespaces created by the tenants
+# quota live suites, not by GitOps — skip their blocks when absent so this suite
+# is honest standalone.
+require_ns() {
+  kubectl --context=k3d-spoke-capsule get namespace "$1" >/dev/null 2>&1 \
+    || skip "fixture namespace $1 absent; run the tenants quota live suite first"
+}
+
 # Poll (3x10s) for a Ready pod selected by app=hello-world in the namespace.
 assert_hello_world_pod_ready() {
   local ns="$1" i status_val
@@ -67,14 +75,17 @@ assert_hello_world_service() {
 # ---- alpha-app1 ----
 
 @test "SEED-01 (alpha-app1): hello-world pod Ready=True within 30s (3x10s poll)" {
+  require_ns alpha-app1
   assert_hello_world_pod_ready alpha-app1
 }
 
 @test "SEED-01 (alpha-app1): hello-world Deployment carries karyon.io/managed-by=capsule-global-tenant-resource label" {
+  require_ns alpha-app1
   assert_hello_world_deploy_label alpha-app1
 }
 
 @test "SEED-01 (alpha-app1): hello-world Service exists with port 80" {
+  require_ns alpha-app1
   assert_hello_world_service alpha-app1
 }
 
@@ -95,13 +106,16 @@ assert_hello_world_service() {
 # ---- bravo-app1 ----
 
 @test "SEED-01 (bravo-app1): hello-world pod Ready=True within 30s (3x10s poll)" {
+  require_ns bravo-app1
   assert_hello_world_pod_ready bravo-app1
 }
 
 @test "SEED-01 (bravo-app1): hello-world Deployment carries karyon.io/managed-by=capsule-global-tenant-resource label" {
+  require_ns bravo-app1
   assert_hello_world_deploy_label bravo-app1
 }
 
 @test "SEED-01 (bravo-app1): hello-world Service exists with port 80" {
+  require_ns bravo-app1
   assert_hello_world_service bravo-app1
 }

@@ -440,10 +440,12 @@ re-tag can't silently change webhook config under you.
 treats as "not provided" → it uses your default admin kubeconfig. Every "should be Forbidden" test then
 **false-passes** (runs as cluster-admin). This is the #1 way a demo lies to you. **Guard every scoped
 command** — before any "should fail" step, assert the identity:
+
 ```bash
 kubectl --kubeconfig=$PO auth whoami | grep -q 'platform-owner' \
   && echo "✓ scoped" || echo "✗ admin fallback — fix \$PO"
 ```
+
 Related: if a tenant kubeconfig carries a client **certificate** (not just a token), the cert
 authenticates the TLS connection before the token is read — so it silently runs as whoever the cert is.
 Mint **token-only** kubeconfigs for tenants.

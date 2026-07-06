@@ -21,6 +21,14 @@ setup() {
   fi
 }
 
+# alpha-app1 is a Phase 13 fixture namespace created by the tenants quota live
+# suites, not by GitOps — skip its block when absent so this suite is honest
+# standalone (the pre-2026-07-06 suite failed spuriously in that state).
+require_ns() {
+  kubectl --context=k3d-spoke-capsule get namespace "$1" >/dev/null 2>&1 \
+    || skip "fixture namespace $1 absent; run the tenants quota live suite first"
+}
+
 # ---- tenant-alpha ----
 
 @test "SEED-03 (tenant-alpha): exactly 1 Deployment labeled karyon.io/managed-by=capsule-global-tenant-resource" {
@@ -59,6 +67,7 @@ setup() {
 # ---- alpha-app1 ----
 
 @test "SEED-03 (alpha-app1): exactly 1 Deployment labeled karyon.io/managed-by=capsule-global-tenant-resource" {
+  require_ns alpha-app1
   local n
   n=$(kubectl --context=k3d-spoke-capsule get deployment -n alpha-app1 \
     -l karyon.io/managed-by=capsule-global-tenant-resource --no-headers 2>/dev/null | wc -l)
@@ -66,6 +75,7 @@ setup() {
 }
 
 @test "SEED-03 (alpha-app1): zero ReplicaSets labeled karyon.io/managed-by=capsule-global-tenant-resource" {
+  require_ns alpha-app1
   local n
   n=$(kubectl --context=k3d-spoke-capsule get replicaset -n alpha-app1 \
     -l karyon.io/managed-by=capsule-global-tenant-resource --no-headers 2>/dev/null | wc -l)
@@ -73,6 +83,7 @@ setup() {
 }
 
 @test "SEED-03 (alpha-app1): zero extra ConfigMaps labeled karyon.io/managed-by=capsule-global-tenant-resource" {
+  require_ns alpha-app1
   local n
   n=$(kubectl --context=k3d-spoke-capsule get configmap -n alpha-app1 \
     -l karyon.io/managed-by=capsule-global-tenant-resource --no-headers 2>/dev/null | wc -l)
@@ -80,6 +91,7 @@ setup() {
 }
 
 @test "SEED-03 (alpha-app1): exactly 1 hello-world pod (app=hello-world) materialized via the seeded Deployment" {
+  require_ns alpha-app1
   local n
   n=$(kubectl --context=k3d-spoke-capsule get pods -n alpha-app1 \
     -l app=hello-world --no-headers 2>/dev/null | wc -l)
@@ -87,6 +99,7 @@ setup() {
 }
 
 @test "SEED-03 (alpha-app1): exactly 1 Service hello-world materialized by GTR" {
+  require_ns alpha-app1
   run kubectl --context=k3d-spoke-capsule get svc hello-world -n alpha-app1
   [ "$status" -eq 0 ]
 }
