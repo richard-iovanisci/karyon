@@ -75,6 +75,16 @@ jobs:
           sudo apt-get install -y bats
       - name: Run prune-lint test (DESTROY-04 - D-12 reuses existing bats test verbatim)
         run: bats tests/bats/destroy-rebuild-01-static.bats
+      # 2026-07-06: run EVERY static suite, not just destroy-rebuild-01. The
+      # 2026-05-27 webhook fix (c89f1b2) shipped while its regression guard
+      # (capsule-install-03) still asserted the PRE-fix value and no gate ever
+      # executed it — five sibling static suites had silently drifted RED the
+      # same way. Static suites are pure grep/yq against committed files (yq is
+      # preinstalled on ubuntu-latest); the one live sub-test (push-gate-05
+      # gitleaks scan) self-skips when the binary is absent. Live suites
+      # (*-live-*.bats) stay out of CI — they need the k3d clusters.
+      - name: Run all static bats suites (post-v0.20 defect-sweep gate)
+        run: bats tests/bats/*static*.bats
 
   gitleaks-scan:
     name: gitleaks-scan
