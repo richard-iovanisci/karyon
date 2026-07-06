@@ -1,11 +1,17 @@
 #!/usr/bin/env bats
 # tests/bats/seed-04-live-shape.bats
 # Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# SEED-03 — Pod + Service only:
-#   - NO Deployment / NO ReplicaSet / NO extra ConfigMap labeled by GTR
-#   - Exactly 1 Pod hello-world per tenant ns
+# SEED-03 — Deployment + Service only (AMENDED per ADR-008 addendum 2026-07-06,
+# supersedes D-13-12 "Pod + Service"):
+#   - Exactly 1 GTR-labeled Deployment hello-world per tenant ns (was: zero —
+#     the bare-Pod design put the Capsule controller in a permanent resync
+#     error loop because Pod specs are immutable on update)
+#   - Exactly 1 running hello-world pod (via app=hello-world template label;
+#     Deployment pods carry a -<hash> suffix)
 #   - Exactly 1 Service hello-world per tenant ns
-# RED until Plan 13-03 lands the GTR + workload.
+#   - Still ZERO extra ConfigMaps labeled by the GTR
+#   - ReplicaSets exist as Deployment children but do NOT carry the GTR
+#     provenance label (it is not part of the pod template)
 
 load 'test_helper'
 
@@ -17,11 +23,11 @@ setup() {
 
 # ---- tenant-alpha ----
 
-@test "SEED-03 (tenant-alpha): zero Deployments labeled karyon.io/managed-by=capsule-global-tenant-resource" {
+@test "SEED-03 (tenant-alpha): exactly 1 Deployment labeled karyon.io/managed-by=capsule-global-tenant-resource" {
   local n
   n=$(kubectl --context=k3d-spoke-capsule get deployment -n tenant-alpha \
     -l karyon.io/managed-by=capsule-global-tenant-resource --no-headers 2>/dev/null | wc -l)
-  [ "$n" -eq 0 ]
+  [ "$n" -eq 1 ]
 }
 
 @test "SEED-03 (tenant-alpha): zero ReplicaSets labeled karyon.io/managed-by=capsule-global-tenant-resource" {
@@ -38,9 +44,11 @@ setup() {
   [ "$n" -eq 0 ]
 }
 
-@test "SEED-03 (tenant-alpha): exactly 1 Pod hello-world materialized by GTR" {
-  run kubectl --context=k3d-spoke-capsule get pod hello-world -n tenant-alpha
-  [ "$status" -eq 0 ]
+@test "SEED-03 (tenant-alpha): exactly 1 hello-world pod (app=hello-world) materialized via the seeded Deployment" {
+  local n
+  n=$(kubectl --context=k3d-spoke-capsule get pods -n tenant-alpha \
+    -l app=hello-world --no-headers 2>/dev/null | wc -l)
+  [ "$n" -eq 1 ]
 }
 
 @test "SEED-03 (tenant-alpha): exactly 1 Service hello-world materialized by GTR" {
@@ -50,11 +58,11 @@ setup() {
 
 # ---- alpha-app1 ----
 
-@test "SEED-03 (alpha-app1): zero Deployments labeled karyon.io/managed-by=capsule-global-tenant-resource" {
+@test "SEED-03 (alpha-app1): exactly 1 Deployment labeled karyon.io/managed-by=capsule-global-tenant-resource" {
   local n
   n=$(kubectl --context=k3d-spoke-capsule get deployment -n alpha-app1 \
     -l karyon.io/managed-by=capsule-global-tenant-resource --no-headers 2>/dev/null | wc -l)
-  [ "$n" -eq 0 ]
+  [ "$n" -eq 1 ]
 }
 
 @test "SEED-03 (alpha-app1): zero ReplicaSets labeled karyon.io/managed-by=capsule-global-tenant-resource" {
@@ -71,9 +79,11 @@ setup() {
   [ "$n" -eq 0 ]
 }
 
-@test "SEED-03 (alpha-app1): exactly 1 Pod hello-world materialized by GTR" {
-  run kubectl --context=k3d-spoke-capsule get pod hello-world -n alpha-app1
-  [ "$status" -eq 0 ]
+@test "SEED-03 (alpha-app1): exactly 1 hello-world pod (app=hello-world) materialized via the seeded Deployment" {
+  local n
+  n=$(kubectl --context=k3d-spoke-capsule get pods -n alpha-app1 \
+    -l app=hello-world --no-headers 2>/dev/null | wc -l)
+  [ "$n" -eq 1 ]
 }
 
 @test "SEED-03 (alpha-app1): exactly 1 Service hello-world materialized by GTR" {

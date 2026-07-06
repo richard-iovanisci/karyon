@@ -1,11 +1,22 @@
 # pocs/capsule/spoke/global-resources/hello-world.yaml
-# GlobalTenantResource that auto-propagates a hello-world Pod + Service into
-# every tenant namespace (Phase 13 — SEED-01/02/03).
+# GlobalTenantResource that auto-propagates a hello-world Deployment + Service
+# into every tenant namespace (Phase 13 — SEED-01/02/03; shape amended 2026-07-06).
 #
 # REQ: SEED-01 (propagation to all tenant namespaces), SEED-02 (<=60s for fresh
-#      tenant), SEED-03 (Pod + Service shape ONLY — no Deployment / RS / extra CM)
-# Decision: D-13-11 (match-all tenantSelector), D-13-12 (Pod + Service workload),
-#           D-13-13 (file layout under pocs/capsule/spoke/global-resources/)
+#      tenant), SEED-03 (single workload + Service ONLY — no extra CM)
+# Decision: D-13-11 (match-all tenantSelector), D-13-13 (file layout under
+#           pocs/capsule/spoke/global-resources/)
+# AMENDED (ADR-008 addendum 2026-07-06, supersedes D-13-12 "Pod + Service"):
+#   the original bare-Pod rawItem put capsule-controller-manager into a PERMANENT
+#   error loop — every resync re-sends the sparse Pod spec as an UPDATE, which the
+#   apiserver rejects ("pod updates may not change fields other than image...")
+#   because live Pods carry server-populated immutable fields (nodeName, projected
+#   SA token volume, ...). GlobalTenantResource has NO update-skip option
+#   (spec = tenantSelector/resyncPeriod/pruningOnDelete/resources only), so the
+#   seeded workload MUST have a mutable spec: a 1-replica Deployment. The D-13-13
+#   OQ-3 "Deployment churn" concern was weighed against a controller stuck in
+#   exponential backoff (masking real GTR failures) — the loop loses.
+#   NEVER seed bare Pods (or Jobs — also immutable) via GTR rawItems.
 # Threat: T-13-06 (workload propagation outside intended tenants) — mitigated by
 #         explicit match-all selector (canonical k8s pattern per A1); proxy LIST
 #         scopes visibility; bats seed-02-live verifies exactly 4 namespaces
@@ -47,26 +58,35 @@ spec:
           karyon.io/managed-by: capsule-global-tenant-resource
           karyon.io/poc: capsule
       rawItems:
-        - apiVersion: v1
-          kind: Pod
+        - apiVersion: apps/v1
+          kind: Deployment
           metadata:
             name: hello-world
             labels:
               app: hello-world
           spec:
-            containers:
-              - name: nginx
-                image: docker.io/library/nginx:alpine
-                ports:
-                  - containerPort: 80
-                    name: http
-                resources:
-                  requests:
-                    cpu: 50m
-                    memory: 64Mi
-                  limits:
-                    cpu: 100m
-                    memory: 128Mi
+            replicas: 1
+            selector:
+              matchLabels:
+                app: hello-world
+            template:
+              metadata:
+                labels:
+                  app: hello-world
+              spec:
+                containers:
+                  - name: nginx
+                    image: docker.io/library/nginx:alpine
+                    ports:
+                      - containerPort: 80
+                        name: http
+                    resources:
+                      requests:
+                        cpu: 50m
+                        memory: 64Mi
+                      limits:
+                        cpu: 100m
+                        memory: 128Mi
         - apiVersion: v1
           kind: Service
           metadata:

@@ -128,25 +128,25 @@ tenant-charlie   Active   2s
 
 ## Act 4 — GlobalTenantResource auto-seed observation (≤ 60s)
 
-Capsule's `GlobalTenantResource` mechanism auto-replicates cluster-scoped fixtures into every tenant namespace. Phase 13 SEED-02 verified the ≤ 60s propagation contract on freshly-provisioned tenants; this act observes that contract live on `tenant-charlie`. The `hello-world` pod + service are seeded by the `seed-hello-world` GlobalTenantResource and should reach Ready within the timeout.
+Capsule's `GlobalTenantResource` mechanism auto-replicates cluster-scoped fixtures into every tenant namespace. Phase 13 SEED-02 verified the ≤ 60s propagation contract on freshly-provisioned tenants; this act observes that contract live on `tenant-charlie`. The `hello-world` deployment + service are seeded by the `hello-world-seeded` GlobalTenantResource and should reach Available within the timeout. (Amended 2026-07-06 per the ADR-008 addendum: the seed is a 1-replica Deployment, not a bare Pod — bare Pods have immutable specs and put the Capsule controller in a permanent resync error loop.)
 
 The demo value here is the cross-cut: a single cluster-scoped object materializes into N tenant namespaces automatically, without per-tenant Flux Kustomization edits. In production this is how baseline tenant fixtures (logging sidecars, network policies, default ServiceAccount annotations) propagate without per-tenant operational drift.
 
 ```bash
 # Wait for SEED-02 propagation — must complete within 60s
-kubectl --context k3d-spoke-capsule -n tenant-charlie wait pod/hello-world --for=condition=Ready --timeout=60s
+kubectl --context k3d-spoke-capsule -n tenant-charlie wait deployment/hello-world --for=condition=Available --timeout=60s
 
-# Confirm the seeded pod + service are live
-kubectl --context k3d-spoke-capsule -n tenant-charlie get pod hello-world,service hello-world
+# Confirm the seeded deployment + service are live
+kubectl --context k3d-spoke-capsule -n tenant-charlie get deployment hello-world,service hello-world
 ```
 
 ### Expected output
 
 ```text
-pod/hello-world condition met
+deployment.apps/hello-world condition met
 
-NAME              READY   STATUS    RESTARTS   AGE
-pod/hello-world   1/1     Running   0          18s
+NAME                          READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/hello-world   1/1     1            1           18s
 
 NAME                  TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
 service/hello-world   ClusterIP   10.43.142.103   <none>        80/TCP    18s
@@ -156,7 +156,7 @@ service/hello-world   ClusterIP   10.43.142.103   <none>        80/TCP    18s
 
 This is the densest act and the heart of the demo: the same cluster looks different through two different kubeconfigs. The tenant-owner kubeconfig (Tier 3) is routed through capsule-proxy on NodePort 30443, which performs LIST-filter enforcement on tenant-namespace boundaries — a cluster-wide `kubectl get namespaces` issued through this kubeconfig returns ONLY the tenant's own namespaces. The platform-owner kubeconfig (Tier 2) talks directly to the apiserver but is bound to the narrowed `capsule-platform-owner` ClusterRole.
 
-Why two perspectives matter for the audience: the Tier 3 view shows what a tenant developer sees day-to-day (their own namespace, exec into their pods, no Secret access, no cross-tenant peeking). The Tier 2 view shows the Karyon Platform Team's break-glass capability (co-owner exec into any tenant's workloads, without holding cluster-admin). The contrast between the same `hello-world` pod accessed two ways is the load-bearing visual.
+Why two perspectives matter for the audience: the Tier 3 view shows what a tenant developer sees day-to-day (their own namespace, exec into their pods, no Secret access, no cross-tenant peeking). The Tier 2 view shows the Karyon Platform Team's break-glass capability (co-owner exec into any tenant's workloads, without holding cluster-admin). The contrast between the same `hello-world` workload accessed two ways is the load-bearing visual. (`kubectl exec deploy/hello-world` resolves to a ready child pod — the seeded workload is a Deployment, so pod names carry a `-<hash>` suffix.)
 
 Five sub-segments — switch perspective each time and call out the contrast:
 
@@ -165,8 +165,8 @@ Five sub-segments — switch perspective each time and call out the contrast:
 kubectl --kubeconfig=$TO_ALPHA_KC get namespaces
 
 # 5b — Tenant-owner alpha: positive controls (exec + logs into own workload)
-kubectl --kubeconfig=$TO_ALPHA_KC -n tenant-alpha exec hello-world -- sh -c "echo ok-from-shell"
-kubectl --kubeconfig=$TO_ALPHA_KC -n tenant-alpha logs hello-world --tail=3
+kubectl --kubeconfig=$TO_ALPHA_KC -n tenant-alpha exec deploy/hello-world -- sh -c "echo ok-from-shell"
+kubectl --kubeconfig=$TO_ALPHA_KC -n tenant-alpha logs deploy/hello-world --tail=3
 
 # 5c — Tenant-owner alpha: negative control — Secret write is Forbidden (tenant-workload-editor drops Secret access)
 kubectl --kubeconfig=$TO_ALPHA_KC -n tenant-alpha create secret generic demo-deny --from-literal=k=v
@@ -175,7 +175,7 @@ kubectl --kubeconfig=$TO_ALPHA_KC -n tenant-alpha create secret generic demo-den
 kubectl --kubeconfig=$TO_ALPHA_KC get pods -n tenant-bravo
 
 # 5e — Switch hats: platform-owner co-owner exec into tenant-alpha workload (Tier 2 break-glass)
-kubectl --kubeconfig=$PO_KC -n tenant-alpha exec hello-world -- sh -c "hostname"
+kubectl --kubeconfig=$PO_KC -n tenant-alpha exec deploy/hello-world -- sh -c "hostname"
 ```
 
 ### Expected output
@@ -199,12 +199,13 @@ error: failed to create secret secrets is forbidden: User "system:serviceaccount
 Error from server (Forbidden): pods is forbidden: User "system:serviceaccount:tenant-alpha:human-tenant-owner" cannot list resource "pods" in API group "" in the namespace "tenant-bravo"
 
 # 5e — platform-owner co-owner exec succeeds (Tier 2 break-glass into tenant workload)
-hello-world
+# (hostname == pod name; Deployment pods carry a -<hash> suffix)
+hello-world-6d8f4c9b7d-x2m4q
 ```
 
 ## Act 6 — Cleanup (delete charlie)
 
-Close the lifecycle loop. The platform-owner (RBAC-05 delete grant) tears down the `charlie` tenant. Capsule unmaterializes the namespace; tenant workloads and the seeded `hello-world` pod go with it. Tenants `alpha` and `bravo` are untouched — re-run Act 5's 5a / 5b commands after the delete to confirm the unrelated tenants still serve traffic.
+Close the lifecycle loop. The platform-owner (RBAC-05 delete grant) tears down the `charlie` tenant. Capsule unmaterializes the namespace; tenant workloads and the seeded `hello-world` deployment go with it. Tenants `alpha` and `bravo` are untouched — re-run Act 5's 5a / 5b commands after the delete to confirm the unrelated tenants still serve traffic.
 
 The audience takeaway: tenant lifecycle (create → seed → use → delete) is fully exercised from Tier 2 alone. At no point did the demo invoke `cluster-admin`. The Karyon Platform Team carries enough authority to provision and tear down tenants, but not enough to escalate into cluster-control plane — exactly the constraint the three-tier model promises.
 
@@ -239,6 +240,8 @@ Example:
 ```
 
 This is the apiserver's webhook-handshake retry loop against capsule-controller-manager using a self-signed cert it doesn't trust. It does NOT affect tenant boundary enforcement or `GlobalTenantResource` propagation (verified empirically via Phase 13 + this phase's DEMO-01..06 bats).
+
+**Historical note (fixed 2026-07-06).** Before the ADR-008 addendum amended the GTR seed to a Deployment, the controller log ALSO carried a permanent `unable to replicate the requested resources ... Pod "hello-world" is invalid` error loop — the bare-Pod rawItem hit Pod-spec immutability on every resync and sat in controller-runtime exponential backoff. That error class is now a regression signal, not noise: if you see `unable to replicate` in these logs, something is genuinely broken (registry allowlist drift, immutable-shape rawItems, RBAC). Do not talk-track past it.
 
 **Why document-only.** Per [ADR-008](adr/0008-capsule-multi-tenancy-graduation.md) the Capsule POC is `DEFER` for production graduation; the chatter is cosmetic, not functional. Fixing it pulls in cert-manager / CA-distribution work that the lean v0.20 milestone is explicitly scope-guarded against. A production EKS cut would wire AWS Certificate Manager or cert-manager controller-managed certs cleanly; see [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Phase 11 Evidence — Cert source".
 

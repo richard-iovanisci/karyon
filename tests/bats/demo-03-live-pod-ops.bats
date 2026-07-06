@@ -1,8 +1,11 @@
 #!/usr/bin/env bats
 # tests/bats/demo-03-live-pod-ops.bats
 # Phase 14 / Wave 0 (D-14-08 + D-13-15 Nyquist gate)
-# DEMO-03 — positive control: tenant-owner + platform-owner exec/logs against SEED-01 hello-world Pod (alpha + bravo symmetric mirror).
+# DEMO-03 — positive control: tenant-owner + platform-owner exec/logs against the SEED-01 hello-world workload (alpha + bravo symmetric mirror).
 # RED until Plan 14-02 lands DEMO bats GREEN against the live cluster.
+# AMENDED (ADR-008 addendum 2026-07-06): GTR seeds a Deployment now, so exec/logs
+# target deploy/hello-world (kubectl resolves to a ready child pod) instead of a
+# fixed pod name — Deployment pods carry a -<hash> suffix.
 
 load 'test_helper'
 
@@ -36,41 +39,41 @@ setup() {
   [ -f "${BRAVO_KUBECONFIG:-/dev/null}" ] || skip "bravo kubeconfig not minted (setup_file failed; expected RED pre-implementation)"
 }
 
-@test "DEMO-03 (tenant-owner alpha exec): kubectl exec hello-world -- sh -c 'echo ok-from-shell'" {
-  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" -n tenant-alpha exec hello-world \
+@test "DEMO-03 (tenant-owner alpha exec): kubectl exec deploy/hello-world -- sh -c 'echo ok-from-shell'" {
+  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" -n tenant-alpha exec deploy/hello-world \
     -- sh -c "echo ok-from-shell"
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF "ok-from-shell"
 }
 
-@test "DEMO-03 (tenant-owner bravo exec): kubectl exec hello-world -- sh -c 'echo ok-from-shell'" {
-  run kubectl --kubeconfig="$BRAVO_KUBECONFIG" -n tenant-bravo exec hello-world \
+@test "DEMO-03 (tenant-owner bravo exec): kubectl exec deploy/hello-world -- sh -c 'echo ok-from-shell'" {
+  run kubectl --kubeconfig="$BRAVO_KUBECONFIG" -n tenant-bravo exec deploy/hello-world \
     -- sh -c "echo ok-from-shell"
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF "ok-from-shell"
 }
 
-@test "DEMO-03 (tenant-owner alpha logs): kubectl logs hello-world --tail=3 contains 'worker process'" {
-  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" -n tenant-alpha logs hello-world --tail=3
+@test "DEMO-03 (tenant-owner alpha logs): kubectl logs deploy/hello-world --tail=3 contains 'worker process'" {
+  run kubectl --kubeconfig="$ALPHA_KUBECONFIG" -n tenant-alpha logs deploy/hello-world --tail=3
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF "worker process"
 }
 
-@test "DEMO-03 (tenant-owner bravo logs): kubectl logs hello-world --tail=3 contains 'worker process'" {
-  run kubectl --kubeconfig="$BRAVO_KUBECONFIG" -n tenant-bravo logs hello-world --tail=3
+@test "DEMO-03 (tenant-owner bravo logs): kubectl logs deploy/hello-world --tail=3 contains 'worker process'" {
+  run kubectl --kubeconfig="$BRAVO_KUBECONFIG" -n tenant-bravo logs deploy/hello-world --tail=3
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF "worker process"
 }
 
 @test "DEMO-03 (platform-owner cross-tenant exec into tenant-alpha): succeeds (RBAC-06 co-owner)" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" -n tenant-alpha exec hello-world \
+  run kubectl --kubeconfig="$PO_KUBECONFIG" -n tenant-alpha exec deploy/hello-world \
     -- sh -c "echo ok-from-shell"
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF "ok-from-shell"
 }
 
 @test "DEMO-03 (platform-owner cross-tenant logs against tenant-bravo): succeeds" {
-  run kubectl --kubeconfig="$PO_KUBECONFIG" -n tenant-bravo logs hello-world --tail=3
+  run kubectl --kubeconfig="$PO_KUBECONFIG" -n tenant-bravo logs deploy/hello-world --tail=3
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF "worker process"
 }

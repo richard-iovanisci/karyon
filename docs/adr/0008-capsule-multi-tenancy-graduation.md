@@ -318,3 +318,50 @@ reasonable definition. Pinning by digest + failing closed on the namespace-claim
 POC reproducibly demoable, but the underlying upstream pattern (silent admission skip on webhook
 unavailability + strict validation on the unclaimed result) is exactly the kind of edge case a
 production EKS cut would need cert-manager + a proper webhook readiness gate to handle robustly.
+
+## Addendum — 2026-07-06 post-v0.20 defect sweep (GTR raw-Pod resync loop + guard inversions)
+
+**Context.** A post-milestone deep-dive audit (agent workflow, 2026-07-06) re-checked the shipped
+Capsule POC against its own committed contracts and live cluster state. Four unrecorded defects were
+found and fixed the same day. Two are Capsule-relevant and recorded here; the other two (a
+`register-spokes` rerun hazard and the private-repo tenant-source auth failure) are recorded in the
+quick-task summary at `.planning/quick/20260706-post-v020-defect-sweep/`.
+
+**Finding 1 — GlobalTenantResource raw-Pod design put the controller in a permanent error loop
+(supersedes D-13-12 "Pod + Service" shape; amends SEED-03).** The Phase 13 seed
+(`pocs/capsule/spoke/global-resources/hello-world.yaml`) replicated a bare `Pod` into every tenant
+namespace. Pod specs are immutable on update, and `GlobalTenantResource` has no update-skip option
+(spec = `tenantSelector` / `resyncPeriod` / `pruningOnDelete` / `resources` only), so every resync
+re-sent the sparse rawItem spec as a full UPDATE and the apiserver rejected it (`pod updates may not
+change fields other than spec.containers[*].image...`). Live observation: `capsule-controller-manager`
+sat in a controller-runtime exponential-backoff error loop (intervals doubling ~20s → ~331s toward the
+~16-min requeue cap), which (a) displaced the assumed 60s resync cadence for every recovery path that
+relies on periodic resync, and (b) established a permanent baseline of `unable to replicate` errors
+that would mask REAL replication failures of the same error class (precedent: the Phase 14 UAT
+registry-allowlist drift produced exactly this error signature). The seeded workloads themselves ran
+fine, which is why the defect shipped blind: no bats, health-check, or runbook step ever read the
+controller logs. D-13-13 OQ-3 had rejected a Deployment for "replica-count noise / Deployment churn"
+without weighing update-immutability.
+
+**Fix (2026-07-06):** the rawItem is now a 1-replica `apps/v1 Deployment` (mutable spec; identical
+container, FQCI image, same Service). SEED-03's boundary inverts: bare `Pod` (and `Job` — also
+immutable) rawItems are now the FORBIDDEN shapes, guarded statically by
+`tests/bats/seed-01-static-globaltenantresource.bats`; live shape/readiness assertions moved to
+Deployment/label-selector semantics (`seed-02/03/04`, `demo-03` use `deploy/hello-world`). The demo
+runbook's Known-noise appendix now explicitly marks `unable to replicate` as a regression signal, not
+noise.
+
+**Finding 2 — the regression guard for the 2026-05-27 webhook fix was inverted and unenforced.**
+`tests/bats/capsule-install-03-static-values.bats` still asserted
+`webhooks.hooks.namespaces.failurePolicy == "Ignore"` (the pre-fix value this ADR's 2026-05-27
+addendum exists to prevent), and NO gate executed the suite — CI's `prune-lint-bats` job ran a single
+unrelated bats file. Had someone "fixed CI" by wiring the suite in, the failing test would have
+invited a revert of the `Fail` pin, reintroducing the cold-bootstrap deadlock. The assertion is now
+inverted to `Fail` and the static bats suites run in CI. Five sibling static suites had drifted stale
+the same way (POC DAG shape, spoke SA name, doc heading, archived gitleaks allowlist paths) and were
+reconciled to committed reality in the same sweep.
+
+**Reinforcement of DEFER stance:** both findings are process findings as much as code findings — the
+Wave-0 Nyquist gates only protect contracts while the suites RUN and are UPDATED alongside the
+decisions they pin. The POC remains DEFER; the sweep makes the demo reproducible again (controller
+logs clean, tenant GitOps path restored) without changing the graduation calculus.

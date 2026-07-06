@@ -299,7 +299,7 @@ Each tenant also needs: its home namespace (e.g. `tenant-alpha`) carrying label
 ### 3g. GlobalTenantResource (auto-seed workloads into every tenant)
 
 Cluster-scoped CR; Capsule replicates the items into every namespace whose tenant matches the selector,
-within `resyncPeriod`. Great for baseline fixtures (here: a hello-world Pod + Service).
+within `resyncPeriod`. Great for baseline fixtures (here: a hello-world Deployment + Service).
 
 **Watch the schema shape** — items live under `spec.resources[].rawItems`, *not* a top-level `rawItems`.
 Each `resources[]` entry can attach `additionalMetadata` to everything it stamps out:
@@ -317,17 +317,24 @@ spec:
     - additionalMetadata:
         labels: { your-org/managed-by: capsule-global-tenant-resource }
       rawItems:
-        - apiVersion: v1
-          kind: Pod
+        - apiVersion: apps/v1
+          kind: Deployment
           metadata: { name: hello-world, labels: { app: hello-world } }
           spec:
-            containers:
-              - name: nginx
-                image: docker.io/library/nginx:alpine   # fully-qualified image ref
-                ports: [{ containerPort: 80, name: http }]
-                resources:
-                  requests: { cpu: 50m, memory: 64Mi }
-                  limits:   { cpu: 100m, memory: 128Mi }
+            replicas: 1
+            selector:
+              matchLabels: { app: hello-world }
+            template:
+              metadata:
+                labels: { app: hello-world }
+              spec:
+                containers:
+                  - name: nginx
+                    image: docker.io/library/nginx:alpine   # fully-qualified image ref
+                    ports: [{ containerPort: 80, name: http }]
+                    resources:
+                      requests: { cpu: 50m, memory: 64Mi }
+                      limits:   { cpu: 100m, memory: 128Mi }
         - apiVersion: v1
           kind: Service
           metadata: { name: hello-world, labels: { app: hello-world } }
@@ -337,9 +344,19 @@ spec:
             ports: [{ port: 80, targetPort: http }]
 ```
 
+> **Immutable-shape gotcha (learned the hard way):** never put a bare `Pod` (or `Job`) in `rawItems`.
+> Pod specs are immutable on update, GlobalTenantResource has NO update-skip option, and on every
+> resync the controller re-sends the sparse rawItem spec as a full UPDATE — the apiserver rejects it
+> (`pod updates may not change fields other than spec.containers[*].image...`) and the controller sits
+> in a **permanent exponential-backoff error loop** (up to ~16 min between retries) that masks real
+> replication failures and breaks the resync cadence. The workloads still run, so nothing looks broken
+> unless you read the controller logs. Seed controller-owned shapes with mutable specs (Deployment,
+> StatefulSet, DaemonSet) instead. The karyon POC shipped a bare-Pod seed and only caught the loop in a
+> post-ship audit (ADR-008 addendum 2026-07-06).
+>
 > **Registry allowlist gotcha:** if your Tenant CRs restrict `containerRegistries.allowed`, the seed
-> image's registry MUST be on that list or the propagated Pod is webhook-rejected. The POC had to add
-> `docker.io` for the nginx seed.
+> image's registry MUST be on that list or the propagated workload is webhook-rejected. The POC had to
+> add `docker.io` for the nginx seed.
 
 When a **new** tenant is provisioned, the seed auto-propagates into it within the resync window — the
 "watch a workload appear in a brand-new tenant in <60s" demo moment. (Live-run caveat: if the tenant has
@@ -378,7 +395,7 @@ tokens). Mint **token-only** kubeconfigs (no client cert) — see §5 #3.
 | 2 | `kubectl --kubeconfig=$PO get tenants` | all tenants | Tier-2 oversight |
 | 2 | `kubectl --kubeconfig=$PO create clusterrolebinding x --clusterrole=cluster-admin --user=platform-owner` | **Forbidden** | Tier-2 ceiling (can't self-escalate) |
 | 3 | provision a new tenant via the platform-owner kubeconfig | tenant + namespace materialize; RoleBindings injected | Tier-2 lifecycle authority |
-| 4 | `kubectl -n <new-tenant> wait pod/hello-world --for=condition=Ready --timeout=60s` | Ready | GlobalTenantResource auto-seed |
+| 4 | `kubectl -n <new-tenant> wait deployment/hello-world --for=condition=Available --timeout=60s` | Available | GlobalTenantResource auto-seed |
 | 5a | `kubectl --kubeconfig=$TENANT get namespaces` | **only that tenant's ns** | capsule-proxy LIST filter |
 | 5b | `kubectl --kubeconfig=$TENANT -n <own-ns> exec/logs ...` | works | narrow but functional |
 | 5c | `kubectl --kubeconfig=$TENANT -n <own-ns> create secret ...` | **Forbidden** | secret writes dropped |

@@ -1,13 +1,15 @@
 #!/usr/bin/env bats
 # tests/bats/seed-01-static-globaltenantresource.bats
 # Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# SEED-01 — GlobalTenantResource + Pod + Service inline shape:
+# SEED-01 — GlobalTenantResource + Deployment + Service inline shape:
 #   - apiVersion: capsule.clastix.io/v1beta2, kind: GlobalTenantResource
+#   - Deployment + Service in rawItems[] with FQCI image (Pitfall 13-P1)
 #   - tenantSelector.matchLabels: {} (match-all per RESEARCH Pattern 1)
-#   - Pod + Service in rawItems[] with FQCI image (Pitfall 13-P1)
 #   - karyon.io/managed-by: capsule-global-tenant-resource provenance label
-# SEED-03 boundary: NO Deployment / NO ReplicaSet in rawItems[].
-# RED until Plan 13-03 lands hello-world.yaml + kustomization.yaml.
+# SEED-03 boundary (AMENDED per ADR-008 addendum 2026-07-06, supersedes D-13-12):
+#   NO bare Pod (immutable spec → permanent GTR resync error loop) and NO extra
+#   ConfigMap in rawItems[]. The original "Pod + Service ONLY / no Deployment"
+#   boundary is inverted: bare Pods are now the forbidden shape.
 
 load 'test_helper'
 
@@ -55,9 +57,9 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "SEED-01 / D-13-12 (Pod shape): rawItems[] contains kind: Pod" {
+@test "SEED-01 / ADR-008 addendum 2026-07-06 (Deployment shape): rawItems[] contains kind: Deployment" {
   [ -f "$F" ]
-  run yq eval-all '[.spec.resources[].rawItems[].kind // .spec.resources[].rawItems[]?.kind] | flatten | any_c(. == "Pod")' "$F"
+  run yq eval-all '[.spec.resources[].rawItems[].kind // .spec.resources[].rawItems[]?.kind] | flatten | any_c(. == "Deployment")' "$F"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
@@ -69,11 +71,22 @@ setup() {
   [ "$output" = "true" ]
 }
 
-@test "SEED-03 / D-13-02 (boundary): NO kind: Deployment in hello-world.yaml" {
+# INVERTED (ADR-008 addendum 2026-07-06): bare Pods in GTR rawItems[] are the
+# forbidden shape — Pod spec is immutable, so every GTR resync UPDATE fails and
+# capsule-controller-manager sits in a permanent exponential-backoff error loop
+# that masks real replication failures. Same class of failure applies to Jobs.
+@test "SEED-03 / ADR-008 addendum (boundary): NO bare kind: Pod in rawItems[]" {
   [ -f "$F" ]
-  # Filter comments first so this bats's own comments are not counted.
-  run bash -c "grep -v '^[[:space:]]*#' '$F' | grep -F 'kind: Deployment'"
-  [ "$status" -ne 0 ]
+  run yq eval-all '[.spec.resources[].rawItems[].kind // .spec.resources[].rawItems[]?.kind] | flatten | any_c(. == "Pod")' "$F"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
+@test "SEED-03 / ADR-008 addendum (boundary): NO kind: Job in rawItems[] (spec also immutable)" {
+  [ -f "$F" ]
+  run yq eval-all '[.spec.resources[].rawItems[].kind // .spec.resources[].rawItems[]?.kind] | flatten | any_c(. == "Job")' "$F"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
 }
 
 @test "SEED-03 / D-13-02 (boundary): NO kind: ReplicaSet in hello-world.yaml" {

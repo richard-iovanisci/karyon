@@ -60,8 +60,19 @@ setup() {
   fi
 }
 
-@test "SEED-02 / D-13-08 + D-13-11 (fresh tenant): hello-world Pod Ready in tenant-phase13-fresh within 60s" {
-  run kubectl --context=k3d-spoke-capsule wait pod/hello-world \
-    --for=condition=Ready -n tenant-phase13-fresh --timeout=60s
-  [ "$status" -eq 0 ]
+# AMENDED (ADR-008 addendum 2026-07-06): GTR seeds a Deployment now; the ≤60s
+# SLO is asserted as Deployment Available (equivalent readiness signal, and the
+# fresh-tenant path still rides the Tenant-CREATE watch event per 13-RESEARCH A5).
+# Explicit poll instead of `kubectl wait` because the Deployment may not exist
+# yet when the test starts (wait on a missing named resource errors immediately).
+@test "SEED-02 / D-13-08 + D-13-11 (fresh tenant): hello-world Deployment Available in tenant-phase13-fresh within 60s" {
+  local i cond
+  for i in $(seq 1 12); do
+    cond=$(kubectl --context=k3d-spoke-capsule -n tenant-phase13-fresh get deployment hello-world \
+      -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null || true)
+    [[ "$cond" == "True" ]] && return 0
+    sleep 5
+  done
+  echo "hello-world Deployment never reached Available in tenant-phase13-fresh (last: '${cond}')"
+  return 1
 }
