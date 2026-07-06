@@ -16,14 +16,21 @@ kind: Namespace
 metadata:
   name: tenant-bravo
 ---
-# TEN-04 — per-tenant GitRepository. Public HTTPS URL; no secretRef per Phase 6
-# REPO-01..04 (karyon repo is public). Lives in tenant-bravo namespace so the
+# TEN-04 — per-tenant GitRepository. Lives in tenant-bravo namespace so the
 # Kustomization's sourceRef survives --no-cross-namespace-refs lockdown.
+#
+# 2026-07-06 — secretRef added: the original Phase 9 design assumed anonymous
+# HTTPS clone ("karyon repo is public per Phase 6 REPO-01..04"), but the repo
+# went private between Phase 9 authoring and Plan 11-07, which left this source
+# Ready=False ("authentication required") and starved tenant-bravo-app for ~40
+# days (deferred in 11-07-SUMMARY Residual Work, then dropped from the parking
+# lot). scripts/register-poc-cluster.sh now mirrors the bootstrap git credential
+# into this namespace as `karyon-git-auth` (same pattern as the
+# spoke-capsule-kubeconfig mirror — Flux secretRef is same-namespace-only).
+# The secretRef also works if the repo is later flipped back to public.
 #
 # RESEARCH §Gap 10 — owner is hard-coded (Option A) per plan-time recommendation;
 # postBuild substituteFrom would require a cross-namespace ConfigMap mirror.
-# Until Phase 11 VAL-05 first push, GitRepository reaches Ready=False with
-# "failed to fetch: revision main doesn't exist on remote" (acceptable for Phase 9).
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
@@ -32,6 +39,8 @@ metadata:
 spec:
   interval: 5m
   url: https://github.com/richard-iovanisci/karyon
+  secretRef:
+    name: karyon-git-auth
   ref:
     branch: main
 ---

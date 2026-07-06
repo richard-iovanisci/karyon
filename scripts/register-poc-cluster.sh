@@ -255,6 +255,38 @@ mirror_kubeconfig_to_capsule_system_namespace() {
     | kubectl --context="${HUB_CTX}" apply -f -
 }
 
+# ---------- mirror_git_auth_to_tenant_namespaces: 2026-07-06 private-repo fix ----------
+# Mirror the flux bootstrap git credential (Secret flux-system/flux-system,
+# username/password shape from `flux bootstrap github --token-auth`) into
+# tenant-alpha + tenant-bravo as `karyon-git-auth`, referenced by the per-tenant
+# GitRepository secretRef in pocs/capsule/tenants/{alpha,bravo}.yaml.
+#
+# WHY: Phase 9 designed the tenant GitRepositories for anonymous HTTPS clone
+# ("repo is public per Phase 6 REPO-01..04"), but the repo went private between
+# Phase 9 and Plan 11-07 — tenant-{alpha,bravo}-source sat Ready=False
+# ("authentication required") and the tenant GitOps delivery path was dead.
+# Same-namespace mirror pattern as mirror_kubeconfig_to_tenant_namespaces above
+# (Flux secretRef has no namespace field). P29 is a git-commit hygiene rule and
+# does not prohibit in-cluster mirroring; the hub tenant namespaces are
+# operator-only (tenants only ever reach spoke-capsule via capsule-proxy).
+#
+# LEAST-PRIVILEGE NOTE: this mirrors the repo-write PAT that bootstrap created.
+# A read-only fine-grained PAT (or deploy key) in its place is the better
+# long-term posture — tracked in PROJECT.md carry-forward parking lot.
+mirror_git_auth_to_tenant_namespaces() {
+  local tenant
+  for tenant in alpha bravo; do
+    kubectl --context="${HUB_CTX}" create namespace "tenant-${tenant}" \
+      --dry-run=client -o yaml | kubectl --context="${HUB_CTX}" apply -f -
+    # shellcheck disable=SC2016 # yq expression intentionally uses single quotes
+    kubectl --context="${HUB_CTX}" -n "${FLUX_NS}" get secret flux-system -o yaml \
+      | yq eval '.metadata.name = "karyon-git-auth"
+                 | .metadata.namespace = "tenant-'"${tenant}"'"
+                 | del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp)' - \
+      | kubectl --context="${HUB_CTX}" apply -f -
+  done
+}
+
 # ---------- ensure_hub_pocs_mount: P30 INDEPENDENT sentinel insertion ----------
 # Distinct function from ensure_hub_spokes_mount() in register-spokes-for-flux.sh
 # (P30 sentinel-uniqueness contract requires DEDICATED functions for SPOKES vs
@@ -477,6 +509,14 @@ pass "mirrored: spoke-capsule-kubeconfig → tenant-alpha + tenant-bravo on ${HU
 section "Mirror spoke-capsule-kubeconfig to capsule-system namespace (G-05)"
 mirror_kubeconfig_to_capsule_system_namespace
 pass "mirrored: spoke-capsule-kubeconfig → capsule-system on ${HUB_CTX}"
+
+# Mirror the bootstrap git credential into per-tenant namespaces (2026-07-06
+# private-repo fix). The per-tenant GitRepositories reference karyon-git-auth;
+# without this mirror they sit Ready=False ("authentication required") against
+# the private repo and tenant-{alpha,bravo}-app never receive an artifact.
+section "Mirror git credential to per-tenant namespaces (private-repo fix)"
+mirror_git_auth_to_tenant_namespaces
+pass "mirrored: flux-system git credential → karyon-git-auth in tenant-alpha + tenant-bravo on ${HUB_CTX}"
 
 # Patch FLUX PATCH SURFACE with # KARYON POC MOUNT sentinel + ../pocs (idempotent)
 section "Hub-side FLUX PATCH SURFACE patch"
