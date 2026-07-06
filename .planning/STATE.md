@@ -176,6 +176,12 @@ Items acknowledged and carried forward from previous milestone close:
 | v0.19 close-out (still deferred into v0.20) | Pre-existing markdownlint failures | Active (lint cleanup deferred) | v0.19 close 2026-05-18 |
 | v0.19 close-out (still deferred into v0.20) | Pre-existing gitleaks finding in `proxy-06` fixture (allowlisted) | Active (lint cleanup deferred) | v0.19 close 2026-05-18 |
 
+## Quick Tasks Completed
+
+| Date | Slug | Summary |
+|------|------|---------|
+| 2026-07-06 | post-v020-defect-sweep | Fixed 4 unrecorded defects (inverted webhook-Fail bats guard + CI wiring; register-spokes SA-strip rerun hazard; private-repo tenant GitOps auth; GTR raw-Pod resync error loop → Deployment per ADR-008 addendum) + reconciled 5 stale static suites. See `.planning/quick/20260706-post-v020-defect-sweep/` |
+
 ## Session Continuity
 
 Last session: 2026-05-27T12:36:56.150Z
