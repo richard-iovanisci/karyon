@@ -125,6 +125,36 @@ teardown() {
   [ "$output" = "true" ]
 }
 
+# ---- 621e530 / Plan 09-03 attempt-1 falsifier: serviceAccountName is availability-critical ----
+# --default-service-account=default DOES apply to kubeConfig Kustomizations in Flux
+# 2.8.6; an empty spec.serviceAccountName impersonates the no-permission `default` SA
+# on the spoke and every apply goes Forbidden (spoke-{apps,ml} Ready=False). Guards
+# BOTH the committed manifests AND the ensure_hub_kustomization heredoc template —
+# the template overwrites the manifests on any rerun of `task register-spokes`.
+
+@test "SPOKE-05 / 621e530: spoke-ml.yaml carries spec.serviceAccountName == flux-reconciler" {
+  [ -f "$SPOKE_ML_KS" ]
+  run yq eval '.spec.serviceAccountName == "flux-reconciler"' "$SPOKE_ML_KS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "SPOKE-05 / 621e530: spoke-apps.yaml carries spec.serviceAccountName == flux-reconciler" {
+  [ -f "$SPOKE_APPS_KS" ]
+  run yq eval '.spec.serviceAccountName == "flux-reconciler"' "$SPOKE_APPS_KS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "SPOKE-05 / 621e530: ensure_hub_kustomization heredoc template emits serviceAccountName: flux-reconciler (rerun-safety)" {
+  [ -f "$SCRIPT" ]
+  # Extract the heredoc body inside ensure_hub_kustomization() and assert the SA
+  # line is emitted — without it, repair_file_if_needed strips the line from the
+  # committed manifests on the next `task register-spokes` run.
+  run bash -c "sed -n '/^ensure_hub_kustomization()/,/^}/p' '$SCRIPT' | grep -F 'serviceAccountName: flux-reconciler'"
+  [ "$status" -eq 0 ]
+}
+
 # ---- D-02: sentinel-guarded patch in flux-system/kustomization.yaml ----
 
 @test "D-02: clusters/hub-flux/flux-system/kustomization.yaml carries # KARYON SPOKES MOUNT sentinel and - ../spokes entry" {

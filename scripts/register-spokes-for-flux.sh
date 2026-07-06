@@ -413,7 +413,15 @@ spec:
     secretRef:
       name: ${spoke}-kubeconfig
       key: value.yaml
+  serviceAccountName: flux-reconciler
 EOF
+  # serviceAccountName is LOAD-BEARING (commit 621e530 / Plan 09-03 attempt-1
+  # falsifier): kustomize-controller runs with --default-service-account=default,
+  # which DOES apply to kubeConfig Kustomizations in Flux 2.8.6 — an empty
+  # spec.serviceAccountName falls through to the no-permission `default` SA on
+  # the spoke and every apply goes Forbidden. This template must keep the line
+  # or a rerun of `task register-spokes` overwrites the committed files without
+  # it (repair_file_if_needed replaces on ANY diff) and breaks spoke reconciles.
   repair_file_if_needed "${target}" "${tmp}" "clusters/hub-flux/spokes/${spoke}.yaml"
 }
 
