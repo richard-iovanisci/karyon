@@ -137,7 +137,7 @@ The demo value here is the cross-cut: a single cluster-scoped object materialize
 kubectl --context k3d-spoke-capsule -n tenant-charlie wait deployment/hello-world --for=condition=Available --timeout=60s
 
 # Confirm the seeded deployment + service are live
-kubectl --context k3d-spoke-capsule -n tenant-charlie get deployment hello-world,service hello-world
+kubectl --context k3d-spoke-capsule -n tenant-charlie get deployment,service hello-world
 ```
 
 ### Expected output
@@ -241,7 +241,7 @@ Example:
 
 This is the apiserver's webhook-handshake retry loop against capsule-controller-manager using a self-signed cert it doesn't trust. It does NOT affect tenant boundary enforcement or `GlobalTenantResource` propagation (verified empirically via Phase 13 + this phase's DEMO-01..06 bats).
 
-**Historical note (fixed 2026-07-06).** Before the ADR-008 addendum amended the GTR seed to a Deployment, the controller log ALSO carried a permanent `unable to replicate the requested resources ... Pod "hello-world" is invalid` error loop — the bare-Pod rawItem hit Pod-spec immutability on every resync and sat in controller-runtime exponential backoff. That error class is now a regression signal, not noise: if you see `unable to replicate` in these logs, something is genuinely broken (registry allowlist drift, immutable-shape rawItems, RBAC). Do not talk-track past it.
+**Historical note (fixed 2026-07-06).** Before the ADR-008 addendum amended the GTR seed to a Deployment, the controller log ALSO carried a permanent `unable to replicate the requested resources ... Pod "hello-world" is invalid` error loop — the bare-Pod rawItem hit Pod-spec immutability on every resync and sat in controller-runtime exponential backoff. How to read `unable to replicate` lines now: an occasional single line whose error is `Operation cannot be fulfilled ... the object has been modified` is a benign optimistic-concurrency race (Capsule's 60s resync UPDATE racing the deployment-controller's status writes; controller-runtime retries and succeeds on the next attempt). A line that REPEATS with the same error across consecutive reconciles is a regression signal (registry allowlist drift, immutable-shape rawItems, RBAC) — do not talk-track past that.
 
 **Why document-only.** Per [ADR-008](adr/0008-capsule-multi-tenancy-graduation.md) the Capsule POC is `DEFER` for production graduation; the chatter is cosmetic, not functional. Fixing it pulls in cert-manager / CA-distribution work that the lean v0.20 milestone is explicitly scope-guarded against. A production EKS cut would wire AWS Certificate Manager or cert-manager controller-managed certs cleanly; see [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Phase 11 Evidence — Cert source".
 

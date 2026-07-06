@@ -29,6 +29,8 @@ resources:
   - rbac/
   - config/
   - tenants/
-  # NEW (Phase 13 D-13-13): GTR + Pod + Service propagation. Lands LAST so
+  # NEW (Phase 13 D-13-13): GTR + Deployment + Service propagation (shape amended
+  # from bare Pod by ADR-008 addendum 2026-07-06 — immutable Pod specs put the
+  # controller in a permanent resync error loop). Lands LAST so
   # Tenant.Status.Namespaces is non-empty when controller first reconciles.
   - global-resources/

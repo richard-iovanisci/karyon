@@ -3,7 +3,8 @@
 # Phase 13 / Wave 0 (D-13-15 Nyquist gate)
 # SEED-02 — fresh-tenant propagation <=60s falsifier.
 # Uses new-tenant.sh phase13-fresh to create a brand-new Tenant + Namespace; asserts
-# hello-world Pod Ready=True within 60s of namespace creation (the SEED-02 SLO).
+# hello-world Deployment Available within 60s of namespace creation (the SEED-02
+# SLO; shape amended from bare Pod by ADR-008 addendum 2026-07-06).
 # RED until Plans 13-02 (new-tenant.sh + platform-owner kubeconfig) + 13-03 (GTR) land.
 
 load 'test_helper'

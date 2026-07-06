@@ -75,7 +75,10 @@ jobs:
           sudo apt-get install -y bats
       - name: Run prune-lint test (DESTROY-04 - D-12 reuses existing bats test verbatim)
         run: bats tests/bats/destroy-rebuild-01-static.bats
-      # 2026-07-06: run EVERY static suite, not just destroy-rebuild-01. The
+      # 2026-07-06: run every *static*-NAMED suite (46 files), not just
+      # destroy-rebuild-01. (Some suites named neither static nor live — the
+      # preflight/cuda-image/repo-hygiene/docs sets — are also cluster-free
+      # and could join this glob after a green audit; tracked informally.) The
       # 2026-05-27 webhook fix (c89f1b2) shipped while its regression guard
       # (capsule-install-03) still asserted the PRE-fix value and no gate ever
       # executed it — five sibling static suites had silently drifted RED the

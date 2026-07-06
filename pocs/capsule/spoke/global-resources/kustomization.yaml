@@ -3,8 +3,10 @@
 # Resolved by parent pocs/capsule/spoke/kustomization.yaml (resources list includes
 # global-resources/ — Phase 13 D-13-13).
 #
-# D-13-11 + D-13-12 — GlobalTenantResource (cluster-scoped Capsule CR) with embedded
-# Pod + Service propagated to every tenant namespace. Spoke-targeted (parent
+# D-13-11 — GlobalTenantResource (cluster-scoped Capsule CR) with embedded
+# Deployment + Service propagated to every tenant namespace (shape amended from
+# D-13-12's bare Pod by ADR-008 addendum 2026-07-06 — immutable Pod specs put
+# the controller in a permanent resync error loop). Spoke-targeted (parent
 # capsule-spoke.yaml's spec.kubeConfig: spoke-capsule-kubeconfig + spec.path:
 # ./pocs/capsule/spoke routes these resources to spoke-capsule via kustomize-controller's
 # cross-cluster reconcile (D-08-12 split-path invariant).
