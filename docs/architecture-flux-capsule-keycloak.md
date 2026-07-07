@@ -4,7 +4,7 @@ status: Active (2026-07-06)
 scope: The high-level pattern connecting GitOps delivery (Flux), tenancy
 enforcement (Capsule + capsule-proxy), and identity (Keycloak) across the
 karyon hub-and-spoke lab. Companion runbooks: `poc-capsule-demo.md` (6-act
-demo), `poc-keycloak.md` (IdP install + OIDC follow-up),
+demo), `poc-keycloak.md` (IdP install + OIDC wiring), `tenant-access.md` (access + admin),
 `capsule-portable-setup-guide.md` (replicate elsewhere).
 
 **Editable diagram (logos, draw.io):**
@@ -147,7 +147,7 @@ flowchart LR
 | Git → clusters | Flux PAT (hub Secret `flux-system`), mirrored read path `karyon-git-auth` per tenant ns |
 | Hub → spokes | `flux-reconciler` SA bearer kubeconfigs (imperative Secrets, never in git) |
 | Tenant reconcile privilege | P27 impersonation: `gitops-reconciler`, tenant-scoped |
-| Human tenant access | TokenRequest bearer kubeconfigs via capsule-proxy (today) → OIDC tokens (follow-up) |
+| Human tenant access | Keycloak OIDC tokens via capsule-proxy (LIVE); TokenRequest kubeconfigs remain the no-IdP fallback |
 | Keycloak DB / admin | `keycloak-db-secret` (imperative, non-rotating) / `keycloak-initial-admin` (operator-generated) |
 | Enforcement point | Capsule admission webhooks (`namespaces`=Fail) + injected RBAC + proxy LIST filter |
 

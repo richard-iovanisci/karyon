@@ -50,6 +50,11 @@ metadata:
     karyon.io/poc: headlamp
 spec:
   replicas: 1
+  # Recreate is MANDATORY: hostNetwork on a single-node cluster means a
+  # RollingUpdate surge pod can never schedule (port 4466 is held by the old
+  # pod) — the default strategy deadlocks every update (live-hit 2026-07-07).
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: headlamp

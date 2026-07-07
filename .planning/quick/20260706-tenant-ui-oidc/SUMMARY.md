@@ -41,7 +41,7 @@ code-server pattern (documented, parked), troubleshooting table.
   kube-system; bob (tenant-alpha-devs) → sees exactly tenant-alpha.
 - Tier-3 OIDC Group owners added to alpha/bravo Tenant CRs + new-tenant.sh.
 - Guards: keycloak-04-static (10 pins) + keycloak-05-live (6 checks, all
-  green incl. the e2e chain); poc-mount index 7→8; all static suites green.
+  green incl. the e2e chain); poc-mount index 7→8; full static gate green (49 suites / 402 tests).
 
 ## Live-debug findings (fixed + guarded, recorded in PLAN.md)
 
