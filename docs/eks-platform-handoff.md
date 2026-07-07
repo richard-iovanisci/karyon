@@ -149,7 +149,7 @@ karyon set six `kube-apiserver` flags via a k3s config retrofit. **EKS has no
 apiserver flags.** The equivalent is the EKS *OIDC identity provider
 association* (one per cluster, coexists with IAM auth):
 
-```
+```bash
 aws eks associate-identity-provider-config --cluster-name <cluster> \
   --oidc identityProviderConfigName=keycloak,\
 issuerUrl=https://sso.<domain>/realms/<realm>,clientId=kubectl,\
