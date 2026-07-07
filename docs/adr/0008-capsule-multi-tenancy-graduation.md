@@ -365,3 +365,42 @@ reconciled to committed reality in the same sweep.
 Wave-0 Nyquist gates only protect contracts while the suites RUN and are UPDATED alongside the
 decisions they pin. The POC remains DEFER; the sweep makes the demo reproducible again (controller
 logs clean, tenant GitOps path restored) without changing the graduation calculus.
+
+## Addendum — 2026-07-06 capsule-addon-fluxcd evaluation: PASS (settles the deferred trial)
+
+**Context.** This ADR's DEFER rationale cited a future `capsule-addon-fluxcd` trial as a factor
+that "would clarify the architectural shape," and the parking lot carried an ADDON-01/02 trial
+since v0.19 Phase 12. A source-level evaluation (agent research, 2026-07-06 — README, controller
+source, releases, issues) settles it: **PASS — do not adopt.**
+
+**Correction of this ADR's premise.** The Decision section described the addon as
+"auto-installs Capsule on hub via a Flux-managed addon." That is factually wrong: the addon
+installs nothing. It is a **tenant-owner kubeconfig factory** that must run ON the Capsule
+cluster — it watches ServiceAccounts annotated `capsule.addon.fluxcd/enabled=true` that are
+Tenant owners, and creates (locally): a cluster-admin RoleBinding in the SA's namespace, a
+self-impersonation ClusterRole/Binding, a non-expiring legacy token Secret, and a kubeconfig
+Secret whose server is capsule-proxy's in-cluster DNS. Tenant Flux Kustomizations on the SAME
+cluster then consume that kubeconfig via `spec.kubeConfig.secretRef`.
+
+**Decisive reason to pass.** Flux resolves `kubeConfig.secretRef` only in its own cluster and
+namespace. Under ADR-004 (Flux hub-only; spokes run zero Flux components), the addon's output —
+a Secret on spoke-capsule — is unreachable by the hub's kustomize-controller. There is no remote
+mode (no flag, doc, issue, or code path). Bridging would require a NEW imperative per-tenant
+cross-cluster secret-copy + rotation mechanism: strictly more moving parts than the P27 pattern
+it would replace. And the goal it serves — platform team controls tenants; tenants deploy into
+their spaces through Flux — is ALREADY delivered by hub-side tenant Kustomizations
+(kubeConfig=spoke-capsule-kubeconfig + serviceAccountName=gitops-reconciler impersonation),
+live-verified Ready=True.
+
+**Secondary confirmations.** (a) Adoption would make capsule-proxy load-bearing for every
+reconcile (today it is load-bearing only for tenant LIST filtering). (b) The addon is built
+against the Capsule v0.7.2 Go module (dependabot bump to 0.11.2 unmerged); no declared
+compatibility with Capsule 0.12.x. (c) Maintenance is thin: ~1 release/year, and the chart
+crashloops with default values against the current capsule-proxy chart (issue #118, open ~6
+months). (d) v0.2.3's k8s deps (0.34.x) do match karyon's k8s 1.34 — version skew is not the
+blocker; topology is.
+
+**Revisit trigger.** Only if ADR-004 is reversed (Flux-per-cluster) or the POC graduates to a
+topology where kustomize-controller runs on the Capsule cluster. Recorded alongside the
+Keycloak IdP POC (docs/poc-keycloak.md), which addresses the identity half of the same
+platform-team story without the addon.
