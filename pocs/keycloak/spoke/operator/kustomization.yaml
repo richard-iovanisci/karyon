@@ -1,0 +1,23 @@
+# pocs/keycloak/spoke/operator/kustomization.yaml
+# Official Keycloak Operator 26.6.4, VENDORED (hub kustomize-controller runs
+# --no-remote-bases=true; remote bases are forbidden). Source of truth:
+#   https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.6.4/kubernetes/
+#   - keycloaks.k8s.keycloak.org-v1.yml         (Keycloak CRD)
+#   - keycloakrealmimports.k8s.keycloak.org-v1.yml (KeycloakRealmImport CRD)
+#   - kubernetes.yml                             (operator RBAC/Service/Deployment,
+#     image quay.io/keycloak/keycloak-operator:26.6.4)
+# To upgrade: re-download the three files at the new tag, update this comment
+# and tests/bats/keycloak-02-static-content.bats (image pin).
+#
+# The namespace transformer places all namespaced operator objects in
+# `keycloak` — which also matches the ClusterRoleBinding subject namespace
+# hardcoded upstream (kubernetes.yml). The operator watches ONLY its own
+# namespace (JOSDK_WATCH_CURRENT), so the Keycloak CR, realm imports, DB, and
+# Secrets must all live in `keycloak` too.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: keycloak
+resources:
+  - vendored/keycloaks.k8s.keycloak.org-v1.yml
+  - vendored/keycloakrealmimports.k8s.keycloak.org-v1.yml
+  - vendored/kubernetes.yml

@@ -1,0 +1,31 @@
+# clusters/hub-flux/pocs/keycloak-app.yaml
+# Outer Flux Kustomization: Keycloak CR + karyon realm import (spoke-targeted).
+#
+# dependsOn poc-keycloak-spoke — CRDs established + operator running + postgres
+# Ready before any k8s.keycloak.org CR applies.
+#
+# wait: false — deliberate: kstatus readiness interpretation of the operator's
+# custom-resource conditions is not guaranteed across operator versions; the
+# live health gate is tests/bats/keycloak-03-live.bats + docs/poc-keycloak.md
+# verification steps, not Flux wait.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-keycloak-app
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/keycloak/app
+  prune: true
+  wait: false
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: poc-keycloak-spoke
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  serviceAccountName: flux-reconciler

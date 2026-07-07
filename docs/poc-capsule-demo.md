@@ -86,9 +86,10 @@ kubectl --kubeconfig=$PO_KC create clusterrolebinding po-cluster-admin-attempt -
 ### Expected output
 
 ```text
-NAME    STATE    NAMESPACE QUOTA   NAMESPACES
-alpha   Active   ∞                 1
-bravo   Active   ∞                 1
+NAME       STATE    NAMESPACE QUOTA   NAMESPACES
+alpha      Active   ∞                 1
+bravo      Active   ∞                 1
+keycloak   Active   ∞                 1
 
 error: failed to create clusterrolebinding: clusterrolebindings.rbac.authorization.k8s.io is forbidden: User "system:serviceaccount:capsule-system:platform-owner" cannot create resource "clusterrolebindings" in API group "rbac.authorization.k8s.io" at the cluster scope
 ```

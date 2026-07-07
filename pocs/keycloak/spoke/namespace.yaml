@@ -1,0 +1,16 @@
+# pocs/keycloak/spoke/namespace.yaml
+# Home namespace for the Keycloak IdP POC on spoke-capsule.
+# The capsule.clastix.io/tenant label + creation by a tenant owner
+# (flux-reconciler impersonation) is the ONLY namespace-creation path Capsule's
+# namespaces webhook admits (see pocs/keycloak/tenant-crs/keycloak-tenant.yaml).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keycloak
+  labels:
+    capsule.clastix.io/tenant: keycloak
+    karyon.io/poc: keycloak
+  annotations:
+    # Mirror of the capsule POC pattern: Capsule's controller also manages
+    # fields on tenant namespaces — apply once, don't fight over ownership.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent

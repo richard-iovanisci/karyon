@@ -1,0 +1,39 @@
+# pocs/keycloak/tenant-crs/keycloak-tenant.yaml
+# Tenant CR that carves out the `keycloak` namespace on spoke-capsule for the
+# Keycloak IdP POC (2026-07-06, quick task keycloak-idp-poc).
+#
+# WHY A TENANT AT ALL: Capsule's namespaces mutating webhook (failurePolicy
+# Fail, NO namespaceSelector — it sees every namespace CREATE) combined with
+# global forceTenantPrefix: true DENIES creation of any unlabeled/unprefixed
+# namespace for EVERY identity including cluster-admin (dry-run verified
+# 2026-07-06). The only sanctioned path is a tenant owner creating a namespace
+# labeled capsule.clastix.io/tenant=<owned-tenant>. So the platform IdP lives
+# as an UNCONSTRAINED platform tenant: no resourceQuotas, no limitRanges, no
+# containerRegistries (quay.io/keycloak images must pull — the alpha/bravo
+# registry allowlists are per-tenant and do not apply here).
+#
+# Owners mirror the alpha/bravo bootstrap pattern:
+# - flux-reconciler SA: Capsule requires namespace assignment to be performed
+#   by a Tenant owner even when the identity holds cluster-admin RBAC — this
+#   is what lets the poc-keycloak-spoke Flux Kustomization claim the namespace.
+# - capsule-platform-owners Group: Tier-2 co-ownership for visibility and
+#   break-glass, consistent with the three-tier model (v0.20).
+#
+# Side effect (accepted + documented in docs/poc-keycloak.md): the match-all
+# GlobalTenantResource hello-world-seeded will seed its Deployment + Service
+# into this namespace too — harmless, and a live demonstration of D-13-11.
+apiVersion: capsule.clastix.io/v1beta2
+kind: Tenant
+metadata:
+  name: keycloak
+  labels:
+    karyon.io/poc: keycloak
+spec:
+  # Override global forceTenantPrefix: true so the home namespace can be named
+  # exactly `keycloak` (same mechanism as alpha/bravo per D-11-07 repair).
+  forceTenantPrefix: false
+  owners:
+    - kind: ServiceAccount
+      name: system:serviceaccount:flux-system:flux-reconciler
+    - kind: Group
+      name: capsule-platform-owners

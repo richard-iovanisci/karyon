@@ -1,0 +1,33 @@
+# clusters/hub-flux/pocs/keycloak-tenant.yaml
+# Outer Flux Kustomization: Tenant CR for the Keycloak IdP POC (spoke-targeted).
+#
+# dependsOn poc-capsule-spoke — the safest single edge: it already waits on the
+# ENTIRE capsule DAG (rbac → operator HRs → tenant-crs → spoke config), which
+# guarantees the Tenant CRD, webhooks, and CapsuleConfiguration are live before
+# this Tenant applies. Keycloak depends on capsule; NEVER the reverse (the
+# capsule DAG's dependsOn chain is pinned by tenants-04 bats).
+#
+# P18/P40: full spec.kubeConfig block ALWAYS present on spoke-targeted Ks —
+# omitting it silently reconciles into the HUB while reporting Ready=True.
+# P27: explicit serviceAccountName (the --default-service-account lockdown DOES
+# apply to kubeConfig Kustomizations; empty SA falls through to `default`).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-keycloak-tenant
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/keycloak/tenant-crs
+  prune: true
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: poc-capsule-spoke
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  serviceAccountName: flux-reconciler

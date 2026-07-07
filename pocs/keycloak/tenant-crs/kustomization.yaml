@@ -1,0 +1,9 @@
+# pocs/keycloak/tenant-crs/kustomization.yaml
+# Tenant CR in its own outer Flux Kustomization (poc-keycloak-tenant) per the
+# D-11-07 lesson: kustomize-controller dry-runs whole batches, and Capsule's
+# webhook rejects a tenant-labeled namespace before its Tenant CR exists — so
+# the Tenant must land in an EARLIER Kustomization than the labeled namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - keycloak-tenant.yaml

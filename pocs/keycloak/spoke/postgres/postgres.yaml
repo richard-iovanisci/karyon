@@ -1,0 +1,87 @@
+# pocs/keycloak/spoke/postgres/postgres.yaml
+# Backing database for Keycloak. The Keycloak Operator does NOT manage
+# databases ("you need to provision it yourself" — operator basic-deployment
+# guide); this mirrors the official docs' dev StatefulSet example with two
+# karyon-policy changes: ClusterIP instead of LoadBalancer, and credentials
+# sourced from the script-applied Secret keycloak-db-secret (secrets never in
+# git — created by scripts/poc/keycloak/create-secrets.sh).
+# POC posture: single replica, 2Gi local-path PVC (k3d default StorageClass).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql-db
+  namespace: keycloak
+  labels:
+    app: postgresql-db
+    karyon.io/poc: keycloak
+spec:
+  serviceName: postgres-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql-db
+  template:
+    metadata:
+      labels:
+        app: postgresql-db
+    spec:
+      containers:
+        - name: postgresql-db
+          image: docker.io/library/postgres:15
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: password
+            - name: POSTGRES_DB
+              value: keycloak
+            - name: PGDATA
+              value: /data/pgdata
+          ports:
+            - containerPort: 5432
+              name: postgres
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "keycloak", "-d", "keycloak"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+  namespace: keycloak
+  labels:
+    app: postgresql-db
+    karyon.io/poc: keycloak
+spec:
+  type: ClusterIP
+  selector:
+    app: postgresql-db
+  ports:
+    - port: 5432
+      targetPort: postgres
+      protocol: TCP

@@ -1,0 +1,11 @@
+# pocs/keycloak/app/kustomization.yaml
+# Keycloak CR + realm import, applied by outer Kustomization poc-keycloak-app
+# AFTER poc-keycloak-spoke is Ready (CRDs established, operator running,
+# postgres up). Separate outer K so CR application never races CRD creation.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+sortOptions:
+  order: fifo
+resources:
+  - keycloak.yaml
+  - realm-karyon.yaml

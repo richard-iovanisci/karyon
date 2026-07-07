@@ -1,0 +1,15 @@
+# pocs/keycloak/spoke/kustomization.yaml
+# Spoke-side infrastructure for the Keycloak IdP POC: namespace, vendored
+# Keycloak operator (CRDs + Deployment), and the Postgres backing store.
+# FIFO ordering is load-bearing: namespace first (tenant-claimed), then the
+# operator + database. The Keycloak CR + realm import live in ../app/ behind a
+# SEPARATE outer Kustomization (poc-keycloak-app) so CR application never races
+# CRD establishment or operator readiness.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+sortOptions:
+  order: fifo
+resources:
+  - namespace.yaml
+  - operator/
+  - postgres/

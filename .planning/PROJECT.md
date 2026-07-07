@@ -86,7 +86,7 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 
 **Carry-forward parking lot** (acknowledged, still deferred — NOT scoped into v0.20):
 
-- `capsule-addon-fluxcd` Trial (ADDON-01 / ADDON-02 deferred from v0.19 Phase 12) — Trial as a Flux HelmRelease + hand-managed vs addon-managed comparison doc. Revisit alongside `capsule-addon-fluxcd` releases that pair with newer Capsule minors.
+- ~~`capsule-addon-fluxcd` Trial (ADDON-01 / ADDON-02 deferred from v0.19 Phase 12)~~ — **RESOLVED 2026-07-06: PASS (do not adopt)** per ADR-008 addendum. Source-level evaluation: the addon is a same-cluster kubeconfig factory whose output hub Flux can never consume under ADR-004; the P27 pattern already delivers tenant GitOps deploys. Revisit only if ADR-004 reverses.
 - G-04 architectural decision / split-Kustomization refactor — Plan 11-07 D-11-01 PostBuild workaround stays. Architecture review is a future-milestone concern.
 - Optional `KARYON_PHASE11_STRICT_LIVE=1` re-verification path
 - slo-regression-live `KARYON_REBUILD_APPROVED` infrastructure
@@ -104,6 +104,8 @@ A reproducible, source-controlled local Kubernetes lab that rebuilds a three-clu
 - Repo visibility decision: public (design intent, PROJECT.md "Public from day one") vs private (current live state — unrecorded flip between Phase 9 and Plan 11-07). The 2026-07-06 defect sweep restored the tenant GitOps path under the PRIVATE posture (per-tenant `karyon-git-auth` secretRef + mirror in `register-poc-cluster.sh`), which also works if the repo goes public later. If flipping public: re-run a FULL-history gitleaks scan first. (post-v0.20 quick task)
 - Least-privilege git credential for tenant sources — `karyon-git-auth` currently mirrors the repo-write bootstrap PAT into tenant-alpha/bravo namespaces on the hub (operator-only namespaces; P29 unaffected). Upgrade to a read-only fine-grained PAT or deploy key. (post-v0.20 quick task)
 - Audit the remaining ~13 D-08-03 `failurePolicy: Ignore` webhook overrides for cold-bootstrap failure modes analogous to the namespaces-hook deadlock (flagged as v0.21 candidate in `.planning/debug/capsule-tenant-ns-claim.md`; still unaudited as of the 2026-07-06 sweep).
+- Keycloak OIDC wiring in front of capsule-proxy — TLS + pinned issuer (`host.k3d.internal`), apiserver `oidc-*` flags via `/etc/rancher/k3s/config.yaml` + container restart (no recreate needed), kubelogin flow. Fully designed in `docs/poc-keycloak.md` §Follow-up; realm/groups already future-proofed. (keycloak-idp-poc quick task, 2026-07-06)
+- Keycloak realm lifecycle beyond import-once — KeycloakRealmImport never updates an existing realm; decide day-2 posture (admin-UI-as-source-of-truth vs delete/recreate vs admin-API scripting). (keycloak-idp-poc quick task)
 
 ### Out of Scope
 

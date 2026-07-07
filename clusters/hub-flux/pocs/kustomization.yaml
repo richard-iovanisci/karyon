@@ -1,6 +1,9 @@
 # clusters/hub-flux/pocs/kustomization.yaml
-# Pocs aggregator — references both the hub-targeted (capsule.yaml) and spoke-targeted
-# (capsule-spoke.yaml) outer Flux Kustomizations per D-08-12 split-path pattern.
+# Pocs aggregator — references the hub-targeted (capsule.yaml) and
+# spoke-targeted outer Flux Kustomizations per D-08-12 split-path pattern.
+# 2026-07-06: keycloak-* entries added (Keycloak IdP POC — a third
+# tenant-shaped POC on spoke-capsule; DAG: keycloak depends on capsule,
+# never the reverse).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -8,3 +11,6 @@ resources:
 - capsule.yaml
 - capsule-spoke-tenants.yaml
 - capsule-spoke.yaml
+- keycloak-tenant.yaml
+- keycloak-spoke.yaml
+- keycloak-app.yaml

@@ -1,0 +1,82 @@
+# pocs/keycloak/app/realm-karyon.yaml
+# Declarative realm for the karyon Capsule POC, applied by the operator's
+# realm-import controller. IMPORT-ONCE semantics (operator docs): creation
+# only — the CR never updates or deletes an existing realm, and admin-UI
+# changes are not synced back. Day-2 realm changes happen in the admin UI (or
+# delete + recreate the realm, which wipes its users/sessions).
+#
+# The realm is designed so that ZERO Tenant CR or CapsuleConfiguration churn
+# is needed when OIDC wiring lands (research 2026-07-06):
+# - Groups are flat/top-level; the Group Membership mapper has
+#   "full.path": "false" — the #1 silent breaker: the default (true) emits
+#   "/capsule-platform-owners" and Capsule's exact-string owner match fails.
+# - `capsule-platform-owners` matches the EXISTING Group owner on Tenants
+#   alpha/bravo/keycloak byte-for-byte.
+# - All four groups are appended to CapsuleConfiguration spec.userGroups
+#   (Group-kind owners must be in the Capsule user scope).
+# - Client `kubectl`: public + PKCE S256 + kubelogin's localhost redirect
+#   ports; groups + audience mappers per the Capsule OIDC guide.
+# - Users alice (platform owner) and bob (alpha dev) are seeded WITHOUT
+#   credentials (no secrets in git) — set their passwords in the admin UI.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: KeycloakRealmImport
+metadata:
+  name: karyon-realm
+  namespace: keycloak
+  labels:
+    karyon.io/poc: keycloak
+spec:
+  keycloakCRName: keycloak
+  realm:
+    realm: karyon
+    enabled: true
+    displayName: Karyon Capsule POC
+    groups:
+      - name: capsule-users
+      - name: capsule-platform-owners
+      - name: tenant-alpha-devs
+      - name: tenant-bravo-devs
+    clients:
+      - clientId: kubectl
+        name: kubectl (kubelogin OIDC)
+        protocol: openid-connect
+        publicClient: true
+        standardFlowEnabled: true
+        directAccessGrantsEnabled: false
+        redirectUris:
+          - http://localhost:8000
+          - http://localhost:18000
+        attributes:
+          pkce.code.challenge.method: S256
+        protocolMappers:
+          - name: groups
+            protocol: openid-connect
+            protocolMapper: oidc-group-membership-mapper
+            config:
+              claim.name: groups
+              full.path: "false"
+              id.token.claim: "true"
+              access.token.claim: "true"
+              userinfo.token.claim: "true"
+          - name: audience-kubectl
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+            config:
+              included.client.audience: kubectl
+              id.token.claim: "true"
+              access.token.claim: "true"
+    users:
+      - username: alice
+        enabled: true
+        firstName: Alice
+        email: alice@karyon.local
+        groups:
+          - /capsule-users
+          - /capsule-platform-owners
+      - username: bob
+        enabled: true
+        firstName: Bob
+        email: bob@karyon.local
+        groups:
+          - /capsule-users
+          - /tenant-alpha-devs

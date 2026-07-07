@@ -38,6 +38,17 @@ spec:
     - capsule.clastix.io
     - system:serviceaccounts
     - system:authenticated
+    # 2026-07-06 (keycloak-idp-poc quick task): OIDC group scope, appended so
+    # the Keycloak `karyon` realm groups work as Capsule identities the moment
+    # apiserver OIDC wiring lands (a Group promoted to Tenant owner MUST also
+    # be in this scope — projectcapsule.dev/docs/tenants/permissions).
+    # capsule-platform-owners is ALREADY a Group owner on alpha/bravo/keycloak.
+    # These names match the Keycloak realm groups byte-for-byte (the realm's
+    # group mapper emits bare names — full.path OFF — never "/name" paths).
+    - capsule-users
+    - capsule-platform-owners
+    - tenant-alpha-devs
+    - tenant-bravo-devs
   # Defense-in-depth: tenant cannot register kube-* namespace as a tenant ns.
   # (Capsule's own webhooks already block this; explicit makes intent clear.)
   protectedNamespaceRegex: ^kube-.*$

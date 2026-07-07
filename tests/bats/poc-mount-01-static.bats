@@ -51,10 +51,11 @@ setup() {
 
 # RECONCILED 2026-07-06: original asserted exactly [capsule.yaml, capsule-spoke.yaml].
 # G-06 gap-close added capsule-spoke-rbac.yaml and D-11-07 added
-# capsule-spoke-tenants.yaml — the 4-Kustomization DAG is the intentional shape.
-@test "POC-01 / D-06 / D-08-12 / G-06 / D-11-07: clusters/hub-flux/pocs/kustomization.yaml aggregates the 4-Kustomization POC DAG" {
+# capsule-spoke-tenants.yaml; the Keycloak IdP POC (quick task keycloak-idp-poc,
+# 2026-07-06) added keycloak-{tenant,spoke,app}.yaml — 7 entries total.
+@test "POC-01 / D-06 / D-08-12 / G-06 / D-11-07 / keycloak-idp: clusters/hub-flux/pocs/kustomization.yaml aggregates the 7-Kustomization POC set" {
   [ -f "$POCS_INDEX" ]
-  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 4 and (.resources | contains(["capsule-spoke-rbac.yaml"])) and (.resources | contains(["capsule.yaml"])) and (.resources | contains(["capsule-spoke-tenants.yaml"])) and (.resources | contains(["capsule-spoke.yaml"]))' "$POCS_INDEX"
+  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 7 and (.resources | contains(["capsule-spoke-rbac.yaml"])) and (.resources | contains(["capsule.yaml"])) and (.resources | contains(["capsule-spoke-tenants.yaml"])) and (.resources | contains(["capsule-spoke.yaml"])) and (.resources | contains(["keycloak-tenant.yaml"])) and (.resources | contains(["keycloak-spoke.yaml"])) and (.resources | contains(["keycloak-app.yaml"]))' "$POCS_INDEX"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

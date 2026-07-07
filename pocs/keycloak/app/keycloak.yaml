@@ -1,0 +1,52 @@
+# pocs/keycloak/app/keycloak.yaml
+# Keycloak instance CR, reconciled by the vendored operator (26.6.4).
+#
+# POC posture decisions (documented in docs/poc-keycloak.md):
+# - http.httpEnabled: true — plain HTTP inside the cluster; UI access is via
+#   kubectl port-forward. TLS + a pinned issuer hostname is the FIRST step of
+#   the OIDC-wiring follow-up (kube-apiserver --oidc-issuer-url requires https)
+#   and is deliberately NOT faked here with a committed cert (secrets/certs
+#   never land in git).
+# - hostname.strict: false — request-based hostname resolution, correct for
+#   port-forward access. When OIDC lands, this flips to a pinned
+#   `hostname: https://host.k3d.internal:<port>` so the token `iss` claim is
+#   byte-identical for kubectl (host) and the spoke apiserver (container).
+# - db: the operator does not manage databases; postgres-db is the vendored
+#   StatefulSet in ../spoke/postgres/, credentials from the script-applied
+#   Secret keycloak-db-secret (scripts/poc/keycloak/create-secrets.sh).
+# - resources: Keycloak defaults request 1700MiB — trimmed for the k3d/WSL2
+#   lab; startupProbe stretched because Keycloak cold-boot on WSL2 is slow.
+# - The operator auto-creates Secret `keycloak-initial-admin` (keys
+#   username/password) for first login — retrieval command in the docs.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: keycloak
+  labels:
+    karyon.io/poc: keycloak
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: postgres-db
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
+  http:
+    httpEnabled: true
+    httpPort: 8080
+  hostname:
+    strict: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 60

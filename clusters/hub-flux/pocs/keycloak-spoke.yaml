@@ -1,0 +1,35 @@
+# clusters/hub-flux/pocs/keycloak-spoke.yaml
+# Outer Flux Kustomization: Keycloak infrastructure on spoke-capsule —
+# tenant-claimed namespace, vendored operator (CRDs + Deployment), Postgres.
+#
+# dependsOn poc-keycloak-tenant (D-11-07 lesson: the tenant-labeled namespace
+# must apply AFTER its Tenant CR is live, in a separate outer K, because
+# kustomize-controller dry-runs whole batches and Capsule's webhook rejects a
+# labeled namespace whose Tenant does not exist yet).
+#
+# wait: true — Ready only when the operator Deployment and Postgres are up.
+# EXPECTED to sit not-ready after first apply until the imperative Secret
+# lands: Postgres needs keycloak-db-secret, which is created by
+# scripts/poc/keycloak/create-secrets.sh (secrets never in git). Self-heals
+# once the script runs.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-keycloak-spoke
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/keycloak/spoke
+  prune: true
+  wait: true
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: poc-keycloak-tenant
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  serviceAccountName: flux-reconciler
