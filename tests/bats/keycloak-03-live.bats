@@ -79,3 +79,22 @@ setup() {
   run kubectl --context=k3d-spoke-capsule -n keycloak get deployment hello-world
   [ "$status" -eq 0 ]
 }
+
+@test "keycloak-live: third-tenant isolation — alpha's proxy-filtered view must NOT include keycloak" {
+  # Mint a short-lived alpha tenant kubeconfig (TokenRequest via capsule-proxy;
+  # same pattern as the demo live suites).
+  local tmpd out
+  tmpd="${TMPDIR:-/tmp}/karyon-tenants/bats-kc3-${BATS_RUN_TMPDIR##*/}"
+  mkdir -p "$tmpd"
+  bash "${REPO_ROOT}/scripts/poc/capsule/issue-tenant-kubeconfig.sh" alpha human-tenant-owner \
+    --duration=10m --write-to "${tmpd}/alpha.kubeconfig" >/dev/null 2>&1
+  [ -f "${tmpd}/alpha.kubeconfig" ]
+  out=$(kubectl --kubeconfig="${tmpd}/alpha.kubeconfig" get namespaces -o name 2>&1)
+  [ $? -eq 0 ]
+  echo "$out" | grep -qF 'namespace/tenant-alpha'
+  ! echo "$out" | grep -qF 'namespace/keycloak'
+  out=$(kubectl --kubeconfig="${tmpd}/alpha.kubeconfig" get tenants \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>&1)
+  ! echo "$out" | grep -qx 'keycloak'
+  rm -rf "$tmpd"
+}

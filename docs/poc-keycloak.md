@@ -92,7 +92,16 @@ delete + recreate the realm — destructive: wipes its users/sessions).
 - `scripts/poc/capsule/destroy-poc.sh` (tenant-cascade path) deletes only
   tenants alpha/bravo but polls ALL tenant-labeled namespaces — the keycloak
   namespace makes that poll exhaust its 90s wait with a warning (non-fatal).
+  At the poll's 60s mark it also force-clears PVC finalizers in every
+  surviving tenant-labeled namespace, which touches the live postgres PVC
+  here (the pvc-protection finalizer is controller-restored, so effectively
+  harmless — but be aware if you run the capsule teardown with Keycloak up).
   `--full` teardown deletes the whole cluster, keycloak included.
+- `scripts/preflight.sh` POC-04 strict check fails while the POC cluster is
+  up (its own serverlb legitimately binds host port 30443, and the check
+  cannot tell it from a squatter) — this blocks `task deploy-examples` /
+  full preflight runs during POC coexistence. Pre-existing lab defect,
+  tracked in the PROJECT.md parking lot; not keycloak-specific.
 
 ## Follow-up: full OIDC in front of capsule-proxy (designed, not yet wired)
 

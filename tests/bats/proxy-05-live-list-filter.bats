@@ -50,16 +50,25 @@ contexts:
 current-context: direct
 EOF
 
-  # Proxy: 200 with filtered subset (alpha-app1 + tenant-alpha — NOT tenant-bravo, NOT kube-*, NOT capsule-system, NOT flux-system)
+  # Proxy: 200 with filtered subset (tenant-alpha — NOT tenant-bravo, NOT kube-*, NOT capsule-system, NOT flux-system).
+  # 2026-07-06: alpha-app1 is a fixture namespace created by the tenants quota
+  # live suites, not GitOps (same class as the 32a8acf seed-02/seed-04 guards);
+  # assert its presence in the filtered list only when the fixture exists so
+  # this suite is honest standalone.
   PROXY_OUT=$(kubectl --kubeconfig="$ISSUED_KC" get namespaces -o name 2>&1)
   PROXY_RC=$?
   [ "$PROXY_RC" -eq 0 ]
   echo "$PROXY_OUT" | grep -qF 'namespace/tenant-alpha'
-  echo "$PROXY_OUT" | grep -qF 'namespace/alpha-app1'
+  if kubectl --context=k3d-spoke-capsule get namespace alpha-app1 >/dev/null 2>&1; then
+    echo "$PROXY_OUT" | grep -qF 'namespace/alpha-app1'
+  fi
   ! echo "$PROXY_OUT" | grep -qF 'namespace/tenant-bravo'
   ! echo "$PROXY_OUT" | grep -qF 'namespace/kube-system'
   ! echo "$PROXY_OUT" | grep -qF 'namespace/flux-system'
   ! echo "$PROXY_OUT" | grep -qF 'namespace/capsule-system'
+  # 2026-07-06 keycloak-idp-poc: the third (platform) tenant must NOT leak into
+  # alpha's proxy-filtered view.
+  ! echo "$PROXY_OUT" | grep -qF 'namespace/keycloak'
 
   # Direct apiserver: 403 Forbidden (proves filtering happens at proxy, NOT at apiserver RBAC)
   DIRECT_RC=0

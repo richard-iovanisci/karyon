@@ -34,10 +34,12 @@ alice/bob without credentials); CapsuleConfiguration userGroups 3→7.
 - Convergence chain: postgres Ready → `poc-keycloak-spoke` Ready=True →
   `poc-keycloak-app` applied → Keycloak CR Ready=True →
   `keycloak-initial-admin` Secret auto-created → `karyon` realm import Done.
-- `tests/bats/keycloak-03-live.bats`: 9/9 GREEN, including the OIDC discovery
-  round-trip (`/realms/karyon/.well-known/openid-configuration` serves with
-  `code_challenge_methods_supported: [plain, S256]`) and the expected GTR
-  hello-world seed in the keycloak namespace.
+- `tests/bats/keycloak-03-live.bats`: GREEN, including the OIDC discovery
+  round-trip (the bats asserts issuer + `/realms/karyon`; PKCE
+  `code_challenge_methods_supported: [plain, S256]` verified live via the
+  apiserver service proxy) and the expected GTR hello-world seed in the
+  keycloak namespace. A 10th test added post-verification pins third-tenant
+  isolation (alpha's proxy-filtered view excludes keycloak).
 - Live `userGroups` = the full 7-entry list (git → live propagation works).
 - No perturbation: all 12 hub Flux Kustomizations Ready; tenants
   alpha/bravo/keycloak all Active; demo-01 + demo-02 live suites 7/7 GREEN

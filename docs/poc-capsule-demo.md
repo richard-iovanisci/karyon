@@ -85,11 +85,14 @@ kubectl --kubeconfig=$PO_KC create clusterrolebinding po-cluster-admin-attempt -
 
 ### Expected output
 
+<!-- Columns re-captured live 2026-07-06 (Capsule 0.12.4 printer columns; the
+     original 2026-05-19 capture predates them and the keycloak platform
+     tenant added by the keycloak-idp-poc quick task). -->
 ```text
-NAME       STATE    NAMESPACE QUOTA   NAMESPACES
-alpha      Active   ∞                 1
-bravo      Active   ∞                 1
-keycloak   Active   ∞                 1
+NAME       STATE    NAMESPACE QUOTA   NAMESPACE COUNT   NODE SELECTOR   READY   STATUS       AGE
+alpha      Active   3                 1                                 True    reconciled   40d
+bravo      Active   3                 1                                 True    reconciled   40d
+keycloak   Active                     1                                 True    reconciled   17m
 
 error: failed to create clusterrolebinding: clusterrolebindings.rbac.authorization.k8s.io is forbidden: User "system:serviceaccount:capsule-system:platform-owner" cannot create resource "clusterrolebindings" in API group "rbac.authorization.k8s.io" at the cluster scope
 ```
