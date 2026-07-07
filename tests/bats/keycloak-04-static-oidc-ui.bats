@@ -58,13 +58,13 @@ setup() {
   [ "$output" = "ClusterFirstWithHostNet" ]
 }
 
-@test "headlamp: projected SA volume swaps in the capsule-proxy CA (capsule-tls tls.crt — Pitfall 10-P1)" {
+@test "headlamp: projected SA volume swaps in the capsule-proxy CA (secret capsule-proxy, key ca — NOT capsule-tls, the webhook cert)" {
   [ -f "$HL" ]
   run yq eval-all 'select(.kind == "Deployment") | [.spec.template.spec.volumes[] | select(.name == "proxy-ca-sa") | .projected.sources[] | select(.secret) | .secret.name] | .[0]' "$HL"
   [ "$status" -eq 0 ]
-  [ "$output" = "capsule-tls" ]
+  [ "$output" = "capsule-proxy" ]
   run yq eval-all 'select(.kind == "Deployment") | [.spec.template.spec.volumes[] | select(.name == "proxy-ca-sa") | .projected.sources[] | select(.secret) | .secret.items[0].key + ":" + .secret.items[0].path] | .[0]' "$HL"
-  [ "$output" = "tls.crt:ca.crt" ]
+  [ "$output" = "ca:ca.crt" ]
 }
 
 @test "headlamp: zero-RBAC ServiceAccount (authorization is the USER's token through Capsule)" {

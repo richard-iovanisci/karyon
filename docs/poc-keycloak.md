@@ -3,9 +3,9 @@
 status: Active (quick task keycloak-idp-poc, 2026-07-06)
 scope: Keycloak 26.6.4 + official operator + Postgres, GitOps-delivered onto
 k3d-spoke-capsule as a third tenant-shaped POC. Provides realms/users/groups
-management for the Capsule multi-tenancy POC. Full OIDC wiring (apiserver +
-capsule-proxy) is a documented follow-up, and the realm shipped here is
-designed so that wiring needs zero realm or Tenant CR churn.
+management for the Capsule multi-tenancy POC. OIDC wiring (apiserver +
+capsule-proxy + Headlamp tenant UI) is LIVE as of 2026-07-06 — see
+§OIDC below and docs/tenant-access.md for the user-facing runbook.
 
 ## Why it looks the way it does
 
@@ -103,33 +103,41 @@ delete + recreate the realm — destructive: wipes its users/sessions).
   full preflight runs during POC coexistence. Pre-existing lab defect,
   tracked in the PROJECT.md parking lot; not keycloak-specific.
 
-## Follow-up: full OIDC in front of capsule-proxy (designed, not yet wired)
+## OIDC in front of capsule-proxy — WIRED (2026-07-06, tenant-ui-oidc quick task)
 
-The 2026-07-06 research settled the wiring plan; everything below is
-retrofittable WITHOUT recreating the cluster:
+The wiring is LIVE: issuer `https://localhost:31443/realms/karyon` (pinned;
+`host.k3d.internal` turned out to be NXDOMAIN in this lab — the plan below was
+amended by live verification), apiserver OIDC flags applied via the k3s
+config.yaml retrofit, Headlamp serving tenant-scoped views, and the whole
+chain proven headlessly by `scripts/poc/keycloak/e2e-oidc-test.sh` (alice sees
+all tenants; bob sees only alpha). User-facing instructions:
+`docs/tenant-access.md`. Guards: `tests/bats/keycloak-04-static-oidc-ui.bats`
+and `keycloak-05-live-oidc.bats`. The original design notes (amended):
 
-1. **TLS + pinned issuer.** apiserver OIDC requires https. Generate a
-   self-signed cert (imperative script), set the Keycloak CR to
-   `hostname: https://host.k3d.internal:<port>` (k3d already injects
-   `host.k3d.internal` into node containers; add the same name to the WSL
-   hosts file) so the token `iss` is byte-identical for kubectl and the
-   apiserver.
-2. **Apiserver flags without recreate.** k3s re-reads
-   `/etc/rancher/k3s/config.yaml` on restart and karyon passes no CLI
-   `--kube-apiserver-arg` that would shadow it: write
-   `kube-apiserver-arg: [oidc-issuer-url=..., oidc-client-id=kubectl,
-   oidc-username-claim=preferred_username, oidc-username-prefix=-,
-   oidc-groups-claim=groups, oidc-ca-file=...]` into the server container and
-   `docker restart k3d-spoke-capsule-server-0`. (k8s 1.34 alternative:
-   structured AuthenticationConfiguration, which can decouple discovery URL
-   from issuer.)
+1. **TLS + pinned issuer** — `create-tls.sh` (CA at `~/.karyon/oidc-pki`),
+   Keycloak CR `http.tlsSecret` + `hostname: https://localhost:31443`, the
+   `keycloak-oidc` NodePort 31443, and the socat forwarder
+   (`start-oidc-forwarder.sh`) for the host leg. The apiserver +
+   hostNetwork pods reach the same URL via kube-proxy's localhost-NodePort
+   path (live-verified; breaks under nftables kube-proxy — guard check is in
+   `apiserver-oidc.sh`).
+2. **Apiserver flags without recreate** — `apiserver-oidc.sh`: CA into the
+   volume-backed `/var/lib/rancher/k3s/server/oidc/`, config.yaml into
+   `/etc/rancher/k3s/`, `docker restart` (~60-90s spoke outage), flag
+   verification via the k3s `Running kube-apiserver` log line. Both files
+   die with `k3d cluster delete` — rerun after any recreate.
 3. **capsule-proxy needs nothing.** It already sets
    `authPreferredTypes: BearerToken,...`; it TokenReviews bearer tokens against
    the apiserver, which resolves OIDC users/groups. Capsule then exact-matches
    Tenant owners — which is why the realm groups above are flat and already in
    `userGroups`.
-4. **kubectl UX:** kubelogin exec plugin against the `kubectl` client (PKCE),
-   server = capsule-proxy `https://127.0.0.1:30443`.
+4. **kubectl UX** — `setup-oidc-kubectl.sh` installs kubelogin v1.36.2 and
+   writes `~/.karyon/oidc.kubeconfig` (server = capsule-proxy
+   `https://127.0.0.1:30443`; the proxy CA is secret `capsule-proxy` key
+   `ca` — NOT `capsule-tls`, which is Capsule's webhook cert).
+5. **Tenant web UI** — Headlamp v0.43.0 in capsule-system (`pocs/headlamp/`),
+   zero-RBAC, user-token passthrough to capsule-proxy, public PKCE client
+   reuse. See `docs/tenant-access.md` §1.
 
 ## Related decisions
 

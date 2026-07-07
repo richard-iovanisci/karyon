@@ -12,7 +12,8 @@
 # authorization is entirely the user's identity through Capsule.
 #
 # Deployed in capsule-system (NOT a tenant ns): same namespace as the
-# capsule-tls Secret whose tls.crt IS the proxy CA (Pitfall 10-P1), mounted
+# capsule-proxy Secret whose `ca` key is the proxy CA root (NOT capsule-tls
+# — that is Capsule's webhook cert), mounted
 # via a projected volume that REPLACES the pod's default SA ca.crt — the
 # Capsule-docs pattern, no cert copying across namespaces.
 #
@@ -97,7 +98,7 @@ spec:
               memory: 512Mi
           volumeMounts:
             # Projected SA credentials with the proxy CA swapped in as ca.crt
-            # (capsule-tls tls.crt IS the proxy CA root — Pitfall 10-P1).
+            # (secret capsule-proxy, key `ca` — the certgen CA root).
             - name: proxy-ca-sa
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
@@ -112,9 +113,9 @@ spec:
                   path: token
                   expirationSeconds: 3607
               - secret:
-                  name: capsule-tls
+                  name: capsule-proxy
                   items:
-                    - key: tls.crt
+                    - key: ca
                       path: ca.crt
               - downwardAPI:
                   items:

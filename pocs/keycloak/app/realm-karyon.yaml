@@ -69,14 +69,22 @@ spec:
       - username: alice
         enabled: true
         firstName: Alice
+        # lastName + emailVerified are REQUIRED for direct-grant logins:
+        # Keycloak 26's default user profile mandates last name, and an
+        # unverified email trips `resolve_required_actions` ("Account is not
+        # fully set up") — live-debugged 2026-07-06.
+        lastName: Anders
         email: alice@karyon.local
+        emailVerified: true
         groups:
           - /capsule-users
           - /capsule-platform-owners
       - username: bob
         enabled: true
         firstName: Bob
+        lastName: Baker
         email: bob@karyon.local
+        emailVerified: true
         groups:
           - /capsule-users
           - /tenant-alpha-devs

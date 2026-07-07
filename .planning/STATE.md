@@ -181,6 +181,7 @@ Items acknowledged and carried forward from previous milestone close:
 | Date | Slug | Summary |
 |------|------|---------|
 | 2026-07-06 | post-v020-defect-sweep | Fixed 4 unrecorded defects (inverted webhook-Fail bats guard + CI wiring; register-spokes SA-strip rerun hazard; private-repo tenant GitOps auth; GTR raw-Pod resync error loop → Deployment per ADR-008 addendum) + reconciled 5 stale static suites. See `.planning/quick/20260706-post-v020-defect-sweep/` |
+| 2026-07-06 | tenant-ui-oidc | OIDC wiring LIVE (issuer https://localhost:31443, apiserver flags via k3s config.yaml retrofit, socat forwarder) + Headlamp v0.43.0 tenant UI through capsule-proxy (zero-RBAC, user-token passthrough, PKCE) + Tier-3 OIDC Group owners on tenants + headless e2e proof (alice=all tenants, bob=alpha only) + docs (architecture-flux-capsule-keycloak.md, tenant-access.md, draw.io diagram). See `.planning/quick/20260706-tenant-ui-oidc/` |
 | 2026-07-06 | keycloak-idp-poc | capsule-addon-fluxcd evaluated → PASS (ADR-008 addendum; ADDON parking-lot item resolved). Keycloak 26.6.4 + official operator + Postgres delivered GitOps-e2e onto spoke-capsule as a third tenant-shaped POC (`keycloak` Tenant); realm `karyon` future-proofed for OIDC-in-front-of-capsule-proxy. See `.planning/quick/20260706-keycloak-idp-poc/` + `docs/poc-keycloak.md` |
 
 ## Session Continuity

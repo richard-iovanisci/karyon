@@ -45,10 +45,11 @@ else
   pass "installed ${BIN_DIR}/kubectl-oidc_login (${KUBELOGIN_VERSION})"
 fi
 
-# ---------- capsule-proxy CA (Pitfall 10-P1: tls.crt IS the CA root) ----------
-proxy_ca=$(kubectl --context "${SPOKE_CTX}" -n capsule-system get secret capsule-tls \
-  -o jsonpath='{.data.tls\.crt}')
-[[ -n "${proxy_ca}" ]] || { fail "capsule-tls secret unreadable"; exit 1; }
+# ---------- capsule-proxy CA (secret capsule-proxy, key `ca` — NOT capsule-tls,
+# which is Capsule's WEBHOOK cert) ----------
+proxy_ca=$(kubectl --context "${SPOKE_CTX}" -n capsule-system get secret capsule-proxy \
+  -o jsonpath='{.data.ca}')
+[[ -n "${proxy_ca}" ]] || { fail "capsule-proxy secret unreadable"; exit 1; }
 pass "capsule-proxy CA extracted"
 
 # ---------- kubeconfig ----------
