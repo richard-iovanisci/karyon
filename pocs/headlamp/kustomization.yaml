@@ -1,0 +1,7 @@
+# pocs/headlamp/kustomization.yaml
+# Tenant web UI (Headlamp → capsule-proxy). Applied by outer Kustomization
+# poc-headlamp AFTER the capsule DAG (needs capsule-system + capsule-tls).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - headlamp.yaml

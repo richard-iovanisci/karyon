@@ -175,6 +175,9 @@ render_tenant_cr() {
 #   - Group capsule-platform-owners            (Tier 2 impersonation path)
 #   - SA platform-owner@capsule-system         (Tier 2 TokenRequest path)
 #   - SA human-tenant-owner@tenant-${NAME}     (Tier 3 human workload editor)
+#   - Group tenant-${NAME}-devs                 (Tier 3 OIDC dev group — inert until
+#     the Keycloak group exists AND is appended to CapsuleConfiguration userGroups;
+#     see docs/tenant-access.md §New tenant identity contract)
 # forceTenantPrefix: false matches Phase 11 D-11-07 — home ns is tenant-<NAME>,
 # NOT <NAME>-tenant-<NAME>.
 apiVersion: capsule.clastix.io/v1beta2
@@ -195,6 +198,10 @@ spec:
       name: system:serviceaccount:capsule-system:platform-owner
     - kind: ServiceAccount
       name: system:serviceaccount:tenant-${NAME}:human-tenant-owner
+      clusterRoles:
+        - tenant-workload-editor
+    - kind: Group
+      name: tenant-${NAME}-devs
       clusterRoles:
         - tenant-workload-editor
   containerRegistries:

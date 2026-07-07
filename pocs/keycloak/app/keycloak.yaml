@@ -1,16 +1,20 @@
 # pocs/keycloak/app/keycloak.yaml
 # Keycloak instance CR, reconciled by the vendored operator (26.6.4).
 #
-# POC posture decisions (documented in docs/poc-keycloak.md):
-# - http.httpEnabled: true — plain HTTP inside the cluster; UI access is via
-#   kubectl port-forward. TLS + a pinned issuer hostname is the FIRST step of
-#   the OIDC-wiring follow-up (kube-apiserver --oidc-issuer-url requires https)
-#   and is deliberately NOT faked here with a committed cert (secrets/certs
-#   never land in git).
-# - hostname.strict: false — request-based hostname resolution, correct for
-#   port-forward access. When OIDC lands, this flips to a pinned
-#   `hostname: https://host.k3d.internal:<port>` so the token `iss` claim is
-#   byte-identical for kubectl (host) and the spoke apiserver (container).
+# Posture (documented in docs/poc-keycloak.md + docs/tenant-access.md):
+# - OIDC WIRED (2026-07-06, tenant-ui-oidc quick task): TLS via the imperative
+#   keycloak-tls Secret (scripts/poc/keycloak/create-tls.sh — certs never in
+#   git) and the issuer pinned to https://localhost:31443. That URL was
+#   LIVE-VERIFIED as the only https origin valid from all vantage points:
+#   Windows browser (WSL mirrored networking shares localhost), WSL host
+#   (docker-proxy publishes 31443 via the socat forwarder), the spoke
+#   apiserver AND hostNetwork pods (kube-proxy serves NodePorts on node
+#   loopback in k3s iptables mode). host.k3d.internal is NXDOMAIN in this
+#   lab — do not resurrect it.
+# - http.httpEnabled stays true: in-cluster consumers + the plain port-forward
+#   UI path keep working on 8080; 8443 serves the pinned-issuer TLS side.
+# - hostname.strict: false + explicit hostname: token `iss` is byte-stable at
+#   https://localhost:31443 for kubelogin, Headlamp, and the apiserver.
 # - db: the operator does not manage databases; postgres-db is the vendored
 #   StatefulSet in ../spoke/postgres/, credentials from the script-applied
 #   Secret keycloak-db-secret (scripts/poc/keycloak/create-secrets.sh).
@@ -39,7 +43,9 @@ spec:
   http:
     httpEnabled: true
     httpPort: 8080
+    tlsSecret: keycloak-tls
   hostname:
+    hostname: https://localhost:31443
     strict: false
   resources:
     requests:

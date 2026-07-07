@@ -1,0 +1,143 @@
+# pocs/headlamp/headlamp.yaml
+# Headlamp v0.43.0 — the tenant web UI (tenant-ui-oidc quick task, 2026-07-06).
+# kubernetes-sigs project (CNCF); the OFFICIAL successor to kubernetes/dashboard
+# (archived 2026-01-21). Capsule documents this exact integration:
+# https://projectcapsule.dev/ecosystem/integrations/headlamp/
+#
+# HOW IT SCOPES TO TENANTS: after OIDC login Headlamp sends the USER's id_token
+# as `Authorization: Bearer` on every Kubernetes API call. The in-cluster
+# endpoint is overridden to capsule-proxy (KUBERNETES_SERVICE_HOST/PORT), so
+# capsule-proxy TokenReviews the token and LIST-filters everything to the
+# user's tenants. Headlamp's own ServiceAccount carries ZERO RBAC —
+# authorization is entirely the user's identity through Capsule.
+#
+# Deployed in capsule-system (NOT a tenant ns): same namespace as the
+# capsule-tls Secret whose tls.crt IS the proxy CA (Pitfall 10-P1), mounted
+# via a projected volume that REPLACES the pod's default SA ca.crt — the
+# Capsule-docs pattern, no cert copying across namespaces.
+#
+# hostNetwork: true + ClusterFirstWithHostNet — deliberate: the OIDC backend
+# (discovery + code exchange) must reach the pinned issuer
+# https://localhost:31443, which resolves on the NODE loopback via kube-proxy's
+# localhost-NodePort path (live-verified). A normal pod netns cannot.
+# SSL_CERT_FILE points at the karyon OIDC CA (imperative ConfigMap
+# karyon-oidc-ca, created by scripts/poc/keycloak/setup-headlamp.sh) so the
+# Go backend trusts the issuer; the cluster endpoint trusts capsule-proxy via
+# the projected ca.crt (client-go reads the file path, not the system pool).
+#
+# OIDC client: REUSES the public PKCE `kubectl` client (Headlamp supports
+# public clients via -oidc-use-pkce since v0.37) so the token audience stays
+# `kubectl` — the apiserver's oidc-client-id needs no MatchAny gymnastics.
+# The redirect URI http://localhost:4466/oidc-callback is added to the client
+# day-2 by setup-headlamp.sh (realm import is import-once).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: headlamp
+  namespace: capsule-system
+  labels:
+    karyon.io/poc: headlamp
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headlamp
+  namespace: capsule-system
+  labels:
+    app.kubernetes.io/name: headlamp
+    karyon.io/poc: headlamp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: headlamp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: headlamp
+    spec:
+      serviceAccountName: headlamp
+      automountServiceAccountToken: false
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: headlamp
+          image: ghcr.io/headlamp-k8s/headlamp:v0.43.0
+          args:
+            - -in-cluster
+            - -plugins-dir=/headlamp/plugins
+            - -oidc-client-id=kubectl
+            - -oidc-use-pkce=true
+            - -oidc-idp-issuer-url=https://localhost:31443/realms/karyon
+            - -oidc-scopes=profile,email
+          env:
+            # Point the "in-cluster" endpoint at capsule-proxy — the whole trick.
+            - name: KUBERNETES_SERVICE_HOST
+              value: capsule-proxy.capsule-system.svc
+            - name: KUBERNETES_SERVICE_PORT
+              value: "9001"
+            # Trust the karyon OIDC CA for issuer discovery/token exchange.
+            - name: SSL_CERT_FILE
+              value: /karyon/oidc-ca/ca.crt
+          ports:
+            - containerPort: 4466
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 4466
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            # Projected SA credentials with the proxy CA swapped in as ca.crt
+            # (capsule-tls tls.crt IS the proxy CA root — Pitfall 10-P1).
+            - name: proxy-ca-sa
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            - name: oidc-ca
+              mountPath: /karyon/oidc-ca
+              readOnly: true
+      volumes:
+        - name: proxy-ca-sa
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3607
+              - secret:
+                  name: capsule-tls
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
+        - name: oidc-ca
+          configMap:
+            name: karyon-oidc-ca
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headlamp
+  namespace: capsule-system
+  labels:
+    app.kubernetes.io/name: headlamp
+    karyon.io/poc: headlamp
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: headlamp
+  ports:
+    - port: 80
+      targetPort: 4466
+      protocol: TCP

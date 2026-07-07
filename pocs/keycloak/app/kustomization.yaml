@@ -9,3 +9,4 @@ sortOptions:
 resources:
   - keycloak.yaml
   - realm-karyon.yaml
+  - oidc-nodeport.yaml

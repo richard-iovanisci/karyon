@@ -55,6 +55,17 @@ spec:
       name: capsule-platform-owners
     - kind: ServiceAccount
       name: system:serviceaccount:capsule-system:platform-owner
+    # 2026-07-06 (tenant-ui-oidc quick task): OIDC dev group as Tier-3 owner.
+    # Keycloak realm karyon group `tenant-alpha-devs` (flat name; the client
+    # groups mapper emits bare names — full.path OFF) exact-matches this
+    # entry once the apiserver resolves OIDC tokens. Same Tier-3 ceiling as
+    # human-tenant-owner: tenant-workload-editor, never Capsule defaults.
+    # The group is ALSO in CapsuleConfiguration userGroups (required for
+    # Group-kind owners). ADDITIVE only (delivery-03 guard).
+    - kind: Group
+      name: tenant-alpha-devs
+      clusterRoles:
+        - tenant-workload-editor
   # TEN-03 — ResourceQuota auto-materialization shape
   # Capsule reconciles these into ResourceQuota objects in tenant namespaces
   # named capsule-<tenant>-<index>. Phase 9 verifies SHAPE only; enforcement

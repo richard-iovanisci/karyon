@@ -1,0 +1,30 @@
+# clusters/hub-flux/pocs/headlamp.yaml
+# Outer Flux Kustomization: Headlamp tenant UI on spoke-capsule.
+#
+# dependsOn poc-capsule-spoke — needs capsule-system + capsule-proxy +
+# capsule-tls live. wait: false — the Deployment is NOT Ready until the
+# imperative karyon-oidc-ca ConfigMap exists (scripts/poc/keycloak/
+# setup-headlamp.sh; certs never in git) — same self-healing choreography as
+# the keycloak-db-secret. Liveness gate: tests/bats/keycloak-05-live-oidc.bats.
+# P18: full kubeConfig block; P27: explicit serviceAccountName.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: poc-headlamp
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./pocs/headlamp
+  prune: true
+  wait: false
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: poc-capsule-spoke
+  kubeConfig:
+    secretRef:
+      name: spoke-capsule-kubeconfig
+      key: value.yaml
+  serviceAccountName: flux-reconciler

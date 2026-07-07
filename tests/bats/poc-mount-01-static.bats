@@ -50,12 +50,13 @@ setup() {
 }
 
 # RECONCILED 2026-07-06: original asserted exactly [capsule.yaml, capsule-spoke.yaml].
-# G-06 gap-close added capsule-spoke-rbac.yaml and D-11-07 added
-# capsule-spoke-tenants.yaml; the Keycloak IdP POC (quick task keycloak-idp-poc,
-# 2026-07-06) added keycloak-{tenant,spoke,app}.yaml — 7 entries total.
-@test "POC-01 / D-06 / D-08-12 / G-06 / D-11-07 / keycloak-idp: clusters/hub-flux/pocs/kustomization.yaml aggregates the 7-Kustomization POC set" {
+# G-06 gap-close added capsule-spoke-rbac.yaml; D-11-07 added
+# capsule-spoke-tenants.yaml; quick task keycloak-idp-poc added
+# keycloak-{tenant,spoke,app}.yaml; quick task tenant-ui-oidc added
+# headlamp.yaml — 8 entries total.
+@test "POC-01 / D-06 / D-08-12 / G-06 / D-11-07 / keycloak-idp / tenant-ui: clusters/hub-flux/pocs/kustomization.yaml aggregates the 8-Kustomization POC set" {
   [ -f "$POCS_INDEX" ]
-  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 7 and (.resources | contains(["capsule-spoke-rbac.yaml"])) and (.resources | contains(["capsule.yaml"])) and (.resources | contains(["capsule-spoke-tenants.yaml"])) and (.resources | contains(["capsule-spoke.yaml"])) and (.resources | contains(["keycloak-tenant.yaml"])) and (.resources | contains(["keycloak-spoke.yaml"])) and (.resources | contains(["keycloak-app.yaml"]))' "$POCS_INDEX"
+  run yq eval '.apiVersion == "kustomize.config.k8s.io/v1beta1" and .kind == "Kustomization" and (.resources | length) == 8 and (.resources | contains(["capsule-spoke-rbac.yaml"])) and (.resources | contains(["capsule.yaml"])) and (.resources | contains(["capsule-spoke-tenants.yaml"])) and (.resources | contains(["capsule-spoke.yaml"])) and (.resources | contains(["keycloak-tenant.yaml"])) and (.resources | contains(["keycloak-spoke.yaml"])) and (.resources | contains(["keycloak-app.yaml"])) and (.resources | contains(["headlamp.yaml"]))' "$POCS_INDEX"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }

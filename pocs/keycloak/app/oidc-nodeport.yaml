@@ -1,0 +1,31 @@
+# pocs/keycloak/app/oidc-nodeport.yaml
+# NodePort exposing Keycloak's TLS listener for the pinned OIDC issuer
+# https://localhost:31443 (tenant-ui-oidc quick task, 2026-07-06).
+#
+# Reachability (live-verified): the spoke-capsule k3d serverlb publishes NO
+# free host ports (recreate needed), so host reachability comes from the
+# imperative socat forwarder container (scripts/poc/keycloak/
+# start-oidc-forwarder.sh: host 0.0.0.0:31443 → k3d-spoke-capsule-server-0:
+# 31443 by docker-DNS name). The apiserver + hostNetwork pods reach it via
+# kube-proxy's localhost NodePort path (127.0.0.1:31443 on the node).
+# Deliberately a SEPARATE Service — never touch the operator-managed
+# keycloak-service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-oidc
+  namespace: keycloak
+  labels:
+    karyon.io/poc: keycloak
+spec:
+  type: NodePort
+  selector:
+    app: keycloak
+    app.kubernetes.io/instance: keycloak
+    app.kubernetes.io/managed-by: keycloak-operator
+  ports:
+    - name: https
+      port: 8443
+      targetPort: 8443
+      protocol: TCP
+      nodePort: 31443

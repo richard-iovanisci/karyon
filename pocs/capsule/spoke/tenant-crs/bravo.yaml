@@ -55,6 +55,12 @@ spec:
       name: capsule-platform-owners
     - kind: ServiceAccount
       name: system:serviceaccount:capsule-system:platform-owner
+    # 2026-07-06 (tenant-ui-oidc quick task): OIDC dev group as Tier-3 owner
+    # (mirror of alpha; see alpha.yaml for the full rationale).
+    - kind: Group
+      name: tenant-bravo-devs
+      clusterRoles:
+        - tenant-workload-editor
   # TEN-03 — ResourceQuota auto-materialization shape
   # Capsule reconciles these into ResourceQuota objects in tenant namespaces
   # named capsule-<tenant>-<index>. Phase 9 verifies SHAPE only; enforcement
