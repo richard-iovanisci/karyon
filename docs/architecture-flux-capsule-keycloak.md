@@ -47,7 +47,7 @@ flowchart LR
     KC["Keycloak 26.6.4 realm karyon"]
     TNS["tenant-alpha / tenant-bravo namespaces"]
   end
-  OP -- git push --> GH
+  OP -- "A1: git push (GitOps)" --> GH
   GH -- pull 1m --> FLUX
   FLUX --> KS
   KS -- "SSA via spoke kubeconfig (P18)" --> CAPS
@@ -55,12 +55,57 @@ flowchart LR
   HR -- "helm install via kubeConfig" --> CAPS
   TK -- "SSA as gitops-reconciler" --> TNS
   CAPS -- "RoleBindings + namespace ownership" --> TNS
-  DEV -- "1: OIDC login (PKCE)" --> KC
-  DEV -- "2: bearer token" --> PROXY
+  OP -. "A2: users/groups (admin console)" .-> KC
+  OP -. "A3: tenant lifecycle (no cluster-admin)" .-> PROXY
+  DEV -- "U1: OIDC login (PKCE)" --> KC
+  DEV -- "U3: kubectl (kubelogin)" --> PROXY
+  DEV -- "U2: Headlamp dashboard" --> HL2
   PROXY -- TokenReview --> API
   HL2["Headlamp UI"] -. "user token" .-> PROXY
   API -. "OIDC discovery/JWKS :31443" .-> KC
 ```
+
+## The five components, one line of sight
+
+| Component | Version | Runs where | Job in this pattern | Git source |
+|---|---|---|---|---|
+| **Capsule** | 0.12.4 | `capsule-system` on spoke-capsule | The tenancy engine: Tenant CRs, admission webhooks (namespace ownership, quotas, registries), auto-injected RBAC. Decides *what a tenant is* | `pocs/capsule/` (HelmRelease via hub) |
+| **capsule-proxy** | 0.12.0 | `capsule-system`, NodePort `30443` | The tenant front door: TokenReviews every bearer token, filters cluster-scoped LISTs to owned tenants. Decides *what a tenant sees* | `pocs/capsule/proxy/` |
+| **Keycloak** | 26.6.4 | `keycloak` ns (its own platform Tenant) | The identity source: realm `karyon`, flat groups that byte-match Capsule owners, PKCE client for kubectl/Headlamp. Decides *who you are* | `pocs/keycloak/app/` |
+| **Keycloak operator** | 26.6.4 | `keycloak` ns | Lifecycle manager: reconciles the `Keycloak` CR into a StatefulSet, imports realm `karyon` declaratively (import-once), mints the initial admin Secret. Keycloak itself stays GitOps-managed | `pocs/keycloak/spoke/operator/vendored/` (official manifests, vendored) |
+| **Headlamp** | v0.43.0 | `capsule-system` | The tenant UI (kubernetes-sigs; official dashboard successor): zero-RBAC, forwards the *user's* token to capsule-proxy — the dashboard renders exactly the tenant's slice | `pocs/headlamp/` |
+
+The chain reads left to right: **Keycloak** says who you are → the **apiserver**
+verifies it → **capsule-proxy** narrows the view → **Capsule** enforces the
+boundaries → **Headlamp** (or kubectl) is just the lens.
+
+## Personas — what each human actually experiences
+
+### Platform admin (Tier 2 — alice, `capsule-platform-owners`)
+
+| Step | What alice does | What serves it |
+|---|---|---|
+| A1 | `git push` — tenants, quotas, seeds, even Keycloak itself are files | Flux (hub) reconciles into the spoke |
+| A2 | Onboards people: creates users/groups in the Keycloak admin console (`https://localhost:31443/admin`) or via `kcadm` | Keycloak (operator keeps the server itself declarative) |
+| A3 | Tenant lifecycle without cluster-admin: `new-tenant.sh charlie`, break-glass exec, all-tenant visibility | capsule-proxy → Capsule owner matching (`auth can-i '*' '*'` = **no**) |
+| A4 | Opens Headlamp → sees **all** tenants (alpha, bravo, keycloak) in one pane | Headlamp forwarding her token; proxy returns the Tier-2 view |
+
+Her ceiling is real: she can create and delete tenants but cannot touch nodes,
+CRDs, or escalate — the same login that grants the wide view enforces it.
+
+### Tenant developer (Tier 3 — bob, `tenant-alpha-devs`)
+
+| Step | What bob does | What serves it |
+|---|---|---|
+| U1 | Clicks *Sign in* (Headlamp) or runs `kubectl auth whoami` (kubelogin) → Keycloak login page, PKCE | Keycloak issues an id_token with `groups: [tenant-alpha-devs, …]` |
+| U2 | Lands in Headlamp: tenant-alpha's workloads, logs, events, in-browser pod shell — and *nothing else*. No bravo, no keycloak, no kube-system | Headlamp → capsule-proxy LIST filter + Capsule-injected RBAC |
+| U3 | Same identity in the terminal: `KUBECONFIG=~/.karyon/oidc.kubeconfig kubectl get ns` → exactly `tenant-alpha` | kubelogin reuses the cached token; proxy applies the same filter |
+| U4 | Ships workloads via git: commits to the tenant app path; Flux applies them *as* `gitops-reconciler`, scoped inside the tenant (P27) | Flux tenant Kustomization on the hub |
+| U5 | Tries to escape — `create secret`, list bravo's pods, make a namespace outside the tenant | **Forbidden** — `tenant-workload-editor` ceiling + Capsule webhooks |
+
+The experience contract: bob's identity is one group membership. No
+kubeconfig hand-offs, no RoleBinding tickets — join `tenant-alpha-devs`,
+log in, and the cluster is exactly tenant-alpha-sized.
 
 ## Layer 1 — GitOps delivery (Flux, hub-only)
 
