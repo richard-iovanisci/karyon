@@ -15,7 +15,8 @@ companion: `architecture-flux-capsule-keycloak.md` (the pattern),
 Single EKS cluster. Flux already installed and owned by a cloud-ops team
 (Tier 1, full cluster-admin). Capsule + capsule-proxy installed in
 collaboration between platform team (Tier 2) and cloud ops. Keycloak to be
-self-hosted in-cluster with **RDS PostgreSQL** as the database (no in-cluster
+self-hosted in-cluster with **RDS MySQL** as the database (company
+standard; no in-cluster
 persistent storage). Git host is GitLab (cosmetic difference — Flux
 `GitRepository` sources work the same). Dev teams are the tenants. In
 progress: capsule-proxy ↔ apiserver auth on EKS, and RDS provisioning.
@@ -113,14 +114,20 @@ layer of karyon's complexity — do not carry it over:
   `pocs/keycloak/spoke/operator/vendored/`). Operator watches only its own
   namespace; the CR, realm imports, and DB Secret must co-locate.
 - **RDS is the operator's expected posture** — it never manages databases.
-  karyon's in-cluster Postgres was a stand-in. Target shape in the
-  `Keycloak` CR: `db.vendor: postgres`, `db.host: <rds-endpoint>`,
-  `usernameSecret`/`passwordSecret` → a Secret sourced from your secret
-  manager (ESO/Secrets Manager — karyon's "imperative script" pattern is the
-  lab stand-in for that). Multi-AZ RDS also unlocks `instances: 2+` (karyon
-  ran 1). TLS to RDS: set the JDBC params via `additionalOptions`
-  (`db-url-properties: "?ssl=true&sslmode=require"` or the AWS RDS CA
-  bundle in a truststore) — decide with your DBA posture.
+  karyon's in-cluster Postgres was a lab stand-in; the DB engine is a config
+  value. Target shape in the `Keycloak` CR: `db.vendor: mysql` (fully
+  supported — Keycloak 26 lists MySQL 8.4 LTS tested, 8.0 LTS supported; no
+  deprecation), `db.host: <rds-endpoint>`, `usernameSecret`/`passwordSecret`
+  → a Secret sourced from your secret manager (ESO/Secrets Manager —
+  karyon's "imperative script" pattern is the lab stand-in for that).
+  Multi-AZ RDS also unlocks `instances: 2+` (karyon ran 1).
+- **MySQL-specific gotchas (from the Keycloak DB guide)** — both belong in
+  the RDS *parameter group*, not the app: (1) Keycloak's connection-pool max
+  lifetime (default 7h50m) must stay BELOW the server's `wait_timeout`;
+  (2) MySQL ≥ 8.0.30: set `sql_generate_invisible_primary_key = OFF` before
+  Keycloak's first start. TLS to RDS: `--db-tls-mode=verify-server` +
+  `--db-tls-trust-store-file=<AWS RDS CA bundle>` (via the CR's
+  `additionalOptions`/truststore mount) — decide with your DBA posture.
 - Keycloak itself behind ingress with a **pinned hostname**
   (`spec.hostname.hostname: https://sso.<domain>`) — the issuer string is
   load-bearing everywhere (next section).
