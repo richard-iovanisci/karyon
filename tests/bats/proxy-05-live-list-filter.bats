@@ -1,11 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/proxy-05-live-list-filter.bats
-# Phase 10 / Wave 0 (D-10-09 Nyquist gate)
-# Live PROXY-02 verification: proxy LIST filter + direct-apiserver 403 falsifier.
-# CORRECTED per Pitfall 10-P2/10-P3 (RESEARCH §"Pitfall 10-P3"): direct apiserver returns 403,
-# NOT a wider list. The SA's RBAC is namespace-scoped (admin RoleBinding only inside owned namespaces).
+# Live verification: proxy LIST filter + direct-apiserver 403 falsifier.
+# Direct apiserver returns 403, NOT a wider list: the SA's RBAC is namespace-scoped
+# (admin RoleBinding only inside owned namespaces).
 # Falsifier shape: qualitative (Forbidden + 'cannot list resource' string), NOT quantitative count.
-# RED until Plan 10-01 lands script + Plan 10-02 stages capsule-proxy live (Pitfall 10-P6).
 
 load 'test_helper'
 
@@ -23,11 +21,11 @@ setup() {
   TOKEN=$(yq eval '.users[0].user.token' "$ISSUED_KC")
 
   # Construct a direct-apiserver kubeconfig (same token, different cluster URL).
-  # WR-08 / nolint(insecure-skip-tls-verify): per CONTEXT D-10-08 the falsifier explicitly
+  # nolint(insecure-skip-tls-verify): the probe deliberately
   # uses `insecure-skip-tls-verify: true` because the spoke-capsule apiserver cert does
   # not have 127.0.0.1:6446 in its SAN list (only NodePort 30443 is in scope for the
   # proxy's cert). This is bats-internal, ephemeral (tmpfile, removed in test), and the
-  # apiserver returns 403 Forbidden BEFORE TLS state matters here. The Phase 8 WR-01..04
+  # apiserver returns 403 Forbidden BEFORE TLS state matters here. The
   # anti-pattern lint (proxy-01-static-script.bats:100) only scans the script, not bats.
   DIRECT_KC=$(mktemp -p "${TMPDIR:-/tmp}" karyon-proxy-05-direct-XXXX.kubeconfig)
   cat > "$DIRECT_KC" <<EOF

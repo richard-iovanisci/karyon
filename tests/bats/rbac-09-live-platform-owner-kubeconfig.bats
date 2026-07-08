@@ -1,13 +1,11 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-09-live-platform-owner-kubeconfig.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# RBAC-04 + RBAC-06 — platform-owner LIST through capsule-proxy:
+# Platform-owner LIST through capsule-proxy:
 #   - LIST tenants returns alpha + bravo
 #   - LIST namespaces returns tenant-alpha + tenant-bravo + alpha-app1 + bravo-app1
 #   - LIST namespaces does NOT return kube-system (proxy filter)
 #   - get nodes returns Forbidden (ceiling)
 #   - get pods -n tenant-alpha succeeds (co-owner operational reach)
-# RED until Plan 13-02 lands script + SA + dual-subject CRB + Tenant CR co-owner additions.
 
 load 'test_helper'
 
@@ -41,13 +39,13 @@ setup() {
 }
 
 @test "RBAC-06 / D-13-07 (LIST namespaces): proxy returns tenant-alpha + tenant-bravo (home tenant namespaces)" {
-  # Phase 9 TEN-02 created sub-namespaces alpha-app1 + bravo-app1 via
-  # `kubectl --as=alpha create namespace alpha-app1`. In a clean Phase 13 cluster
-  # state, those sub-namespaces are NOT necessarily present (they are Phase 9
-  # ephemera, not Phase 13 invariants). We assert only the home tenant namespaces
+  # The impersonation live test created sub-namespaces alpha-app1 + bravo-app1 via
+  # `kubectl --as=alpha create namespace alpha-app1`. On a freshly rebuilt cluster,
+  # those sub-namespaces are NOT necessarily present (they are test ephemera,
+  # not invariants). We assert only the home tenant namespaces
   # which are deterministically present once the alpha + bravo Tenant CRs reconcile.
   # The capsule-proxy LIST filter shape (tenant-owner visibility) is the contract;
-  # the exact tenant namespace inventory is downstream of Phase 9 + operator activity.
+  # the exact tenant namespace inventory is downstream of test + operator activity.
   run kubectl --kubeconfig="$PO_KUBECONFIG" get namespaces -o jsonpath='{.items[*].metadata.name}'
   [ "$status" -eq 0 ]
   for ns in tenant-alpha tenant-bravo; do
@@ -74,7 +72,6 @@ setup() {
   # Direct apiserver call (https://0.0.0.0:6446) WITH this SA's token returns 403
   # (verified out-of-band). The bats contract is "RBAC ceiling enforced", not
   # "proxy enforces ceiling for cluster-scoped reads" — these differ for tenant-owners.
-  # See SUMMARY.md "Notable Observations" for the capsule-proxy semantic.
   run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i get nodes 2>/dev/null"
   [ "$output" = "no" ]
 }

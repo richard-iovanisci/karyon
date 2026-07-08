@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/repo-hygiene-02-taskfile.bats
-# Phase 6 Wave 0 static contract for REPO-05: Taskfile.yml is a thin wrapper —
+# Static contract: Taskfile.yml is a thin wrapper —
 # every cmds: entry calls bash scripts/<name>.sh and nothing else; no inline
 # kubectl|docker|k3d|flux invocations outside cmds:.
 
@@ -33,9 +33,9 @@ setup() {
 @test "REPO-05: Taskfile.yml is a thin wrapper — every cmds: entry calls bash scripts/<path>.sh and nothing else" {
   [ -f "$TASKFILE" ]
   # Allow flat (scripts/foo.sh) and nested POC paths (scripts/poc/capsule/fix-dns.sh)
-  # per D-12 / P31 isolation. Thin-wrapper invariant preserved: still only
+  # per POC isolation. Thin-wrapper invariant preserved: still only
   # `bash <path>.sh` is permitted; no inline kubectl/docker/k3d/flux.
-  # Phase 11 D-11-12: also accept the Taskfile v3 `{{.CLI_ARGS}}` variadic pass-through
+  # Also accept the Taskfile v3 `{{.CLI_ARGS}}` variadic pass-through
   # idiom as a trailing token (e.g. `bash scripts/poc/capsule/destroy-poc.sh {{.CLI_ARGS}}`).
   # The trailing token is a literal Taskfile substitution marker, not an inline command,
   # so the thin-wrapper invariant is preserved (test 3 below still rejects inline

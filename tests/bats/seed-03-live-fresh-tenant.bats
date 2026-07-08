@@ -1,11 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/seed-03-live-fresh-tenant.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# SEED-02 — fresh-tenant propagation <=60s falsifier.
+# Fresh-tenant propagation <=60s falsifier.
 # Uses new-tenant.sh phase13-fresh to create a brand-new Tenant + Namespace; asserts
-# hello-world Deployment Available within 60s of namespace creation (the SEED-02
-# SLO; shape amended from bare Pod by ADR-008 addendum 2026-07-06).
-# RED until Plans 13-02 (new-tenant.sh + platform-owner kubeconfig) + 13-03 (GTR) land.
+# hello-world Deployment Available within 60s of namespace creation (the propagation
+# SLO; shape amended from bare Pod by the ADR 0008 addendum 2026-07-06).
 
 load 'test_helper'
 
@@ -29,8 +27,8 @@ setup_file() {
   if [ -f "${PO_KUBECONFIG}" ] && [ -x "${REPO_ROOT}/scripts/poc/capsule/new-tenant.sh" ]; then
     bash "${REPO_ROOT}/scripts/poc/capsule/new-tenant.sh" phase13-fresh \
       --kubeconfig="$PO_KUBECONFIG" >/dev/null 2>&1 || true
-    # Pitfall 13-P2: wait for Tenant.Status.Namespaces to be non-empty before asserting
-    # propagation (controller hasn't materialized child ns yet)
+    # Wait for Tenant.Status.Namespaces to be non-empty before asserting
+    # propagation (the controller may not have materialized the child ns yet)
     for i in 1 2 3 4 5 6; do
       local sz
       sz=$(kubectl --context=k3d-spoke-capsule get tenant phase13-fresh \
@@ -49,7 +47,7 @@ teardown_file() {
   fi
   kubectl --context=k3d-spoke-capsule delete tenant phase13-fresh \
     --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  # Pitfall 13-P6: pruningOnDelete unmaterialization wait
+  # pruningOnDelete unmaterialization wait — the namespace lingers briefly after tenant delete
   kubectl --context=k3d-spoke-capsule wait --for=delete namespace tenant-phase13-fresh \
     --timeout=30s >/dev/null 2>&1 || true
   rm -rf "$KARYON_BATS_TMPDIR"
@@ -61,9 +59,9 @@ setup() {
   fi
 }
 
-# AMENDED (ADR-008 addendum 2026-07-06): GTR seeds a Deployment now; the ≤60s
+# AMENDED (ADR 0008 addendum 2026-07-06): GTR seeds a Deployment now; the ≤60s
 # SLO is asserted as Deployment Available (equivalent readiness signal, and the
-# fresh-tenant path still rides the Tenant-CREATE watch event per 13-RESEARCH A5).
+# fresh-tenant path still rides the Tenant-CREATE watch event).
 # Explicit poll instead of `kubectl wait` because the Deployment may not exist
 # yet when the test starts (wait on a missing named resource errors immediately).
 @test "SEED-02 / D-13-08 + D-13-11 (fresh tenant): hello-world Deployment Available in tenant-phase13-fresh within 60s" {

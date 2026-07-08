@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/register-poc-cluster-01-static.bats
-# POC-02 — register-poc-cluster.sh shape contract (mirrors register-spokes-01-static.bats)
+# register-poc-cluster.sh shape contract (mirrors register-spokes-01-static.bats)
 
 load 'test_helper'
 

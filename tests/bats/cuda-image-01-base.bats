@@ -1,7 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/cuda-image-01-base.bats
-# Asserts images/Dockerfile.k3s-cuda uses FROM nvidia/cuda:12.8.1-base-ubuntu22.04 (IMG-01) and the k3s build stage is FROM rancher/k3s.
-# Wave 0 stub — body filled by Plan 02-02 (or 02-03 for the manifest tests).
+# Asserts images/Dockerfile.k3s-cuda uses FROM nvidia/cuda:12.8.1-base-ubuntu22.04 and the k3s build stage is FROM rancher/k3s.
 
 load 'test_helper'
 

@@ -1,9 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/demo-03-live-pod-ops.bats
-# Phase 14 / Wave 0 (D-14-08 + D-13-15 Nyquist gate)
-# DEMO-03 — positive control: tenant-owner + platform-owner exec/logs against the SEED-01 hello-world workload (alpha + bravo symmetric mirror).
-# RED until Plan 14-02 lands DEMO bats GREEN against the live cluster.
-# AMENDED (ADR-008 addendum 2026-07-06): GTR seeds a Deployment now, so exec/logs
+# Positive control: tenant-owner + platform-owner exec/logs against the seeded hello-world workload (alpha + bravo symmetric mirror).
+# AMENDED (ADR 0008 addendum 2026-07-06): GTR seeds a Deployment now, so exec/logs
 # target deploy/hello-world (kubectl resolves to a ready child pod) instead of a
 # fixed pod name — Deployment pods carry a -<hash> suffix.
 

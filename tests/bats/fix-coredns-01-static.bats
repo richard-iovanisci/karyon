@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/fix-coredns-01-static.bats
-# Phase 5 static contract for the hub-only CoreDNS/NodeHosts repair task.
+# Static contract for the hub-only CoreDNS/NodeHosts repair task.
 
 load 'test_helper'
 

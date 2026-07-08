@@ -1,11 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/capsule-install-08-live-proxy-reachable.bats
-# Phase 8 / Wave 0 (D-08-09 Nyquist gate)
-# CAP-02 — live NodePort 30443 reachability per OQ-1 reframe (Pitfall 8 RESEARCH catch).
+# Live NodePort 30443 reachability.
 # Asserts TLS handshake succeeds + HTTP code matches [1-5][0-9][0-9] (NOT literal 200 on /healthz —
-# that endpoint is on the unexposed probe port 8081 per chart Service shape; CONTEXT.md guess
-# was reframed during research).
-# Cluster-info gate per RESEARCH §"Pattern 4".
+# that endpoint is on the unexposed probe port 8081 per the chart's Service shape).
+# Cluster-info gate — auto-skips when the cluster is unreachable.
 
 load 'test_helper'
 

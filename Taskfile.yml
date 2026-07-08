@@ -2,32 +2,32 @@ version: '3'
 
 tasks:
   preflight:
-    desc: Read-only environment check (PRE-01..14); idempotent, exits 0 on pass / 1 on any blocker
+    desc: Read-only environment checks for Docker, WSL2, GPU, DNS, and required tools; idempotent, exits 0 on pass / 1 on any blocker
     cmds:
       - bash scripts/preflight.sh
 
   build-image:
-    desc: Build the karyon/k3s-cuda custom image (IMG-01..06)
+    desc: Build the karyon/k3s-cuda custom image (k3s plus NVIDIA container runtime)
     cmds:
       - bash scripts/build-image.sh
 
   create-clusters:
-    desc: Create k8s-net + three k3d clusters (CLU-01..05)
+    desc: Create k8s-net + three k3d clusters (hub-flux, spoke-ml, spoke-apps)
     cmds:
       - bash scripts/create-clusters.sh
 
   delete-clusters:
-    desc: Remove clusters + k8s-net; preserve karyon/k3s-cuda image (CLU-06, D-14)
+    desc: Remove clusters + k8s-net; preserve the karyon/k3s-cuda image so rebuilds stay warm
     cmds:
       - bash scripts/delete-clusters.sh
 
   bootstrap-flux:
-    desc: Bootstrap Flux GitOps on k3d-hub-flux from clusters/hub-flux/ (FLUX-01..04)
+    desc: Bootstrap Flux GitOps on k3d-hub-flux from clusters/hub-flux/
     cmds:
       - bash scripts/bootstrap-flux.sh
 
   register-spokes:
-    desc: Register spoke clusters for Flux reconciliation via spec.kubeConfig (SPOKE-01..06)
+    desc: Register spoke clusters for hub-driven Flux reconciliation via spec.kubeConfig
     cmds:
       - bash scripts/register-spokes-for-flux.sh
 

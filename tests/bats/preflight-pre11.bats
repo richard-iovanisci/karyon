@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/preflight-pre11.bats
-# Unit tests for PRE-11: 127.0.0.53 stub detection via preflight_check_systemd_resolved().
+# Unit tests for 127.0.0.53 stub detection via preflight_check_systemd_resolved().
 
 load 'test_helper'
 

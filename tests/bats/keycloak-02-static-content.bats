@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/keycloak-02-static-content.bats
-# Keycloak IdP POC (quick task keycloak-idp-poc, 2026-07-06) — content pins for
+# Keycloak IdP POC (2026-07-06) — content pins for
 # the pocs/keycloak/ tree: vendored operator version, tenant shape, namespace
 # claim, DB secret indirection, and the OIDC-future-proofing invariants from
 # the 2026-07-06 research (flat groups, full.path OFF, PKCE public client).

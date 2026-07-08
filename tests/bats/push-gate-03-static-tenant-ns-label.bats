@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/push-gate-03-static-tenant-ns-label.bats
-# Phase 11 D-11-03 -- tenant home namespace YAML carries capsule.clastix.io/tenant=<name> label.
-# RED until Plan 11-01 lands the edits (Plan 10-02 used --as=alpha/bravo impersonation; this
-# is the GitOps source so first push reconciles cleanly).
+# Tenant home namespace YAML carries the capsule.clastix.io/tenant=<name> label.
+# This is the GitOps source (an earlier live run used --as=alpha/bravo impersonation);
+# with the label in git, the first push reconciles cleanly.
 
 load 'test_helper'
 
@@ -30,13 +30,12 @@ setup() {
 @test "D-11-07: tenant home kustomizations contain labeled namespace then owner SAs (Phase 13 D-13-05 additive)" {
   [ -f "$K_ALPHA" ]
   [ -f "$K_BRAVO" ]
-  # Phase 13 (Plan 13-04 verifier Rule 1 - Bug):
-  # Plan 13-01 (D-13-05) additively appended `human-owner-sa.yaml` to alpha + bravo
-  # tenant kustomization.yaml `resources[]` (after `sa.yaml`, preserving FIFO order).
-  # The shape contract expanded from 2 entries -> 3 entries; first two entries
-  # (namespace.yaml + sa.yaml) preserved character-for-character per D-11-07 + D-13-05
-  # additive guarantee. The new human-owner-sa.yaml MUST be the third entry per FIFO
-  # sortOptions and the Plan 13-01 reviewer-confirmed sequence.
+  # `human-owner-sa.yaml` was additively appended to alpha + bravo tenant
+  # kustomization.yaml `resources[]` (after `sa.yaml`, preserving FIFO order).
+  # The shape contract expanded from 2 entries -> 3 entries; the first two entries
+  # (namespace.yaml + sa.yaml) are preserved character-for-character (additive
+  # guarantee). The new human-owner-sa.yaml MUST be the third entry per FIFO
+  # sortOptions.
   run yq eval '(.resources | length) == 3 and .resources[0] == "namespace.yaml" and .resources[1] == "sa.yaml" and .resources[2] == "human-owner-sa.yaml"' "$K_ALPHA"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]

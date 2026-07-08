@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/push-gate-02-static-capsuleconfig.bats
-# Phase 11 D-11-02 -- CapsuleConfiguration spec.userGroups extended to 3-group list
+# CapsuleConfiguration spec.userGroups extended to a 3-group list
 # so capsule-proxy LIST recognizes SA-token-authenticated identities as Capsule-owned.
-# RED until Plan 11-01 lands the edit (Plan 10-02 patched live; this is the GitOps source).
+# This file is the GitOps source for a change that was first patched live.
 
 load 'test_helper'
 

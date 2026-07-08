@@ -1,15 +1,16 @@
 #!/usr/bin/env bats
 # tests/bats/negative-rbac-01-cross-tenant-list.bats
-# Phase 11 / Wave 0 (D-11-06 partition: N1, N2, N3 cross-tenant list/secret falsifiers).
-# RED until Plan 11-01 lands push-gate fixes + Plan 11-03 turns these GREEN.
-# Real-CRUD probe shape (D-11-05) -- NOT kubectl auth can-i (Pitfall P37 SAR cache flake).
-# Mint-once kubeconfig via setup_file (D-11-07) -- TmpDir-rooted, P29 invariant preserved.
-# REVISED 2026-05-05: Pitfall 11-P6 strict-mode env var (KARYON_PHASE11_STRICT_LIVE=1
-# converts skips to FAIL for graduation-deciding runs; reviewer HIGH #1).
+# Cross-tenant list/secret denial probes.
+# Real-CRUD probe shape -- NOT kubectl auth can-i (the SAR cache's 5min/30s TTLs
+# return stale results and flake).
+# Mint-once kubeconfig via setup_file -- TmpDir-rooted, so no tenant kubeconfig
+# ever lands in the working tree.
+# Strict-mode env var: KARYON_PHASE11_STRICT_LIVE=1 converts skips to FAIL for
+# gate-deciding runs.
 
 load 'test_helper'
 
-# Pitfall 11-P6 -- skip vs FAIL based on strict-mode env var
+# Skip vs FAIL based on the strict-mode env var
 _strict_skip() {
   local msg="$1"
   if [[ "${KARYON_PHASE11_STRICT_LIVE:-}" == "1" ]]; then

@@ -1,10 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/negative-rbac-05-webhook-down.bats
-# Phase 11 / Wave 0 (D-11-06 partition: N11 webhook-down rejects, N12 recovery succeeds).
-# RED until Plan 11-02 lands fail-capsule-webhook.sh + Taskfile entry, then Plan 11-03 turns GREEN.
-# D-11-09 mechanism: scale Deployment 0/1; rollout-status with 90s timeout on recovery.
-# REVISED 2026-05-05 per reviewer MEDIUM #8: replace `sleep 5` with deterministic poll-loop
-# on Deployment readyReplicas + Service endpoints (30s budget). Pitfall 11-P6 strict-mode.
+# Webhook-down probes: creates are rejected while the webhook is down; recovery succeeds after.
+# Mechanism: scale Deployment 0/1; rollout-status with 90s timeout on recovery.
+# Uses a deterministic poll-loop (not a fixed sleep) on Deployment readyReplicas +
+# Service endpoints (30s budget). KARYON_PHASE11_STRICT_LIVE=1 converts skips to FAIL.
 
 load 'test_helper'
 
@@ -59,8 +58,8 @@ setup() {
   run task fail-capsule-webhook -- 0
   [ "$status" -eq 0 ]
 
-  # REVISED 2026-05-05 per reviewer MEDIUM #8: replace `sleep 5` with deterministic
-  # poll-loop. After scale-to-zero, wait for Deployment readyReplicas to reach 0 AND
+  # Deterministic poll-loop instead of a fixed sleep.
+  # After scale-to-zero, wait for Deployment readyReplicas to reach 0 AND
   # for the Service endpoints subset to drain (or the webhook lookup to start failing).
   # 30s budget total: 6 iterations x 5s sleep.
   for i in 1 2 3 4 5 6; do
@@ -85,7 +84,7 @@ setup() {
     --image=registry.example.io/probe -n alpha-app1
   [ "$status" -ne 0 ]
   echo "$output" | grep -qE "(failed calling webhook|no endpoints available|x509|connection refused)"
-  # Do NOT recover here -- N12 owns recovery
+  # Do NOT recover here -- the recovery @test below owns that
 }
 
 @test "N12 -- workload create succeeds again after capsule-controller recovers" {

@@ -1,9 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/proxy-02-static-leak-defenses.bats
-# Phase 10 / Wave 0 (D-10-09 Nyquist gate)
-# REGRESSION GATE: Phase 7 D-14 leak defenses (.gitignore globs + .gitleaks.toml rule + synthetic fixture allowlist).
-# Phase 10 does NOT modify these files; this bats fails if either is mutated.
-# PROXY-03 contract.
+# REGRESSION GATE: leak defenses (.gitignore globs + .gitleaks.toml rule + synthetic fixture allowlist).
+# The proxy work does NOT modify these files; this bats fails if either is mutated.
 
 load 'test_helper'
 

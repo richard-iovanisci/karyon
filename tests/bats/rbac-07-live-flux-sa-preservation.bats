@@ -1,11 +1,10 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-07-live-flux-sa-preservation.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# RBAC-03 — Flux SA owner pattern regression gate.
+# Flux SA owner pattern regression gate.
 # Existing alpha/bravo Tenant CR owners (flux-reconciler + gitops-reconciler SAs)
 # MUST be preserved verbatim. poc-capsule-spoke-tenants Flux Kustomization Ready=True.
-# Currently GREEN-by-design (regression gate); becomes a falsifier if Plan 13-01..13-02
-# accidentally removes owners.
+# GREEN-by-design (regression gate); becomes a falsifier if a change accidentally
+# removes owners.
 
 load 'test_helper'
 

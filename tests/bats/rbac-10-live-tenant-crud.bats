@@ -1,9 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-10-live-tenant-crud.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# RBAC-05 — Tenant CRUD via platform-owner kubeconfig (create/get/patch/delete).
+# Tenant CRUD via platform-owner kubeconfig (create/get/patch/delete).
 # Uses scripts/poc/capsule/new-tenant.sh phase13-fresh for the create path.
-# RED until Plan 13-02 lands new-tenant.sh + platform-owner kubeconfig minter.
 
 load 'test_helper'
 

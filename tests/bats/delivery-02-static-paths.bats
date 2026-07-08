@@ -1,13 +1,12 @@
 #!/usr/bin/env bats
 # tests/bats/delivery-02-static-paths.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# DELIVERY-01 + DELIVERY-02 + D-13-13 + D-13-14 — file layout + P31 isolation:
-#   - All NEW Phase 13 artifacts live under pocs/capsule/spoke/ or scripts/poc/capsule/
-#   - Taskfile.yml has ZERO Phase-13 task entries (D-13-14: no Taskfile edits)
-#   - v0.18 default-path scripts have ZERO Phase-13 literal mentions (P31; superset of
+# File layout + POC isolation:
+#   - All NEW POC artifacts live under pocs/capsule/spoke/ or scripts/poc/capsule/
+#   - Taskfile.yml has ZERO POC task entries (no Taskfile edits for the POC)
+#   - v0.18 default-path scripts have ZERO mentions of the POC literals (superset of
 #     poc-isolation-01-static.bats which already catches spoke-capsule/register-poc-cluster/scripts/poc/)
-# Forbidden-literal greps strip comments via `grep -v '^[[:space:]]*#'` to avoid the
-# self-invalidating grep gate anti-pattern (Pitfall 13-P*).
+# Forbidden-literal greps strip comments via `grep -v '^[[:space:]]*#'` so a mere
+# comment mention cannot trip the gate (self-invalidating grep-gate anti-pattern).
 
 load 'test_helper'
 

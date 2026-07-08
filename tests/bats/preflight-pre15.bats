@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/preflight-pre15.bats
-# POC-04 / D-15 — scripts/preflight.sh has check_port_strict 30443 fail-fast
+# scripts/preflight.sh has check_port_strict 30443 fail-fast
 
 load 'test_helper'
 

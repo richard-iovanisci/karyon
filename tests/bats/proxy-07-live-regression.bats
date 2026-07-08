@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/proxy-07-live-regression.bats
-# Phase 10 / Wave 0 (D-10-09 Nyquist gate)
-# Multi-cluster regression-rerun: Phase 7 P31 isolation + Phase 8 CAP-01..03 + Phase 9 TEN-01..06 + ADR-004
-# Phase 10's script-only landing must NOT regress any prior-phase invariant.
+# Multi-cluster regression-rerun: POC isolation + the Capsule install contract +
+# the tenant contracts + the hub-only Flux invariant (see docs/adr/0004-hub-only-flux-control-plane.md).
+# A script-only landing must NOT regress any of those prior invariants.
 # Multi-cluster cluster-info gate (k3d-hub-flux + k3d-spoke-capsule + k3d-spoke-apps + k3d-spoke-ml).
 
 load 'test_helper'

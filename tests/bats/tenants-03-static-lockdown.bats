@@ -1,23 +1,21 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-03-static-lockdown.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-05 — Hub Flux multi-tenancy lockdown patches in clusters/hub-flux/flux-system/kustomization.yaml
-# Plans 09-01..09-03 land the yaml that turns these GREEN.
+# Hub Flux multi-tenancy lockdown patches in clusters/hub-flux/flux-system/kustomization.yaml
 #
-# Verifies (per RESEARCH §Gap 2 + §Gap 9 + CONTEXT D-09-05 / D-09-05a):
+# Verifies:
 #   - FLUX PATCH SURFACE comment block preserved verbatim (regression gate against accidental edit)
 #   - KARYON SPOKES MOUNT + KARYON POC MOUNT sentinels preserved
-#   - NEW # KARYON FLUX LOCKDOWN PATCHES sentinel added (D-09-05)
+#   - # KARYON FLUX LOCKDOWN PATCHES sentinel present
 #   - patches: block exists at top level
 #   - 3 lockdown flag literals present:
 #       --no-cross-namespace-refs=true
 #       --no-remote-bases=true
 #       --default-service-account=default
-#   - 4 Strategic Merge Patch targets (per RESEARCH §Gap 2 canonical):
+#   - 4 Strategic Merge Patch targets:
 #       Deployment kustomize-controller (3 flags)
-#       Deployment helm-controller (extends CONTEXT.md narrowing per RESEARCH Gap 2)
+#       Deployment helm-controller
 #       Deployment notification-controller
-#       Kustomization flux-system (D-09-05a LOAD-BEARING escape hatch — without
+#       Kustomization flux-system (LOAD-BEARING escape hatch — without
 #         spec.serviceAccountName: kustomize-controller the lockdown bricks Flux's
 #         own bootstrap reconcile)
 

@@ -1,10 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-07-live-impersonate.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-02 — kubectl --as=alpha impersonation creates tenant namespace.
-# Plans 09-01..09-03 land the yaml that turns these GREEN.
+# kubectl --as=alpha impersonation creates a tenant namespace.
 #
-# Verifies (per CONTEXT D-09-07 + RESEARCH §Gap 7 impersonation prereqs):
+# Verifies:
 #   - kubectl --as=alpha can create namespace alpha-app1 (idempotent — apply, NOT create)
 #     Idempotent because subsequent runs would otherwise fail with AlreadyExists;
 #     we use kubectl create --dry-run | kubectl apply pipeline so re-runs are safe.

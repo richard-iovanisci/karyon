@@ -1,9 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/capsule-install-03-static-values.bats
-# Phase 8 / Wave 0 (D-08-09 Nyquist gate)
-# CAP-01 + CAP-02 — Chart values literals (RESEARCH-verified per-hook key paths;
-# CONTEXT.md guesses are SUPERSEDED by RESEARCH §"Pattern 2" + §"Code Examples Example 1+2").
-# Plans 08-01 and 08-02 land the yaml that turns these GREEN.
+# Chart values literals — per-hook key paths verified against the upstream chart docs.
 
 load 'test_helper'
 
@@ -34,7 +31,7 @@ setup() {
 }
 
 # INVERTED 2026-07-06: the namespaces hook is the ONE hook that MUST stay at the
-# chart-default `Fail`. The original D-08-03 blanket-Ignore created a cold-bootstrap
+# chart-default `Fail`. The original blanket-Ignore created a cold-bootstrap
 # race: a tenant-labeled Namespace admitted while capsule-webhook-service is not yet
 # Ready skips the ownerReference mutation, then the companion validating webhook
 # deadlocks all UPDATE/DELETE on the labeled-but-unowned namespace (unrecoverable

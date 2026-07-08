@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-04-static-human-owner-sa.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# D-13-05 — per-tenant human-tenant-owner SA file shape.
-# RED until Plan 13-01 lands tenants/{alpha,bravo}/human-owner-sa.yaml.
+# Per-tenant human-tenant-owner SA file shape
+# (tenants/{alpha,bravo}/human-owner-sa.yaml).
 
 load 'test_helper'
 

@@ -6,7 +6,7 @@
 #   - scripts/build-image.sh: docker build -t "$(images/image-tag.sh)" ...
 #   - scripts/create-clusters.sh: k3d cluster create ... --image "$(images/image-tag.sh)"
 #
-# Reads the Dockerfile ARG defaults so pins live in exactly one place (D-06).
+# Reads the Dockerfile ARG defaults so pins live in exactly one place.
 #
 # Output format: karyon/k3s-cuda:<K3S_TAG>-cuda<CUDA_TAG_SHORT>
 # Example:       karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1

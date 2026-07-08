@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/preflight-pre01.bats
-# Unit tests for PRE-01: WSL2 kernel detection via preflight_check_wsl_kernel().
+# Unit tests for WSL2 kernel detection via preflight_check_wsl_kernel().
 # Calls the real library function; mocks uname output via a local override.
 
 load 'test_helper'

@@ -1,15 +1,13 @@
 #!/usr/bin/env bats
 # tests/bats/delivery-03-live-additive-only.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# DELIVERY-03 — additive-only Tenant CR diff against Phase 12 base.
+# Additive-only Tenant CR diff against a pre-change base.
 # Asserts no name-line removals from spec.owners[] in alpha.yaml + bravo.yaml.
 #
-# Base SHA selection: we pick the most recent commit on the current branch BEFORE Phase 13
-# implementation commits (i.e., the Phase 12 close-out or 13-00 plan-creation commit).
-# We use `tags/v0.19` if present, else look for the last commit touching tenant-crs/
-# BEFORE any Phase 13 owner additions land. For Wave 0 RED, the test is GREEN-by-design
-# (no Phase 13 implementation has landed, so diff against any prior SHA shows zero removals);
-# becomes a falsifier post Plan 13-01/13-02 if those plans remove existing owners[] entries.
+# Base SHA selection: we pick the most recent commit on the current branch BEFORE
+# the owner-addition commits. We use `tags/v0.19` if present, else look for the
+# last commit touching tenant-crs/ before the owner additions landed. Before any
+# change lands, the test is GREEN-by-design (diff against any prior SHA shows zero
+# removals); it becomes a falsifier if a change removes existing owners[] entries.
 
 load 'test_helper'
 

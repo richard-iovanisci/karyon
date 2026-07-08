@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/seed-04-live-shape.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# SEED-03 — Deployment + Service only (AMENDED per ADR-008 addendum 2026-07-06,
-# supersedes D-13-12 "Pod + Service"):
+# Deployment + Service only (AMENDED per the ADR 0008 addendum 2026-07-06,
+# which supersedes the original "Pod + Service" shape):
 #   - Exactly 1 GTR-labeled Deployment hello-world per tenant ns (was: zero —
 #     the bare-Pod design put the Capsule controller in a permanent resync
 #     error loop because Pod specs are immutable on update)
@@ -21,7 +20,7 @@ setup() {
   fi
 }
 
-# alpha-app1 is a Phase 13 fixture namespace created by the tenants quota live
+# alpha-app1 is a fixture namespace created by the tenants quota live
 # suites, not by GitOps — skip its block when absent so this suite is honest
 # standalone (the pre-2026-07-06 suite failed spuriously in that state).
 require_ns() {

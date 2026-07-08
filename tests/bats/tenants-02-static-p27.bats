@@ -1,14 +1,12 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-02-static-p27.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-04 — P27 LOAD-BEARING DEFENSE.
-# Plans 09-02 + 09-03 land the yaml that turns these GREEN.
+# LOAD-BEARING DEFENSE: explicit serviceAccountName on tenant Flux Kustomizations.
 #
-# P27: every tenant Flux Kustomization MUST set spec.serviceAccountName explicitly.
+# Every tenant Flux Kustomization MUST set spec.serviceAccountName explicitly.
 # Without it, kustomize-controller falls through to the kubeConfig Secret's principal
-# (cluster-admin via spoke-capsule-kubeconfig — Phase 7 P40/P18 invariant), bypassing
-# Capsule's tenant boundary entirely. RESEARCH §Gap 3 (kustomize_types.go KubeConfig
-# field comment) is the authoritative citation.
+# (cluster-admin via spoke-capsule-kubeconfig), bypassing Capsule's tenant boundary
+# entirely. The upstream kustomize_types.go KubeConfig field comment documents this
+# fall-through behavior.
 #
 # This bats lints every multi-doc yaml under pocs/capsule/tenants/*.yaml and asserts
 # every Flux Kustomization document has a non-null spec.serviceAccountName.
@@ -39,8 +37,8 @@ lint_kustomization_sa_dir() {
     # Walk every doc in the file. `yq eval` (per-doc) emits one TSV row per
     # YAML document; this is the per-doc iteration we want. NOTE: `yq eval-all`
     # would collapse all docs into a SINGLE flattened TSV row (tab-joining
-    # fields across docs), defeating the per-doc lint loop — Plan 09-02
-    # auto-fix [Rule 1 - Bug] flipped this from `eval-all` to `eval`.
+    # fields across docs), defeating the per-doc lint loop — that is why this
+    # uses `eval`, not `eval-all`.
     while IFS=$'\t' read -r kind apiv sa; do
       # Skip docs that aren't Flux v1 Kustomizations.
       [ "$kind" = "Kustomization" ] && [ "$apiv" = "kustomize.toolkit.fluxcd.io/v1" ] || continue
@@ -74,7 +72,7 @@ setup() {
   [ -d "$BROKEN_FIXTURE_DIR" ]
   # Run the SAME lint loop against the broken fixture and assert non-zero exit.
   # If this @test ever passes (i.e., lint exits 0 against the broken fixture),
-  # the lint is silently broken and P27 defense is compromised.
+  # the lint is silently broken and the serviceAccountName defense is compromised.
   run lint_kustomization_sa_dir "$BROKEN_FIXTURE_DIR"
   [ "$status" -ne 0 ]
 }

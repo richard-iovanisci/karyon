@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/negative-rbac-anti-pattern-lint-static.bats
-# D-11-05 enforcement -- negative-rbac-*.bats source files MUST NOT contain
-# `kubectl auth can-i` (Pitfall P37: SAR cache 5min/30s TTLs return stale results).
+# Anti-pattern lint -- negative-rbac-*.bats source files MUST NOT contain
+# `kubectl auth can-i` (the SAR cache's 5min/30s TTLs return stale results).
 
 load 'test_helper'
 

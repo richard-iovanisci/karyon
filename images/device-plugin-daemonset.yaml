@@ -2,7 +2,7 @@
 #
 # NVIDIA device-plugin v0.17.4 static manifest for spoke-ml.
 # Baked into karyon/k3s-cuda at /var/lib/rancher/k3s/server/manifests/
-# so nvidia.com/gpu capacity is up at t=0 (D-01 / IMG-05).
+# so nvidia.com/gpu capacity is up at t=0.
 #
 # Runtime flags chosen for a single-node GPU cluster:
 #   --mig-strategy=none          (RTX 5090 / Blackwell has no MIG — default)

@@ -1,18 +1,16 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-01-static-tenant-cr.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-01 — Tenant CR yaml shape contract for alpha + bravo on spoke-capsule.
-# Plans 09-01..09-03 land the yaml that turns these GREEN.
+# Tenant CR yaml shape contract for alpha + bravo on spoke-capsule.
 #
-# Verifies (per RESEARCH §Gap 4 corrections to CONTEXT.md):
+# Verifies:
 #   - apiVersion: capsule.clastix.io/v1beta2 + kind: Tenant + name alpha|bravo
 #   - spec.forceTenantPrefix: false (TOP-LEVEL — NOT spec.namespaceOptions.forceTenantPrefix)
 #   - spec.owners[] contains kind: ServiceAccount with combined-name format
 #     name: system:serviceaccount:tenant-<name>:gitops-reconciler
-#     (spec.owners[].namespace does NOT exist in v1beta2 schema — RESEARCH §Gap 4 #2)
-#   - spec.owners[] contains kind: User + name: alpha|bravo (TEN-02 contract)
-#   - spec.resourceQuotas.items[0].hard non-empty (TEN-03 auto-materialization shape)
-#   - spec.limitRanges.items[0].limits non-empty (TEN-03 auto-materialization shape)
+#     (spec.owners[].namespace does NOT exist in the v1beta2 schema)
+#   - spec.owners[] contains kind: User + name: alpha|bravo
+#   - spec.resourceQuotas.items[0].hard non-empty (auto-materialization shape)
+#   - spec.limitRanges.items[0].limits non-empty (auto-materialization shape)
 
 load 'test_helper'
 

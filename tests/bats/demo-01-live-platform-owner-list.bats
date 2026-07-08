@@ -1,8 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/demo-01-live-platform-owner-list.bats
-# Phase 14 / Wave 0 (D-14-08 + D-13-15 Nyquist gate)
-# DEMO-01 — platform-owner kubeconfig sees alpha + bravo tenants + tenant-alpha/tenant-bravo namespaces + pods -A across tenants.
-# RED until Plan 14-02 lands DEMO bats GREEN against the live cluster.
+# Platform-owner kubeconfig sees alpha + bravo tenants + tenant-alpha/tenant-bravo namespaces + pods -A across tenants.
 
 load 'test_helper'
 

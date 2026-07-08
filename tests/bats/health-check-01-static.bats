@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/health-check-01-static.bats
-# Phase 5 static contract for the read-only health-check task.
+# Static contract for the read-only health-check task.
 
 load 'test_helper'
 

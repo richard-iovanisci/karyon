@@ -1,13 +1,12 @@
 #!/usr/bin/env bats
 # tests/bats/push-gate-07-static-spoke-rbac-bootstrap.bats
-# Phase 11 G-06 gap-close (2026-05-06; codex review §2 MEDIUM #3) -- static assertions
-# for the new poc-capsule-spoke-rbac top-level Flux Kustomization.
+# Static assertions for the poc-capsule-spoke-rbac top-level Flux Kustomization.
 #
-# Why this exists: codex review §2 MEDIUM #3 noted that "rbac/ first" inside
+# Why this exists: "rbac/ first" inside
 # pocs/capsule/spoke/kustomization.yaml only orders apply WITHIN that K. The
 # HelmReleases come from the separate poc-capsule (hub-targeted) Kustomization
 # and helm-controller can pick them up BEFORE poc-capsule-spoke applies rbac.
-# Plan 11-07 fixes this by splitting rbac into its own outer K
+# The fix splits rbac into its own outer K
 # (clusters/hub-flux/pocs/capsule-spoke-rbac.yaml) with NO dependsOn on poc-capsule
 # so it always reconciles first.
 #

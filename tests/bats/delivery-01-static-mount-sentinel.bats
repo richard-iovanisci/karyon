@@ -1,7 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/delivery-01-static-mount-sentinel.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# DELIVERY-01 — KARYON POC MOUNT sentinel preservation in flux-system kustomization.
+# KARYON POC MOUNT sentinel preservation in the flux-system kustomization.
 # The sentinel is a COMMENT line `# KARYON POC MOUNT` in
 # clusters/hub-flux/flux-system/kustomization.yaml followed by `- ../pocs` resource.
 # Comment-stripping is intentionally NOT used here — the sentinel itself is a comment.

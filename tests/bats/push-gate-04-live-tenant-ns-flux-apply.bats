@@ -1,10 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/push-gate-04-live-tenant-ns-flux-apply.bats
-# Phase 11 D-11-03 falsifier (Pitfall 11-P2 empirical). After first push (Plan 11-04),
-# Flux reconciles the labeled namespace.yaml; assert label survives the cluster-admin
-# Flux apply (assumption: system:masters / cluster-admin bypasses Capsule prefix webhook).
-# RED until Plan 11-04 push event.
-# REVISED 2026-05-05 per reviewer HIGH #1 / Pitfall 11-P6: KARYON_PHASE11_STRICT_LIVE strict-mode.
+# Live falsifier: after push,
+# Flux reconciles the labeled namespace.yaml; assert the label survives the cluster-admin
+# Flux apply (assumption: system:masters / cluster-admin bypasses the Capsule prefix webhook).
+# KARYON_PHASE11_STRICT_LIVE=1 converts skips to FAIL.
 
 load 'test_helper'
 

@@ -1,18 +1,16 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-12-live-health-check.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
 # v0.18 regression gate — `task health-check` exits 0 post-lockdown.
-# Plans 09-03 (lockdown) + 09-04 (verifier) land the yaml that turns these GREEN.
 #
-# Verifies (per CONTEXT D-09-09 + RESEARCH §Gap 11 belt-and-suspenders):
+# Verifies:
 #   - `task health-check` exits 0 (full v0.18 health-check still passes after lockdown)
 #   - spoke-apps Kustomization Ready=True (cross-cluster lockdown impact regression)
 #   - spoke-ml Kustomization Ready=True (cross-cluster lockdown impact regression)
 #
 # Cluster-info gate: full v0.18 baseline (hub-flux + spoke-apps + spoke-ml).
 # Skips when ANY of the 3 v0.18 clusters are unreachable. spoke-capsule is NOT
-# part of the v0.18 health-check (per Phase 7 P31 isolation contract — POC
-# stays out of `task rebuild` until graduation ADR-008).
+# part of the v0.18 health-check (POC isolation: the POC cluster stays out of
+# `task rebuild` until graduation — see docs/adr/0008-capsule-multi-tenancy-graduation.md).
 
 load 'test_helper'
 

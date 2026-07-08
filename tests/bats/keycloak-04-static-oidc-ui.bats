@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/keycloak-04-static-oidc-ui.bats
-# tenant-ui-oidc quick task (2026-07-06) — static pins for the OIDC wiring +
-# Headlamp tenant UI. Guards the load-bearing invariants the 2026-07-06
-# research established (pinned issuer, PKCE client reuse, proxy-CA projection,
-# hostNetwork issuer reachability, Tier-3 OIDC group owners).
+# Tenant-UI OIDC (2026-07-06) — static pins for the OIDC wiring +
+# Headlamp tenant UI. Guards the load-bearing invariants
+# (pinned issuer, PKCE client reuse, proxy-CA projection,
+# hostNetwork issuer reachability, OIDC group-based tenant owners).
 
 load 'test_helper'
 

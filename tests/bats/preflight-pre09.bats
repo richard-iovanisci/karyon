@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/preflight-pre09.bats
-# Unit tests for PRE-09: .env presence and GITHUB_* key checks via preflight_check_env_file().
+# Unit tests for .env presence and GITHUB_* key checks via preflight_check_env_file().
 
 load 'test_helper'
 

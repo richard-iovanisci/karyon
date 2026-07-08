@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/negative-rbac-02-escalation.bats
-# Phase 11 / Wave 0 (D-11-06 partition: N4 ClusterRoleBinding escalation).
-# RED until Plan 11-03 turns this GREEN. Real-CRUD probe (D-11-05); mint-once kubeconfig (D-11-07).
-# REVISED 2026-05-05: Pitfall 11-P6 strict-mode env var.
+# ClusterRoleBinding escalation denial probe.
+# Real-CRUD probe; mint-once kubeconfig via setup_file.
+# KARYON_PHASE11_STRICT_LIVE=1 converts skips to FAIL.
 
 load 'test_helper'
 

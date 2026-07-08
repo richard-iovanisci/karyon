@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/demo-06-live-platform-owner-cluster-admin-denials.bats
-# Phase 14 / Wave 0 (D-14-08 + D-13-15 Nyquist gate)
-# DEMO-06 — platform-owner 3-action cluster-admin denial matrix (CRB + nodes -o yaml + csr) with verbatim RESEARCH Q6 CRB Forbidden string.
-# RED until Plan 14-02 lands DEMO bats GREEN against the live cluster.
+# Platform-owner 3-action cluster-admin denial matrix (CRB + nodes -o yaml + csr);
+# asserts the verbatim apiserver Forbidden strings.
 
 load 'test_helper'
 
@@ -19,7 +18,7 @@ setup_file() {
   # Direct-apiserver probe materials for the apiserver-RBAC-ceiling tests below.
   # The PO kubeconfig minted by issue-platform-owner-kubeconfig.sh routes through
   # capsule-proxy:30443, which DOES surface nodes to authenticated tenants as a
-  # documented Capsule feature. To assert the Tier-2 ceiling at the apiserver-RBAC
+  # documented Capsule feature. To assert the cluster-admin ceiling at the apiserver-RBAC
   # layer (where the audience-facing demo Forbidden actually originates), the
   # node-read denial probe must hit the apiserver directly. The certificatesigningrequests
   # probe stays through the proxy because the proxy passes that through and the
@@ -45,7 +44,7 @@ setup() {
   run kubectl --kubeconfig="$PO_KUBECONFIG" create clusterrolebinding po-cluster-admin-attempt \
     --clusterrole=cluster-admin --user=platform-owner
   [ "$status" -ne 0 ]
-  # Q6 RESEARCH verbatim Forbidden string
+  # Verbatim apiserver Forbidden string
   echo "$output" | grep -qF "clusterrolebindings.rbac.authorization.k8s.io is forbidden"
   echo "$output" | grep -qF "system:serviceaccount:capsule-system:platform-owner"
 }
@@ -53,7 +52,7 @@ setup() {
 @test "DEMO-06 (Tier-2 ceiling): platform-owner cannot read nodes -o yaml (apiserver RBAC)" {
   # Asserted against the apiserver directly (not capsule-proxy:30443). capsule-proxy
   # surfaces a filtered nodes view to authenticated tenants as a documented Capsule
-  # feature; the Tier-2 RBAC ceiling we are demoing lives at the apiserver and is the
+  # feature; the RBAC ceiling we are demoing lives at the apiserver and is the
   # one a future graduation to direct-apiserver kubeconfigs would expose. See
   # capsule-platform-owner ClusterRole — it intentionally lacks nodes verbs.
   [ -n "${PO_SA_TOKEN_DIRECT:-}" ] || skip "platform-owner SA token not minted (setup_file failed)"

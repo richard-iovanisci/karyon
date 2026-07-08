@@ -1,7 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/delivery-05-live-slo-regression.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# DELIVERY-02 — `task rebuild` SLO regression gate <=230s (v0.18 baseline preserved).
+# `task rebuild` SLO regression gate <=230s (v0.18 baseline preserved).
 # Env-gated destructive test: requires KARYON_REBUILD_APPROVED=1 to run.
 # Reads /tmp/karyon-rebuild.log produced by a prior `task rebuild` invocation
 # (the test does NOT itself invoke rebuild — that is the responsibility of the

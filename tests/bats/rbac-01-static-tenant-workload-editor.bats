@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-01-static-tenant-workload-editor.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# RBAC-01 — ClusterRole shape static contract (D-13-04).
-# Positive grants + 4 explicit denial categories + Pitfall 13-P3 aggregate-to anti-pattern.
-# RED until Plan 13-01 lands tenant-workload-editor.yaml.
+# ClusterRole shape static contract for tenant-workload-editor.
+# Positive grants + 4 explicit denial categories + an aggregate-to anti-pattern lint
+# (aggregate-to-* labels would fold these rules into the built-in roles and
+# silently widen the grant).
 
 load 'test_helper'
 

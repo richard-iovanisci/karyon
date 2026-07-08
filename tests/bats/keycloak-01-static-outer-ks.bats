@@ -1,9 +1,12 @@
 #!/usr/bin/env bats
 # tests/bats/keycloak-01-static-outer-ks.bats
-# Keycloak IdP POC (quick task keycloak-idp-poc, 2026-07-06) — outer Flux
+# Keycloak IdP POC (2026-07-06) — outer Flux
 # Kustomization contract. Pins the load-bearing shape of the three hub-side
-# Kustomizations (P18 kubeConfig block, P27 serviceAccountName, DAG direction
-# keycloak→capsule) — the same class of guard as push-gate-06/07 for capsule.
+# Kustomizations: the full kubeConfig block (key value.yaml) so spoke-targeted Ks
+# cannot silently reconcile into the hub while reporting Ready; an explicit
+# serviceAccountName so the reconcile cannot fall through to the kubeConfig
+# principal (cluster-admin); and the DAG direction keycloak→capsule —
+# the same class of guard as push-gate-06/07 for capsule.
 
 load 'test_helper'
 

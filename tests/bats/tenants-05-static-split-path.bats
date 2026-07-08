@@ -1,18 +1,16 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-05-static-split-path.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# D-08-12 split-path inheritance regression — Phase 8 invariant must still hold under Phase 9.
-# Plans 09-01..09-03 land the yaml that turns these GREEN.
+# Split-path regression — the hub/spoke targeting invariant must keep holding.
 #
 # Verifies:
 #   capsule.yaml (hub-targeted outer K):
-#     - spec.kubeConfig == null (Phase 8 D-08-12 invariant — applies HR/OCIRepo to HUB)
-#     - spec.serviceAccountName == kustomize-controller (Phase 9 D-09-05a escape hatch
-#       under lockdown — without it the hub-targeted K reconcile gets default SA which
+#     - spec.kubeConfig == null (hub-targeted: applies HR/OCIRepo to the HUB)
+#     - spec.serviceAccountName == kustomize-controller (lockdown escape hatch —
+#       without it the hub-targeted K reconcile gets default SA which
 #       has no perms after --default-service-account=default lands)
 #   capsule-spoke.yaml (spoke-targeted outer K):
-#     - spec.kubeConfig.secretRef.name == spoke-capsule-kubeconfig (Phase 7 P40/P18)
-#     - spec.kubeConfig.secretRef.key == value.yaml (P18 LOAD-BEARING — silent-misroute
+#     - spec.kubeConfig.secretRef.name == spoke-capsule-kubeconfig
+#     - spec.kubeConfig.secretRef.key == value.yaml (LOAD-BEARING — silent-misroute
 #       defense; without explicit key=value.yaml Flux silently falls back to in-cluster
 #       config, applying spoke yaml to the WRONG cluster)
 

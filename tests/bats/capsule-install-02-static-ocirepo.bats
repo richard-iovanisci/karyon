@@ -1,8 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/capsule-install-02-static-ocirepo.bats
-# Phase 8 / Wave 0 (D-08-09 Nyquist gate)
-# CAP-01 + CAP-02 — OCIRepository v1 shape contract for BOTH operator and proxy.
-# Plans 08-01 and 08-02 land the yaml that turns these GREEN.
+# OCIRepository v1 shape contract for BOTH operator and proxy.
 
 load 'test_helper'
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/create-clusters-04-spoke-apps.bats
-# L3 live-gated: kubectl --context k3d-spoke-apps get nodes --no-headers has exactly one Ready node (CLU-04).
-# Wave 0 stub — body filled by Plan 02-05.
+# L3 live-gated: kubectl --context k3d-spoke-apps get nodes --no-headers has exactly one Ready node.
 
 load 'test_helper'
 

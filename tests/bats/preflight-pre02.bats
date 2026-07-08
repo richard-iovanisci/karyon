@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/preflight-pre02.bats
-# Unit tests for PRE-02: Ubuntu 24.04 detection via preflight_check_ubuntu_24_04().
+# Unit tests for Ubuntu 24.04 detection via preflight_check_ubuntu_24_04().
 
 load 'test_helper'
 

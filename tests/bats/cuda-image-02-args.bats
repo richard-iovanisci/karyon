@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/cuda-image-02-args.bats
-# Pure-static check that ARG K3S_TAG default is v1.34.6-k3s1 (IMG-02 / D-03).
-# Wave 0 stub — body filled by Plan 02-02 (or 02-03 for the manifest tests).
+# Pure-static check that ARG K3S_TAG default is v1.34.6-k3s1
+# (the pinned Kubernetes version — see docs/adr/0005-kubernetes-version-pin.md).
 
 load 'test_helper'
 

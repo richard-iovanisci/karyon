@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
 # tests/bats/register-spokes-02-live.bats
-# Destructive live contract for Phase 4 (spoke registration). All @tests are
+# Destructive live contract for spoke registration. All @tests are
 # gated by two env vars: KARYON_LIVE_TESTS=1 and KARYON_LIVE_TESTS_DESTRUCTIVE=1.
 #
 # Preconditions for these to PASS:
 #   1. scripts/register-spokes-for-flux.sh has been run successfully on a
 #      live three-cluster k3d topology (k3d-hub-flux + k3d-spoke-ml + k3d-spoke-apps).
-#   2. The user has committed AND pushed the Phase-4 changes:
+#   2. The user has committed AND pushed the spoke-registration changes:
 #        - clusters/hub-flux/spokes/{kustomization,spoke-ml,spoke-apps}.yaml
 #        - clusters/hub-flux/flux-system/kustomization.yaml (with - ../spokes patch)
 #        - clusters/spoke-ml/{kustomization,namespace,configmap}.yaml
@@ -16,9 +16,9 @@
 #
 # If preconditions are not met, the @tests will fail loudly. The setup() runs
 # the live/destructive gate first (skips cleanly if env vars unset) and then
-# detects the unpushed-commits case and skip-with-message (RESEARCH.md Q4).
+# detects the unpushed-commits case and skips with a message.
 #
-# Inventory ID format (RESEARCH.md Sources, verified live):
+# Inventory ID format (verified live):
 #   <namespace>_<name>_<group>_<kind>
 # For core-API ConfigMap (empty group), this is:
 #   karyon-spoke-ml_karyon-spoke-id__ConfigMap   (literal double-underscore)
@@ -31,8 +31,8 @@ OPENSSL_PROBE_IMAGE="karyon/k3s-cuda:v1.34.6-k3s1-cuda12.8.1"
 setup() {
   require_live_destructive
 
-  # Review feedback: detect both uncommitted and committed-but-unpushed changes
-  # under the Phase-4 tree and skip-with-message. The test is not broken; Flux
+  # Detect both uncommitted and committed-but-unpushed changes under the
+  # spoke-registration tree and skip-with-message. The test is not broken; Flux
   # cannot reconcile local-only state.
   local phase_paths=(
     clusters/hub-flux/spokes
@@ -196,7 +196,7 @@ run_verified_https_probe() {
   return "$rc"
 }
 
-# ---- SPOKE-04: hub-side <spoke>-kubeconfig Secret has data.value.yaml populated ----
+# ---- Hub-side <spoke>-kubeconfig Secrets have data.value.yaml populated ----
 
 @test "SPOKE-04 (live): hub-side spoke-ml-kubeconfig Secret has data.value.yaml populated" {
   run kubectl --context k3d-hub-flux -n flux-system get secret spoke-ml-kubeconfig \
@@ -240,7 +240,7 @@ run_verified_https_probe() {
   [ "$ca_from_kubeconfig" = "$ca_from_spoke" ]
 }
 
-# ---- SPOKE-01 (live): spoke-side RBAC actually applied ----
+# ---- Spoke-side RBAC actually applied ----
 
 @test "SPOKE-01 (live): k3d-spoke-ml has flux-reconciler SA + flux-reconciler-cluster-admin CRB" {
   run kubectl --context k3d-spoke-ml -n flux-system get serviceaccount flux-reconciler -o name
@@ -260,7 +260,7 @@ run_verified_https_probe() {
   [ "$output" = "cluster-admin" ]
 }
 
-# ---- SPOKE-02 (live): SA-token Secret data populated on each spoke ----
+# ---- SA-token Secret data populated on each spoke ----
 
 @test "SPOKE-02 (live): k3d-spoke-ml flux-reconciler-token Secret has data.token AND data.ca.crt" {
   run kubectl --context k3d-spoke-ml -n flux-system get secret flux-reconciler-token -o jsonpath='{.data.token}'
@@ -280,7 +280,7 @@ run_verified_https_probe() {
   [ -n "$output" ]
 }
 
-# ---- SPOKE-05 (live): Kustomizations Ready=True post-push ----
+# ---- Kustomizations Ready=True post-push ----
 
 @test "SPOKE-05 (live): spoke-ml Kustomization Ready=True (assumes user has pushed and Flux has reconciled)" {
   run kubectl --context k3d-hub-flux -n flux-system get kustomization spoke-ml \
@@ -296,7 +296,7 @@ run_verified_https_probe() {
   [ "$output" = "True" ]
 }
 
-# ---- SPOKE-05 (live): .status.inventory contains seed ConfigMap (negative-proof of correct cluster) ----
+# ---- .status.inventory contains the seed ConfigMap (negative-proof of correct cluster) ----
 
 @test "SPOKE-05 (live): spoke-ml inventory contains 'karyon-spoke-ml_karyon-spoke-id__ConfigMap' (literal double-underscore for core API)" {
   run bash -c "kubectl --context k3d-hub-flux -n flux-system get kustomization spoke-ml \
@@ -312,7 +312,7 @@ run_verified_https_probe() {
   [ "$status" -eq 0 ]
 }
 
-# ---- ROADMAP success #5: cross-cluster ConfigMap falsifier (P18 catch-all) ----
+# ---- Cross-cluster ConfigMap falsifier (misroute catch-all) ----
 
 @test "ROADMAP success #5: karyon-spoke-id ConfigMap exists on spoke-ml (NOT on hub) - proves correct routing" {
   # Negative: NOT on hub.
@@ -339,9 +339,9 @@ run_verified_https_probe() {
   [ "$output" = "spoke-apps" ]
 }
 
-# ---- SPOKE-03/06 (live): in-pod TLS + auth + node-name probes for BOTH spokes ----
+# ---- In-pod TLS + auth + node-name probes for BOTH spokes ----
 #
-# RESEARCH.md adjustment: ghcr.io/fluxcd/kustomize-controller:v1.8.4 ships no kubectl.
+# Note: ghcr.io/fluxcd/kustomize-controller:v1.8.4 ships no kubectl.
 # We exec into the pod and use openssl for the CA/TLS proof, bearer auth, and
 # node-name negative-proof. Bearer material is sent over stdin, not argv.
 

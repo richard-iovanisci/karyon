@@ -1,21 +1,19 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-10-live-lockdown.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-05 live — Hub Flux multi-tenancy lockdown observed on hub-flux Deployments.
-# Plans 09-03 (lockdown) + 09-04 (verifier) land the yaml that turns these GREEN.
+# Live — Hub Flux multi-tenancy lockdown observed on hub-flux Deployments.
 #
-# Verifies (per RESEARCH §Gap 2 controller-restart caveat + D-09-05 / D-09-05a):
+# Verifies:
 #   - kustomize-controller args contain --no-cross-namespace-refs=true
 #   - kustomize-controller args contain --no-remote-bases=true
 #   - kustomize-controller args contain --default-service-account=default
 #   - helm-controller args contain --no-cross-namespace-refs=true AND
-#     --default-service-account=default (RESEARCH §Gap 2: extends CONTEXT.md
-#     narrowing to match upstream canonical lockdown — defense in depth)
+#     --default-service-account=default (matches the upstream canonical
+#     lockdown — defense in depth)
 #   - notification-controller args contain --no-cross-namespace-refs=true
 #   - All 3 controllers' availableReplicas == replicas (catches CrashLoopBackOff
-#     from misapplied flag — RESEARCH §Gap 2: controllers exit non-zero on
-#     unknown flag; 4×30s poll = 2-minute window for new pod to come up)
-#   - flux-system Kustomization Ready=True (D-09-05a LOAD-BEARING escape hatch
+#     from a misapplied flag — controllers exit non-zero on an unknown flag;
+#     4×30s poll = 2-minute window for the new pod to come up)
+#   - flux-system Kustomization Ready=True (LOAD-BEARING escape hatch
 #     validation — without spec.serviceAccountName: kustomize-controller the
 #     lockdown bricks Flux's own bootstrap reconcile)
 
@@ -44,7 +42,7 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-# ---- helm-controller flags (RESEARCH Gap 2 extension) ----
+# ---- helm-controller flags (defense in depth) ----
 
 @test "TEN-05 / RESEARCH Gap 2: helm-controller args contain --no-cross-namespace-refs=true (defense in depth)" {
   run bash -c "kubectl --context=k3d-hub-flux -n flux-system get deployment helm-controller -o jsonpath='{.spec.template.spec.containers[0].args}' | grep -F -- '--no-cross-namespace-refs=true'"
@@ -113,7 +111,7 @@ setup() {
   return 1
 }
 
-# ---- D-09-05a escape hatch ----
+# ---- flux-system self-reconcile escape hatch ----
 
 @test "TEN-05 / D-09-05a LOAD-BEARING: flux-system Kustomization reports Ready=True (escape hatch validation, 3×30s retry)" {
   local i ready

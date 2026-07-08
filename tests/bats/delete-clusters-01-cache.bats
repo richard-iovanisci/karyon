@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/delete-clusters-01-cache.bats
-# Two-part check (CLU-06 / IMG-06 / D-14): static-grep that scripts/delete-clusters.sh carries the "INTENTIONALLY NOT calling" blocking comment AND L3 live-gated assertion that karyon/k3s-cuda image survives a teardown run.
-# Wave 0 stub — body filled by Plan 02-06.
+# Two-part check: static-grep that scripts/delete-clusters.sh carries the "INTENTIONALLY NOT calling"
+# blocking comment AND L3 live-gated assertion that karyon/k3s-cuda image survives a teardown run.
 
 load 'test_helper'
 

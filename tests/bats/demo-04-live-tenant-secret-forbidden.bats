@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/demo-04-live-tenant-secret-forbidden.bats
-# Phase 14 / Wave 0 (D-14-08 + D-13-15 Nyquist gate)
-# DEMO-04 — tenant-owner cannot create secret in own namespace (RBAC-01 boundary + RESEARCH Q6 verbatim human-tenant-owner User string).
-# RED until Plan 14-02 lands DEMO bats GREEN against the live cluster.
+# Tenant-owner cannot create a secret in its own namespace; the Forbidden output
+# must name the human-tenant-owner identity verbatim.
 
 load 'test_helper'
 
@@ -36,9 +35,9 @@ setup() {
   run kubectl --kubeconfig="$ALPHA_KUBECONFIG" create secret generic demo-deny \
     --from-literal=k=v -n tenant-alpha
   [ "$status" -ne 0 ]
-  # Pitfall 11-P3: permissive Forbidden grep
+  # Deliberately permissive Forbidden grep (denial wording varies)
   echo "$output" | grep -qE 'Forbidden|forbidden|cannot create resource'
-  # Q6 RESEARCH verbatim: the User string proves the SA identity
+  # The User string in the denial proves the SA identity
   echo "$output" | grep -qF 'human-tenant-owner'
   # Idempotent cleanup
   kubectl --kubeconfig="$ALPHA_KUBECONFIG" delete secret demo-deny -n tenant-alpha \
@@ -49,9 +48,9 @@ setup() {
   run kubectl --kubeconfig="$BRAVO_KUBECONFIG" create secret generic demo-deny \
     --from-literal=k=v -n tenant-bravo
   [ "$status" -ne 0 ]
-  # Pitfall 11-P3: permissive Forbidden grep
+  # Deliberately permissive Forbidden grep (denial wording varies)
   echo "$output" | grep -qE 'Forbidden|forbidden|cannot create resource'
-  # Q6 RESEARCH verbatim: the User string proves the SA identity
+  # The User string in the denial proves the SA identity
   echo "$output" | grep -qF 'human-tenant-owner'
   # Idempotent cleanup
   kubectl --kubeconfig="$BRAVO_KUBECONFIG" delete secret demo-deny -n tenant-bravo \

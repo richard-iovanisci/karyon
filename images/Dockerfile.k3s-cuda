@@ -5,9 +5,9 @@
 # karyon/k3s-cuda — k3s + CUDA custom image for spoke-ml
 # ============================================================
 # 3-part k3d GPU contract:
-#   (1) host /etc/docker/daemon.json sets default-runtime: nvidia  (Phase 1 D-11)
-#   (2) this image FROM nvidia/cuda base (Ubuntu 22.04)            (IMG-01)
-#   (3) this image ships config.toml.tmpl with                      (D-05 / IMG-03)
+#   (1) host /etc/docker/daemon.json sets default-runtime: nvidia
+#   (2) this image FROM nvidia/cuda base (Ubuntu 22.04)
+#   (3) this image ships config.toml.tmpl with
 #       default_runtime_name = "nvidia"
 #
 # All three legs required. Missing any one silently drops
@@ -19,11 +19,11 @@ ARG CUDA_TAG=12.8.1-base-ubuntu22.04
 ARG DEVICE_PLUGIN_VERSION=v0.17.4
 
 # ---------- Stage 1: k3s source ----------
-# NOTE: This Dockerfile is NOT buildable standalone from this plan (02-02).
-# Required before docker build:
-#   - images/config.toml.tmpl  (Plan 02-03)
-#   - images/device-plugin-daemonset.yaml  (Plan 02-03)
-# Build wrapper: scripts/build-image.sh  (Plan 02-04)
+# NOTE: This Dockerfile is NOT buildable standalone; it needs its sibling
+# files at build time:
+#   - images/config.toml.tmpl
+#   - images/device-plugin-daemonset.yaml
+# Build wrapper: scripts/build-image.sh
 FROM rancher/k3s:${K3S_TAG} AS k3s
 
 # ---------- Stage 2: final image ----------
@@ -62,7 +62,7 @@ COPY --from=k3s /bin /bin
 
 # Ship the containerd config template — third leg of the 3-part GPU contract.
 # k3s reads this at agent startup and renders /var/lib/rancher/k3s/agent/etc/containerd/config.toml
-# from it. File name config.toml.tmpl (not config-v3.toml.tmpl) per D-05; k3s v1.34 still
+# from it. File name is config.toml.tmpl (not config-v3.toml.tmpl): k3s v1.34 still
 # renders the legacy path, and our template body uses the v3 schema which containerd 2.0 accepts.
 COPY images/config.toml.tmpl /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
 

@@ -1,11 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-08-live-platform-owner-grant-matrix.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# RBAC-04 — platform-owner ceiling:
+# Platform-owner ceiling:
 #   - auth can-i '*' '*' returns no
-#   - nodes / csr / clusterrolebinding return no (Tier-1 surface)
+#   - nodes / csr / clusterrolebinding return no (cluster-admin surface stays denied)
 #   - positive Tenant CR + namespace LIST grants
-# RED until Plan 13-02 lands issue-platform-owner-kubeconfig.sh + SA + dual-subject CRB.
 
 load 'test_helper'
 
@@ -31,7 +29,7 @@ setup() {
   [ -f "${PO_KUBECONFIG:-/dev/null}" ] || skip "platform-owner kubeconfig not minted (setup_file failed; expected RED pre-implementation)"
 }
 
-# ---- positive: Tier-2 platform-owner grants ----
+# ---- positive: platform-owner grants ----
 
 @test "RBAC-04 / D-13-06 (positive): platform-owner can create tenants.capsule.clastix.io" {
   run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i create tenants.capsule.clastix.io 2>/dev/null"
@@ -58,7 +56,7 @@ setup() {
   [ "$output" = "yes" ]
 }
 
-# ---- denial: Tier-1 ceiling enforcement ----
+# ---- denial: cluster-admin ceiling enforcement ----
 
 @test "RBAC-04 / D-13-06 (ceiling): platform-owner auth can-i '*' '*' returns no" {
   run bash -c "kubectl --kubeconfig=\"$PO_KUBECONFIG\" auth can-i '*' '*' 2>/dev/null"

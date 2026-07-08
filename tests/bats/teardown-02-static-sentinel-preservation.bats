@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/teardown-02-static-sentinel-preservation.bats
-# Phase 11 D-11-10 sentinel preservation guarantee -- the # KARYON POC MOUNT sentinel
+# Sentinel preservation guarantee -- the # KARYON POC MOUNT sentinel
 # and ../pocs mount line in clusters/hub-flux/flux-system/kustomization.yaml MUST stay
-# verbatim regardless of teardown. This is RED only if Phase 7 sentinel was removed;
+# verbatim regardless of teardown. This fails only if the sentinel was removed;
 # it stays GREEN as long as the load-bearing v0.19 invariant holds.
 
 load 'test_helper'

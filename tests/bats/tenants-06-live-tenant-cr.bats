@@ -1,17 +1,15 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-06-live-tenant-cr.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-01 live — Tenant CRs alpha + bravo on spoke-capsule.
-# Plans 09-01..09-03 land the yaml that turns these GREEN.
+# Live — Tenant CRs alpha + bravo on spoke-capsule.
 #
-# Verifies (per RESEARCH §Gap 4 correction — forceTenantPrefix is TOP-LEVEL):
+# Verifies (forceTenantPrefix is TOP-LEVEL in the v1beta2 schema):
 #   - kubectl get tenant alpha reports spec.forceTenantPrefix=false (3×30s retry)
 #   - kubectl get tenant bravo reports spec.forceTenantPrefix=false (3×30s retry)
 #   - tenant-{alpha,bravo} namespace exists on spoke-capsule
 #   - gitops-reconciler ServiceAccount exists in tenant-{alpha,bravo} namespace
 #
-# Cluster-info gate per RESEARCH §"Pattern 4" — auto-skips when k3d-spoke-capsule
-# is unreachable (NOT KARYON_LIVE_TESTS env var, per Phase 8 D-08-09).
+# Cluster-info gate — auto-skips when k3d-spoke-capsule is unreachable
+# (a reachability probe, deliberately NOT the KARYON_LIVE_TESTS env var).
 
 load 'test_helper'
 

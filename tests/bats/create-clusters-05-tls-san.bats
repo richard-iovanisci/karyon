@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/create-clusters-05-tls-san.bats
-# Two-part check (CLU-05 / D-13): static-grep that scripts/create-clusters.sh uses --k3s-arg with --tls-san=k3d-${name}-server-0@server:* (NOT @server:0 per k3d issue #1613) AND L4 openssl probe that each apiserver cert carries DNS:k3d-<name>-server-0.
-# Wave 0 stub — body filled by Plan 02-05.
+# Two-part check: static-grep that scripts/create-clusters.sh uses --k3s-arg with
+# --tls-san=k3d-${name}-server-0@server:* (NOT @server:0 per k3d issue #1613) AND
+# L4 openssl probe that each apiserver cert carries DNS:k3d-<name>-server-0.
 
 load 'test_helper'
 

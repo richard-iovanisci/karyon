@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/cuda-image-03-containerd.bats
 # L2 image-smoke: docker run the built image and assert config.toml.tmpl keeps a single
-# standalone base-template invocation and carries default_runtime_name = "nvidia" (IMG-03 / D-05).
-# Wave 0 stub — body filled by Plan 02-02 (or 02-03 for the manifest tests).
+# standalone base-template invocation and carries default_runtime_name = "nvidia".
 
 load 'test_helper'
 

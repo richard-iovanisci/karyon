@@ -1,16 +1,18 @@
 #!/usr/bin/env bats
 # tests/bats/negative-rbac-04-bypass-and-flux.bats
-# Phase 11 / Wave 0 (D-11-06 partition: N8 direct-apiserver bypass, N9 cross-tenant sourceRef, N10 missing SA).
-# N8 reuses Phase 10 D-10-08 / Pitfall 10-P3 corrected falsifier (qualitative 403 + 'cannot list resource').
-# N9/N10 use tmpdir-rooted probe Kustomizations (CONTEXT.md Claude's Discretion).
+# Bypass + Flux denial probes: direct-apiserver bypass (qualitative 403 + 'cannot list
+# resource'), cross-tenant sourceRef, and missing serviceAccountName.
+# Probe Kustomizations are tmpdir-rooted.
 #
-# REVISED 2026-05-05 per reviewer feedback:
-#   - HIGH #4: N9 references VALID cross-tenant GitRepository in tenant-bravo (not absent source);
-#     accepts ONLY explicit "cross-namespace" keyword (drops permissive "not allowed" substring).
-#   - HIGH #4: N10 references VALID sourceRef (tenant-alpha-source); positive RBAC-keyword
-#     assertion; negative assert (message MUST NOT contain "source not found").
-#   - MEDIUM #12: N8 adds TCP pre-check + negative TLS-failure assertion (no x509/tls/connection refused/timeout).
-#   - HIGH #1 / Pitfall 11-P6: KARYON_PHASE11_STRICT_LIVE strict-mode env var.
+# Probe design notes:
+#   - The cross-tenant probe references a VALID GitRepository in tenant-bravo (not an
+#     absent source); it accepts ONLY an explicit "cross-namespace" keyword (a permissive
+#     "not allowed" substring could match unrelated denials).
+#   - The missing-SA probe references a VALID sourceRef (tenant-alpha-source); positive
+#     RBAC-keyword assertion; negative assert (message MUST NOT contain "source not found").
+#   - The direct-apiserver probe does a TCP pre-check first + a negative TLS-failure
+#     assertion (no x509/tls/connection refused/timeout).
+#   - KARYON_PHASE11_STRICT_LIVE=1 converts skips to FAIL.
 
 load 'test_helper'
 
@@ -51,7 +53,7 @@ setup() {
 }
 
 @test "N8 -- direct apiserver bypass on :6446 returns 403 + 'cannot list resource' (Pitfall 10-P3 + reviewer MEDIUM #12 negative TLS)" {
-  # REVISED 2026-05-05 (reviewer MEDIUM #12): TCP pre-check first. If apiserver unreachable
+  # TCP pre-check first. If the apiserver is unreachable
   # via TCP, SKIP with explanatory message (NOT pass for the wrong reason -- we're testing
   # an RBAC denial, not network/TLS unreachability).
   if ! command -v nc >/dev/null 2>&1; then
@@ -89,7 +91,7 @@ EOF
   # POSITIVE assertions (existing): RBAC denial signature
   echo "$DIRECT_OUT" | grep -qF 'Forbidden'
   echo "$DIRECT_OUT" | grep -qF 'cannot list resource "namespaces"'
-  # NEGATIVE assertions (REVISED 2026-05-05 per reviewer MEDIUM #12): output MUST NOT
+  # NEGATIVE assertions: output MUST NOT
   # indicate network/TLS failure -- those would mean the test passed for the WRONG reason
   # (we'd be detecting an unreachable apiserver, not an RBAC-denied LIST).
   if echo "$DIRECT_OUT" | grep -qE '(x509|tls:|connection refused|i/o timeout|no route to host)'; then
@@ -100,10 +102,9 @@ EOF
 }
 
 @test "N9 -- cross-tenant sourceRef in tenant Kustomization denied by Flux (--no-cross-namespace-refs); REVISED valid cross-tenant target" {
-  # REVISED 2026-05-05 per reviewer HIGH #4:
   # The probe Kustomization references a VALID GitRepository that EXISTS in tenant-bravo
-  # namespace (Phase 9 D-09-02 mints `tenant-bravo-source` in tenant-bravo via the per-tenant
-  # GitRepository pattern). The ONLY failing variable is the cross-namespace reference --
+  # namespace (the per-tenant GitRepository pattern mints `tenant-bravo-source` in
+  # tenant-bravo). The ONLY failing variable is the cross-namespace reference --
   # not "source missing". Flux MUST surface a "cross-namespace" keyword in the Ready message.
   PROBE=$(mktemp -p "${TMPDIR:-/tmp}" karyon-bats-n9-cross-tenant-XXXX.yaml)
   cat > "$PROBE" <<EOF
@@ -137,7 +138,7 @@ EOF
   for i in 1 2 3; do
     READY=$(kubectl --context=k3d-spoke-capsule get kustomization probe-n9-cross-tenant -n tenant-alpha \
       -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null || true)
-    # REVISED 2026-05-05 (reviewer HIGH #4): require explicit "cross-namespace" keyword
+    # Require the explicit "cross-namespace" keyword
     # (drop permissive "not allowed" / "namespace .* not allowed" substring -- those could
     # match unrelated denials).
     if echo "$READY" | grep -qE 'cross-namespace'; then
@@ -152,10 +153,9 @@ EOF
 }
 
 @test "N10 -- tenant Kustomization without spec.serviceAccountName falls through to no-permission default SA (--default-service-account=default); REVISED RBAC-keyword assertion" {
-  # REVISED 2026-05-05 per reviewer HIGH #4:
-  # The probe Kustomization references a VALID sourceRef (`tenant-alpha-source` GitRepository
-  # which Phase 9 TEN-04 lands). The ONLY failing variable is the missing spec.serviceAccountName.
-  # Per Phase 9 D-09-05 / TEN-05 lockdown (--default-service-account=default), Flux falls
+  # The probe Kustomization references a VALID sourceRef (the `tenant-alpha-source`
+  # GitRepository). The ONLY failing variable is the missing spec.serviceAccountName.
+  # Under the hub lockdown (--default-service-account=default), Flux falls
   # through to the `default` SA in tenant-alpha (zero permissions). Failure message MUST
   # reference RBAC (e.g., system:serviceaccount:tenant-alpha:default + forbidden), NOT
   # "source not found".
@@ -180,7 +180,7 @@ EOF
   for i in 1 2 3; do
     READY=$(kubectl --context=k3d-spoke-capsule get kustomization probe-n10-no-sa -n tenant-alpha \
       -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null || true)
-    # REVISED 2026-05-05 (reviewer HIGH #4): POSITIVE assertion -- RBAC keyword present
+    # POSITIVE assertion -- RBAC keyword present
     # AND NEGATIVE assertion -- "source not found" MUST NOT appear (otherwise the test
     # would pass for the wrong reason: a missing source rather than a no-permission default SA).
     if echo "$READY" | grep -qE '(system:serviceaccount:tenant-alpha:default|default.*tenant-alpha)' \

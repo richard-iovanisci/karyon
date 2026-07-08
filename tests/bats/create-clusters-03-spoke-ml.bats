@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/create-clusters-03-spoke-ml.bats
-# L3 live-gated: spoke-ml Ready AND advertises nvidia.com/gpu capacity >= 1 (CLU-03 / IMG-04 / IMG-05). Verifies all three legs of the 3-part k3d GPU contract end-to-end.
-# Wave 0 stub — body filled by Plan 02-05.
+# L3 live-gated: spoke-ml Ready AND advertises nvidia.com/gpu capacity >= 1.
+# Verifies all three legs of the 3-part k3d GPU contract end-to-end.
 
 load 'test_helper'
 

@@ -1,17 +1,15 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-08-live-quota-limit.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-03 — Capsule auto-materializes ResourceQuota + LimitRange in tenant namespaces.
-# Plans 09-01..09-03 land the yaml that turns these GREEN.
+# Capsule auto-materializes ResourceQuota + LimitRange in tenant namespaces.
 #
-# Verifies (per CONTEXT D-09-04 + RESEARCH §"Bats Coverage"):
+# Verifies:
 #   - ResourceQuota auto-materializes in alpha-app1 namespace within 30s of namespace
 #     creation (capsule-alpha-* names — Capsule controller naming convention)
 #   - LimitRange auto-materializes in alpha-app1 namespace
 #   - Mirror for bravo
 #
-# Auto-materialization is observed within ~5–10s on a healthy operator (per RESEARCH
-# §"D-09-07 verifier path"). Use 3×10s polling to allow ≤30s reconcile latency.
+# Auto-materialization is typically observed within ~5–10s on a healthy operator.
+# Use 3×10s polling to allow ≤30s reconcile latency.
 # Depends on tenants-07 having created the alpha-app1 / bravo-app1 namespaces first.
 
 load 'test_helper'

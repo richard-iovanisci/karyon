@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/preflight-pre13.bats
-# Unit tests for PRE-13: cgroup v2 purity via preflight_check_cgroup_v2().
+# Unit tests for cgroup v2 purity via preflight_check_cgroup_v2().
 # Mocks stat output to simulate different cgroup filesystem types.
 
 load 'test_helper'

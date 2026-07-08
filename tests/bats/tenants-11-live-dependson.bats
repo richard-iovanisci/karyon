@@ -1,10 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/tenants-11-live-dependson.bats
-# Phase 9 / Wave 0 (D-09-08 Nyquist gate)
-# TEN-06 live — poc-capsule-spoke dependsOn poc-capsule + Ready=True post-lockdown.
-# Plans 09-01..09-03 land the yaml that turns these GREEN.
+# Live — poc-capsule-spoke dependsOn poc-capsule + Ready=True post-lockdown.
 #
-# Verifies (per CONTEXT D-09-06 + RESEARCH §Gap 9):
+# Verifies:
 #   - poc-capsule-spoke Kustomization has dependsOn[0].name == poc-capsule
 #   - poc-capsule-spoke Kustomization has spec.wait == true (TOP-LEVEL)
 #   - poc-capsule-spoke Kustomization Ready=True (3×30s retry)

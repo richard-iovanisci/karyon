@@ -1,11 +1,10 @@
 #!/usr/bin/env bats
 # tests/bats/delivery-04-live-flux-reconcile.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# DELIVERY-03 — existing Flux Kustomizations on hub-flux remain Ready=True after Phase 13
-# implementation lands (regression gate; no architectural disruption).
+# Existing Flux Kustomizations on hub-flux remain Ready=True after new changes
+# land (regression gate; no architectural disruption).
 # Loop covers: poc-capsule-spoke, poc-capsule-spoke-rbac, poc-capsule-spoke-tenants.
-# GREEN-by-design pre-implementation (these Ks are already Ready=True per Phase 11/12);
-# becomes a falsifier if Plan 13-01..13-03 accidentally breaks one.
+# GREEN-by-design pre-change (these Ks are already Ready=True);
+# becomes a falsifier if a change accidentally breaks one.
 
 load 'test_helper'
 

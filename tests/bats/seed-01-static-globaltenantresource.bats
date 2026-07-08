@@ -1,12 +1,13 @@
 #!/usr/bin/env bats
 # tests/bats/seed-01-static-globaltenantresource.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# SEED-01 — GlobalTenantResource + Deployment + Service inline shape:
+# GlobalTenantResource + Deployment + Service inline shape:
 #   - apiVersion: capsule.clastix.io/v1beta2, kind: GlobalTenantResource
-#   - Deployment + Service in rawItems[] with FQCI image (Pitfall 13-P1)
-#   - tenantSelector.matchLabels: {} (match-all per RESEARCH Pattern 1)
+#   - Deployment + Service in rawItems[] with a fully-qualified container image
+#     (the registry-allowlist webhook matches fully-qualified references)
+#   - tenantSelector.matchLabels: {} (match-all)
 #   - karyon.io/managed-by: capsule-global-tenant-resource provenance label
-# SEED-03 boundary (AMENDED per ADR-008 addendum 2026-07-06, supersedes D-13-12):
+# Boundary (AMENDED per the ADR 0008 addendum 2026-07-06 — see
+# docs/adr/0008-capsule-multi-tenancy-graduation.md):
 #   NO bare Pod (immutable spec → permanent GTR resync error loop) and NO extra
 #   ConfigMap in rawItems[]. The original "Pod + Service ONLY / no Deployment"
 #   boundary is inverted: bare Pods are now the forbidden shape.
@@ -71,7 +72,7 @@ setup() {
   [ "$output" = "true" ]
 }
 
-# INVERTED (ADR-008 addendum 2026-07-06): bare Pods in GTR rawItems[] are the
+# INVERTED (ADR 0008 addendum 2026-07-06): bare Pods in GTR rawItems[] are the
 # forbidden shape — Pod spec is immutable, so every GTR resync UPDATE fails and
 # capsule-controller-manager sits in a permanent exponential-backoff error loop
 # that masks real replication failures. Same class of failure applies to Jobs.

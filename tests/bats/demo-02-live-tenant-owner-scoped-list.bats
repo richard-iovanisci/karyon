@@ -1,8 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/demo-02-live-tenant-owner-scoped-list.bats
-# Phase 14 / Wave 0 (D-14-08 + D-13-15 Nyquist gate)
-# DEMO-02 — tenant-owner kubeconfigs route through capsule-proxy NodePort 30443; scoped LIST returns only own tenant namespaces (alpha + bravo symmetric mirror).
-# RED until Plan 14-02 lands DEMO bats GREEN against the live cluster.
+# Tenant-owner kubeconfigs route through capsule-proxy NodePort 30443; scoped LIST returns only own tenant namespaces (alpha + bravo symmetric mirror).
 
 load 'test_helper'
 

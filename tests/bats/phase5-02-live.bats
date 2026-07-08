@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/phase5-02-live.bats
-# Phase 5 live state checker for an externally completed rebuild run.
+# Live state checker for an externally completed rebuild run.
 
 load 'test_helper'
 

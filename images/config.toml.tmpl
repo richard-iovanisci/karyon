@@ -1,7 +1,7 @@
 # images/config.toml.tmpl
 #
-# Third leg of the 3-part k3d GPU contract (D-05 / IMG-03):
-#   (1) /etc/docker/daemon.json default-runtime: nvidia  -- Phase 1 install-docker.sh
+# Third leg of the 3-part k3d GPU contract:
+#   (1) /etc/docker/daemon.json default-runtime: nvidia  -- scripts/install-docker.sh
 #   (2) FROM nvidia/cuda:12.8.1-base-ubuntu22.04         -- images/Dockerfile.k3s-cuda
 #   (3) default_runtime_name = "nvidia" here             -- THIS FILE
 #

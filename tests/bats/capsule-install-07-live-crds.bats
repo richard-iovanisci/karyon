@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/capsule-install-07-live-crds.bats
-# Phase 8 / Wave 0 (D-08-09 Nyquist gate)
-# CAP-03 — live ≥7 capsule.clastix.io CRDs registered on spoke-capsule.
-# Cluster-info gate per RESEARCH §"Pattern 4".
+# Live: ≥7 capsule.clastix.io CRDs registered on spoke-capsule.
+# Cluster-info gate — auto-skips when the cluster is unreachable.
 
 load 'test_helper'
 

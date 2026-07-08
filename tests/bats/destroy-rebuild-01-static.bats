@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/destroy-rebuild-01-static.bats
-# Phase 5 static contract for destructive wrappers and strict rebuild chain.
+# Static contract for destructive wrappers and the strict rebuild chain.
 
 load 'test_helper'
 

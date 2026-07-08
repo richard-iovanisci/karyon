@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/keycloak-05-live-oidc.bats
-# tenant-ui-oidc quick task — live falsifiers for the OIDC wiring + Headlamp.
+# Tenant-UI OIDC — live falsifiers for the OIDC wiring + Headlamp.
 # Auto-skips when the cluster or the imperative pieces are absent.
 
 load 'test_helper'

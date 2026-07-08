@@ -1,9 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-05-live-tenant-owner-grant-matrix.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# RBAC-01 live grant matrix — positive grants + explicit denials via kubectl auth can-i.
+# Live grant matrix — positive grants + explicit denials via kubectl auth can-i.
 # Tenant kubeconfigs minted via issue-tenant-kubeconfig.sh against the human-tenant-owner SA.
-# RED until Plans 13-01..13-02 land (script + SA + ClusterRole + binding).
 
 load 'test_helper'
 
@@ -152,7 +150,7 @@ setup() {
 }
 
 @test "RBAC-01 / D-13-04 (alpha denial): cannot create namespaces (cluster-scoped) as tenant-owner" {
-  # NOTE (Plan 13-04 verifier — Rule 1 bug-fix mirror of Plan 13-02 rbac-08 deviation #2):
+  # NOTE:
   # Capsule's standard install ships ClusterRoleBinding `capsule-namespace-provisioner` which
   # binds `create namespaces` to ALL `system:authenticated` + `system:serviceaccounts` groups.
   # So at the k8s RBAC layer (auth can-i), ANY authenticated subject — including the

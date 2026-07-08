@@ -1,12 +1,10 @@
 #!/usr/bin/env bats
 # tests/bats/p27-tenant-kustomization-sa-static.bats
-# Phase 11 / Wave 0 (NEW 2026-05-05 per reviewer Suggestion #14).
-# P27 invariant -- every Flux Kustomization under clusters/hub-flux/pocs/ MUST declare
-# a non-empty spec.serviceAccountName. Without explicit serviceAccountName, tenants run
-# as the cluster-admin Flux SA and BYPASS Capsule entirely (Phase 9 D-09-08 contract).
-# This static lint is a graduation-time gate; Phase 9 enforced P27 dynamically via grep
-# against tenant inner Ks only -- this lint walks the FULL clusters/hub-flux/pocs/ tree.
-# GREEN at landing IF Phase 9 P27 contract still holds.
+# Every Flux Kustomization under clusters/hub-flux/pocs/ MUST declare a non-empty
+# spec.serviceAccountName. Without an explicit serviceAccountName, tenants run
+# as the cluster-admin Flux SA and BYPASS Capsule entirely.
+# tenants-02-static-p27.bats lints tenant inner Ks only -- this lint walks the
+# FULL clusters/hub-flux/pocs/ tree.
 
 load 'test_helper'
 
@@ -20,7 +18,7 @@ setup() {
   # For each YAML doc that has kind: Kustomization AND apiVersion starting with
   # `kustomize.toolkit.fluxcd.io/` (Flux Kustomization, NOT the kustomize-config
   # `kustomize.config.k8s.io/` aggregator -- that one has no spec.serviceAccountName field
-  # and would always falsely "violate" P27), assert spec.serviceAccountName is non-empty.
+  # and would always falsely "violate" the lint), assert spec.serviceAccountName is non-empty.
   # Use yq's multi-doc support (`-N -s` would split docs; here we use a per-file loop with
   # `eval-all 'select(.kind == "Kustomization" and (.apiVersion | test("^kustomize.toolkit.fluxcd.io/")))'`
   # to handle multi-doc YAML files and apiVersion-discriminate from kustomize-config aggregators).

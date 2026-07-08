@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/repo-hygiene-03-ci.bats
-# Phase 6 Wave 0 static contract for REPO-07: .github/workflows/ci.yml has
+# Static contract: .github/workflows/ci.yml has
 # 5 required job names + fetch-depth: 0 in the gitleaks job + datreeio CRDs
 # catalog reference for kubeconform + every uses: pinned to a 40-char SHA.
 

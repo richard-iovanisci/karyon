@@ -1,9 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/capsule-install-06-live-helm.bats
-# Phase 8 / Wave 0 (D-08-09 Nyquist gate)
-# CAP-01 + CAP-02 — live HelmRelease Ready=True observation on hub-flux + capsule-controller-manager pod Running on spoke-capsule.
-# Cluster-info gate per RESEARCH §"Pattern 4" — auto-skips when k3d clusters unreachable
-# (NOT KARYON_LIVE_TESTS env var, per CONTEXT D-08-09).
+# Live HelmRelease Ready=True observation on hub-flux + capsule-controller-manager pod Running on spoke-capsule.
+# Cluster-info gate — auto-skips when the k3d clusters are unreachable
+# (a reachability probe, deliberately NOT the KARYON_LIVE_TESTS env var).
 
 load 'test_helper'
 
@@ -17,7 +16,7 @@ setup() {
 }
 
 @test "CAP-01 live (WR-03 fix): HelmRelease capsule reports Ready=True (3 attempts x 30s sleep, jsonpath column-anchored)" {
-  # WR-03 fix (08-REVIEW.md): the prior `flux get | grep -qE 'capsule[[:space:]]+.*True'` regex
+  # The prior `flux get | grep -qE 'capsule[[:space:]]+.*True'` regex
   # admits false positives if the MESSAGE column contains the substring 'True' (e.g.
   # "Release reconciliation failed: TruncatedError"). Replace with kubectl jsonpath against
   # the explicit Ready condition status field for unambiguous parsing.
@@ -33,7 +32,7 @@ setup() {
 }
 
 @test "CAP-02 live (WR-03 fix): HelmRelease capsule-proxy reports Ready=True (3 attempts x 30s sleep, jsonpath column-anchored)" {
-  # WR-03 fix — same rationale as the operator HR test: kubectl jsonpath instead of fragile flux-get regex.
+  # Same rationale as the operator HR test: kubectl jsonpath instead of fragile flux-get regex.
   local i ready
   for i in 1 2 3; do
     ready=$(kubectl --context=k3d-hub-flux -n capsule-system get helmrelease capsule-proxy \

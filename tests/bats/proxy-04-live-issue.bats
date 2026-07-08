@@ -1,9 +1,8 @@
 #!/usr/bin/env bats
 # tests/bats/proxy-04-live-issue.bats
-# Phase 10 / Wave 0 (D-10-09 Nyquist gate)
-# Live PROXY-01 verification: scripts/poc/capsule/issue-tenant-kubeconfig.sh
-# RED until Plan 10-01 lands the script. Auto-skips when k3d-spoke-capsule unreachable.
-# Validates: clean stdout YAML (Pitfall 10-P7) + JWT decode (RESEARCH §C4) + --write-to (RESEARCH §C5).
+# Live verification: scripts/poc/capsule/issue-tenant-kubeconfig.sh
+# Auto-skips when k3d-spoke-capsule is unreachable.
+# Validates: clean stdout YAML (all logging on stderr) + JWT decode + --write-to.
 
 load 'test_helper'
 
@@ -17,22 +16,22 @@ setup() {
   ISSUED_KC=$(mktemp -p "${TMPDIR:-/tmp}" karyon-proxy-04-alpha-XXXX.kubeconfig)
   bash "${REPO_ROOT}/scripts/poc/capsule/issue-tenant-kubeconfig.sh" alpha gitops-reconciler 2>/dev/null > "$ISSUED_KC"
 
-  # Stdout YAML is parseable (Pitfall 10-P7 stderr split contract)
+  # Stdout YAML is parseable (all logging goes to stderr; stdout is pure YAML)
   run yq eval '.kind' "$ISSUED_KC"
   [ "$status" -eq 0 ]
   [ "$output" = "Config" ]
 
-  # current-context literal (D-10-07)
+  # current-context literal
   run yq eval '.current-context' "$ISSUED_KC"
   [ "$status" -eq 0 ]
   [ "$output" = "tenant-alpha-via-proxy" ]
 
-  # Server URL literal (D-10-07)
+  # Server URL literal
   run yq eval '.clusters[0].cluster.server' "$ISSUED_KC"
   [ "$status" -eq 0 ]
   [ "$output" = "https://127.0.0.1:30443" ]
 
-  # Default namespace in context = tenant-alpha (D-10-07)
+  # Default namespace in context = tenant-alpha
   run yq eval '.contexts[0].context.namespace' "$ISSUED_KC"
   [ "$status" -eq 0 ]
   [ "$output" = "tenant-alpha" ]
@@ -44,7 +43,7 @@ setup() {
   ISSUED_KC=$(mktemp -p "${TMPDIR:-/tmp}" karyon-proxy-04-jwt-XXXX.kubeconfig)
   bash "${REPO_ROOT}/scripts/poc/capsule/issue-tenant-kubeconfig.sh" alpha gitops-reconciler 2>/dev/null > "$ISSUED_KC"
 
-  # WR-06: validate JWT shape with clear diagnostics before arithmetic.
+  # Validate JWT shape with clear diagnostics before arithmetic.
   # Without these guards, a malformed token would cause base64 -d / jq to silently
   # produce empty strings; arithmetic on empty values yields 0, and the test would
   # red-fail with "expected 0 >= 3540" -- much less useful than "token is not a JWT".
@@ -68,7 +67,7 @@ setup() {
   EXP=$(echo "$DECODED" | jq -r '.exp')
   IAT=$(echo "$DECODED" | jq -r '.iat')
 
-  # ±60s tolerance for clock skew (RESEARCH §C4)
+  # ±60s tolerance for clock skew
   [ "$((EXP - IAT))" -ge 3540 ]
   [ "$((EXP - IAT))" -le 3660 ]
 
@@ -98,7 +97,7 @@ setup() {
   WRITE_PATH="${TMPDIR:-/tmp}/karyon-tenants/proxy-04-test.kubeconfig"
   bash "${REPO_ROOT}/scripts/poc/capsule/issue-tenant-kubeconfig.sh" alpha gitops-reconciler --write-to "$WRITE_PATH" >/dev/null 2>&1
   [ -f "$WRITE_PATH" ]
-  # BL-02 / WR-07: file must be owner-private (mode 0600), not world-readable (0644).
+  # File must be owner-private (mode 0600), not world-readable (0644).
   # Bearer-token kubeconfig must remain confidential to the issuing operator.
   mode=$(stat -c '%a' "$WRITE_PATH")
   [ "$mode" = "600" ]

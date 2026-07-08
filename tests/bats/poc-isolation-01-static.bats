@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/poc-isolation-01-static.bats
-# P31 / D-12 — v0.18 scripts must have ZERO spoke-capsule and ZERO register-poc-cluster mentions
+# POC isolation — v0.18 scripts must have ZERO spoke-capsule and ZERO register-poc-cluster mentions
 
 load 'test_helper'
 

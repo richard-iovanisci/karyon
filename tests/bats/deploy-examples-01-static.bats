@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/deploy-examples-01-static.bats
-# Phase 5 Wave 0 static contract for GitOps-only example workload deployment.
+# Static contract for GitOps-only example workload deployment.
 
 load 'test_helper'
 

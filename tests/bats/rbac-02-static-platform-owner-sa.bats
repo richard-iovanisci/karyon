@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-02-static-platform-owner-sa.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# D-13-06 — platform-owner SA file shape + dual-subject ClusterRoleBinding.
-# RED until Plan 13-02 lands platform-owner-sa.yaml + edits platform-owner.yaml CRB subjects[].
+# platform-owner SA file shape + dual-subject ClusterRoleBinding
+# (platform-owner-sa.yaml + the platform-owner.yaml CRB subjects[]).
 
 load 'test_helper'
 

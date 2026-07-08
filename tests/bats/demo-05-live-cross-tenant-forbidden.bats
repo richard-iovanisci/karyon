@@ -1,8 +1,6 @@
 #!/usr/bin/env bats
 # tests/bats/demo-05-live-cross-tenant-forbidden.bats
-# Phase 14 / Wave 0 (D-14-08 + D-13-15 Nyquist gate)
-# DEMO-05 — cross-tenant pod LIST + namespace GET denied (alpha→bravo + bravo→alpha symmetric mirror).
-# RED until Plan 14-02 lands DEMO bats GREEN against the live cluster.
+# Cross-tenant pod LIST + namespace GET denied (alpha→bravo + bravo→alpha symmetric mirror).
 
 load 'test_helper'
 
@@ -46,7 +44,7 @@ setup() {
 
 @test "DEMO-05 (alpha→bravo): cross-tenant namespace GET denied" {
   # capsule-proxy scoping: the namespace is hidden, surfacing as NotFound rather than
-  # an explicit Forbidden (LIST-filter semantics — see Phase 11 D-11-02 inheritance).
+  # an explicit Forbidden (LIST-filter semantics).
   # Either form is a valid scoping-denied response; the load-bearing assertion is that
   # the cross-tenant namespace is UNREACHABLE.
   run kubectl --kubeconfig="$ALPHA_KUBECONFIG" get namespace tenant-bravo

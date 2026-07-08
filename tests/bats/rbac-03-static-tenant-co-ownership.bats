@@ -1,13 +1,13 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-03-static-tenant-co-ownership.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# D-13-05 + D-13-07 — owner additions to alpha + bravo:
+# Owner additions to alpha + bravo:
 #   - Existing entries preserved verbatim (flux-reconciler SA, gitops-reconciler SA, User)
-#   - NEW: human-tenant-owner SA with explicit clusterRoles: [tenant-workload-editor]
-#   - NEW: Group capsule-platform-owners + SA platform-owner@capsule-system (no explicit clusterRoles)
-#   - NEW: containerRegistries.allowed contains docker.io (Pitfall 13-P1 FQCI requirement)
-# Pitfall 13-P8 guard: NO owner entry with empty clusterRoles: [].
-# RED until Plan 13-01..13-02 land additive edits to alpha.yaml + bravo.yaml.
+#   - human-tenant-owner SA with explicit clusterRoles: [tenant-workload-editor]
+#   - Group capsule-platform-owners + SA platform-owner@capsule-system (no explicit clusterRoles)
+#   - containerRegistries.allowed contains docker.io (the registry webhook matches
+#     fully-qualified image references, so the seeded docker.io image needs it)
+# Guard: NO owner entry with empty clusterRoles: [] (an empty list overrides
+# Capsule's defaults and strips that owner's grants).
 
 load 'test_helper'
 

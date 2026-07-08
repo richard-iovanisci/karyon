@@ -1,18 +1,16 @@
 #!/usr/bin/env bats
 # tests/bats/push-gate-06-static-helmrelease-sa.bats
-# Phase 11 G-06 gap-close (2026-05-06; codex review §2 HIGH #1, HIGH #2, MEDIUM #3) --
-# static assertions for the G-06 fix surface.
+# Static assertions for the HelmRelease serviceAccountName fix surface.
 #
 # Without spec.serviceAccountName on the HRs, helm-controller's cross-cluster
 # impersonation defaults to system:serviceaccount:capsule-system:default on
 # spoke-capsule which has zero RBAC; flux reconcile times out with
-# `context deadline exceeded`. Per RESEARCH.md line 971 (Flux Service Account
-# Impersonation -- oneuptime article verified).
+# `context deadline exceeded`. See the Flux docs on Service Account impersonation.
 #
 # The corresponding NS + SA + CRB live on spoke-capsule under
 # pocs/capsule/spoke/rbac/ (asserted in @tests 3-5).
 #
-# Live reconcile observation (Plan 11-07 Task 5 human-verify checkpoint):
+# Live reconcile observation (manual verify):
 #   flux reconcile helmrelease capsule -n capsule-system  # should NOT timeout
 #   flux reconcile helmrelease capsule-proxy -n capsule-system  # should NOT timeout
 

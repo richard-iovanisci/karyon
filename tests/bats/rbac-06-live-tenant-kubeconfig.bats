@@ -1,11 +1,9 @@
 #!/usr/bin/env bats
 # tests/bats/rbac-06-live-tenant-kubeconfig.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# RBAC-02 + DEMO-04 boundary — tenant-owner kubeconfig:
+# Tenant-owner kubeconfig boundary:
 #   - auth can-i '*' '*' returns no
 #   - positive control: get pods -n tenant-alpha succeeds
-#   - DEMO-04 boundary: create secret returns Forbidden
-# RED until Plan 13-01..13-02 land (script + SA + ClusterRole + binding).
+#   - boundary: create secret returns Forbidden
 
 load 'test_helper'
 
@@ -45,7 +43,7 @@ setup() {
   run kubectl --kubeconfig="$ALPHA_KUBECONFIG" create secret generic phase13-probe \
     --from-literal=k=v -n tenant-alpha
   [ "$status" -ne 0 ]
-  # Pitfall 11-P3 lesson: permissive grep for variants of Forbidden text
+  # Deliberately permissive grep — the Forbidden wording varies across versions
   echo "$output" | grep -qE 'Forbidden|forbidden|cannot create resource'
   # Idempotent cleanup in case create unexpectedly succeeded
   kubectl --kubeconfig="$ALPHA_KUBECONFIG" delete secret phase13-probe -n tenant-alpha \

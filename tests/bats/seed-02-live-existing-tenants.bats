@@ -1,12 +1,11 @@
 #!/usr/bin/env bats
 # tests/bats/seed-02-live-existing-tenants.bats
-# Phase 13 / Wave 0 (D-13-15 Nyquist gate)
-# SEED-01 — GlobalTenantResource propagation to existing tenant namespaces:
+# GlobalTenantResource propagation to existing tenant namespaces:
 #   - alpha-app1, tenant-alpha, bravo-app1, tenant-bravo
 # Each namespace must carry a Ready hello-world workload pod + a hello-world
 # Deployment with the karyon.io/managed-by label + hello-world Service port 80.
 #
-# AMENDED (ADR-008 addendum 2026-07-06, supersedes D-13-12): the GTR now seeds a
+# AMENDED (ADR 0008 addendum 2026-07-06): the GTR now seeds a
 # 1-replica Deployment instead of a bare Pod (immutable Pod spec put the Capsule
 # controller in a permanent resync error loop). Pods are located via the
 # app=hello-world template label (Deployment pods carry a -<hash> suffix); the
@@ -21,7 +20,7 @@ setup() {
   fi
 }
 
-# alpha-app1 / bravo-app1 are Phase 13 fixture namespaces created by the tenants
+# alpha-app1 / bravo-app1 are fixture namespaces created by the tenants
 # quota live suites, not by GitOps — skip their blocks when absent so this suite
 # is honest standalone.
 require_ns() {
