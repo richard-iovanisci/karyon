@@ -8,10 +8,7 @@
 # Wires the hub-side Flux Kustomizations under clusters/hub-flux/spokes/ and
 # patches the FLUX PATCH SURFACE to add `- ../spokes`.
 #
-# Requirements satisfied: SPOKE-01..06
-# Decisions honored:      D-01..D-16
-#
-# D-11 safety: set -euo pipefail INTENTIONALLY omits trace mode. Bearer data is
+# Token safety: set -euo pipefail INTENTIONALLY omits trace mode. Bearer data is
 # never written to logs, helper output, committed files, tee, or --from-literal.
 # The hub Secret is applied imperatively from stdin; it is not git-tracked.
 
@@ -391,12 +388,11 @@ ensure_hub_kustomization() {
 # (applied imperatively by scripts/register-spokes-for-flux.sh; never committed
 # because it contains a bearer token).
 #
-# REQ-SPOKE-05 (this file's existence + secretRef shape).
-# REQ-SPOKE-04 (key: value.yaml explicit - RESEARCH.md Pitfall 2 reframe:
-#   the silent-misroute fault is \`spec.kubeConfig\` ENTIRELY ABSENT, which would
-#   make the controller fall back to its in-cluster SA and reconcile to HUB.
-#   ALWAYS include the entire spec.kubeConfig block; explicit \`key: value.yaml\`
-#   is belt-and-suspenders against future Flux default-key behavior changes.)
+# Spoke-targeted: ALWAYS include the entire spec.kubeConfig block. The
+# silent-misroute fault is \`spec.kubeConfig\` ENTIRELY ABSENT — the controller
+# then falls back to its in-cluster SA and reconciles this path into the HUB
+# while reporting Ready. Explicit \`key: value.yaml\` is belt-and-suspenders
+# against future Flux default-key behavior changes.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -415,13 +411,13 @@ spec:
       key: value.yaml
   serviceAccountName: flux-reconciler
 EOF
-  # serviceAccountName is LOAD-BEARING (commit 621e530 / Plan 09-03 attempt-1
-  # falsifier): kustomize-controller runs with --default-service-account=default,
-  # which DOES apply to kubeConfig Kustomizations in Flux 2.8.6 — an empty
-  # spec.serviceAccountName falls through to the no-permission `default` SA on
-  # the spoke and every apply goes Forbidden. This template must keep the line
-  # or a rerun of `task register-spokes` overwrites the committed files without
-  # it (repair_file_if_needed replaces on ANY diff) and breaks spoke reconciles.
+  # serviceAccountName is LOAD-BEARING (see commit 621e530): kustomize-controller
+  # runs with --default-service-account=default, which DOES apply to kubeConfig
+  # Kustomizations in Flux 2.8.6 — an empty spec.serviceAccountName falls through
+  # to the no-permission `default` SA on the spoke and every apply goes Forbidden.
+  # This template must keep the line or a rerun of `task register-spokes`
+  # overwrites the committed files without it (repair_file_if_needed replaces on
+  # ANY diff) and breaks spoke reconciles.
   repair_file_if_needed "${target}" "${tmp}" "clusters/hub-flux/spokes/${spoke}.yaml"
 }
 
@@ -504,7 +500,7 @@ EOF
   tmp="$(mktemp)"
   cat > "${tmp}" <<EOF
 # clusters/${spoke}/namespace.yaml
-# REQ-SPOKE-05 seed - distinct per spoke, falsifiable for the cross-cluster
+# Seed manifest - distinct per spoke, falsifiable for the cross-cluster
 # negative-proof (this Namespace exists ONLY on k3d-${spoke}).
 apiVersion: v1
 kind: Namespace
@@ -516,9 +512,9 @@ EOF
   tmp="$(mktemp)"
   cat > "${tmp}" <<EOF
 # clusters/${spoke}/configmap.yaml
-# REQ-SPOKE-05 seed - ConfigMap NAME is karyon-spoke-id (same on both spokes;
-# the namespace and data.spoke value differ - that is the cross-cluster
-# falsifier per ROADMAP success #5 / Phase 4 D-03 / RESEARCH.md Pitfall 2).
+# ConfigMap NAME is karyon-spoke-id (same on both spokes; the namespace and
+# data.spoke value differ - reading this value from each cluster proves which
+# spoke a reconcile actually landed on, guarding against silent hub misroutes).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -641,7 +637,7 @@ verify_spoke_credential_layer() {
   expected_node="k3d-${spoke}-server-0"
   nodes="$(openssl_https_request "${spoke}" "${bearer}" "/api/v1/nodes" "${cert_part}" || true)"
   if [[ "${nodes}" != *"${expected_node}"* || "${nodes}" == *"${EXPECTED_FORBIDDEN_NODE}"* ]]; then
-    fail "P18 SILENT MISROUTE warning for ${spoke}: expected ${expected_node} and not ${EXPECTED_FORBIDDEN_NODE}.
+    fail "SILENT-MISROUTE warning for ${spoke}: expected ${expected_node} in /api/v1/nodes and not ${EXPECTED_FORBIDDEN_NODE}.
        Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o go-template='{{.metadata.name}}{{\" data.value.yaml present=\"}}{{if index .data \"value.yaml\"}}yes{{else}}no{{end}}{{\"\\n\"}}'
        Fix: do NOT push current state; rerun bash scripts/register-spokes-for-flux.sh"
     exit 1
@@ -718,7 +714,7 @@ info "Next: commit + push the new files so Flux reconciles them."
 info "  git add clusters/hub-flux/spokes clusters/hub-flux/flux-system/kustomization.yaml \\"
 info "          clusters/spoke-ml clusters/spoke-apps Taskfile.yml docs/flux-hub-spoke.md \\"
 info "          scripts/register-spokes-for-flux.sh tests/bats/register-spokes-*.bats"
-info "  git commit -m 'feat(04): register spokes for Flux reconciliation (SPOKE-01..06)'"
+info "  git commit -m 'feat: register spokes for Flux reconciliation'"
 info "  git push"
 info "  flux --context k3d-hub-flux reconcile source git flux-system"
 printf "\n%sSpoke registration complete. k3d-hub-flux can now reconcile to spoke-ml and spoke-apps.%s\n" \

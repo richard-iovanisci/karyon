@@ -52,7 +52,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 3: ~/.karyon/shell-init.sh (D-06)
+# Section 3: ~/.karyon/shell-init.sh
 # Creates a diffable, decommissionable PATH artifact.
 # asdf v0.18+ (Go rewrite) uses PATH export — not the old ". $HOME/.asdf/asdf.sh" form.
 # ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ SHELL_INIT
 fi
 
 # ---------------------------------------------------------------------------
-# Section 4: ~/.bashrc sourcing hook (D-06 — idempotent grep guard)
+# Section 4: ~/.bashrc sourcing hook (idempotent grep guard)
 # Appends exactly one sourcing line; grep guard prevents duplicates on re-run.
 # ---------------------------------------------------------------------------
 section "\$HOME/.bashrc karyon shell-init hook"
@@ -89,7 +89,7 @@ fi
 # ---------------------------------------------------------------------------
 # Section 5: asdf plugins
 # Ensure asdf binary is in PATH before running any asdf commands.
-# Plugin names from RESEARCH.md §Claude's Discretion #4:
+# Plugins installed:
 #   kubectl, helm, flux2, k3d, k9s, task, jq, yq (8 plugins)
 #   NOTE: flux2 (not flux), yq = mikefarah yq v4
 # ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ for plugin in kubectl helm flux2 k3d k9s task jq yq gitleaks; do
 done
 
 # ---------------------------------------------------------------------------
-# Section 6: tool versions from .tool-versions (D-05 guarded-sections pattern)
+# Section 6: tool versions from .tool-versions (guarded-sections pattern)
 #
 # IMPORTANT: The iteration SKIPS any line where the tool name is "asdf".
 # asdf is installed as a standalone binary in Section 2 above.
@@ -118,13 +118,13 @@ section "tool versions (from .tool-versions)"
 # Run from repo root so asdf finds .tool-versions
 cd "${REPO_ROOT}"
 if [[ ! -f .tool-versions ]]; then
-  fail ".tool-versions not found at ${REPO_ROOT} — check Plan 01 output"
+  fail ".tool-versions not found at ${REPO_ROOT} — repo may be incomplete"
   exit 1
 fi
 
 # Check whether any version pin is missing before calling asdf install.
 # asdf install is idempotent but logs nothing useful on a no-op; this guard
-# keeps the output consistent with D-05: either "already done, skipping:" or "installing:".
+# keeps the output consistent with the house style: either "already done, skipping:" or "installing:".
 _any_missing=0
 while IFS=' ' read -r _tool _ver; do
   [[ -z "$_tool" || "$_tool" == \#* ]] && continue
@@ -152,7 +152,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 7: Git core.hooksPath wiring (D-06 / REQ-REPO-04)
+# Section 7: Git core.hooksPath wiring
 # Idempotent: only writes if value differs from "hooks".
 # Once set, `git commit` runs hooks/pre-commit instead of .git/hooks/pre-commit.
 # This is per-clone configuration; survives `git pull`.

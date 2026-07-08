@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/poc/keycloak/create-tls.sh
 # Imperative TLS bootstrap for the pinned OIDC issuer https://localhost:31443
-# (tenant-ui-oidc quick task, 2026-07-06). Certs NEVER land in git.
+# (2026-07-06). Certs NEVER land in git.
 #
 # Creates (idempotent, non-rotating):
 #   ~/.karyon/oidc-pki/{ca.key,ca.crt,keycloak.key,keycloak.crt}  (0600 keys)

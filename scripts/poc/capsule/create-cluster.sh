@@ -2,14 +2,11 @@
 # scripts/poc/capsule/create-cluster.sh
 # Creates the persistent spoke-capsule k3d cluster on k8s-net.
 #
-# REQ: CAPCLU-01.
 # Idempotent: skip-if-exists with image/network/api-port/NodePort drift verify
 # (mirrors create_cluster() in scripts/create-clusters.sh).
 #
-# IMPORTANT: This script is NEVER invoked by `task rebuild`. It lives under
-# scripts/poc/capsule/ per D-12 / P31 isolation contract. The v0.18 scripts
-# {create-clusters,register-spokes-for-flux,health-check,destroy,delete-clusters,rebuild}.sh
-# MUST NOT reference spoke-capsule (tests/bats/poc-isolation-01-static.bats enforces).
+# Standalone POC helper for the persistent spoke-capsule cluster; never invoked by task rebuild
+# (enforced by tests/bats/poc-isolation-01-static.bats).
 
 set -euo pipefail
 
@@ -19,7 +16,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck disable=SC1091
 source "${REPO_ROOT}/scripts/lib/preflight-lib.sh"
 
-# D-10 pins (LOCKED -- bats grep-asserts these literals):
+# Pinned literals (LOCKED -- bats suites grep-assert these):
 readonly POC_CLUSTER="spoke-capsule"
 readonly POC_API_PORT="6446"
 readonly POC_NODEPORT="30443"
@@ -28,9 +25,9 @@ readonly K3S_STOCK_IMAGE="rancher/k3s:v1.34.6-k3s1"
 readonly EXPECTED_SAN="k3d-${POC_CLUSTER}-server-0"
 
 # ---------- Section 1: Preflight gate ----------
-section "Preflight gate (POC-04 includes 30443 fail-fast)"
+section "Preflight gate (includes NodePort 30443 fail-fast)"
 if ! bash "${REPO_ROOT}/scripts/preflight.sh" >/tmp/preflight-poc-$$.log 2>&1; then
-  fail "preflight has blockers -- likely 30443 in use (POC-04 fail-fast).
+  fail "preflight has blockers -- likely 30443 in use.
      Inspect: cat /tmp/preflight-poc-$$.log
      Fix:     free port 30443 (kill the listener) and rerun bash scripts/poc/capsule/create-cluster.sh"
   exit 1
@@ -80,10 +77,9 @@ if k3d cluster list --no-headers 2>/dev/null | awk '{print $1}' | grep -qx "${PO
 else
   info "creating: cluster ${POC_CLUSTER} on :${POC_API_PORT} + NodePort ${POC_NODEPORT} (network=${K8S_NET_NAME})"
   # @loadbalancer publishes the host port on the serverlb container -- matches the v0.18
-  # drift-verify pattern (which inspects serverlb only) and aligns with the RESEARCH.md
-  # §"Open Questions (RESOLVED)" #1 lock. capsule-proxy NodePort Service in Phase 8 will be
-  # routed via serverlb -> server-0 transparently (k3d's serverlb is just an HAProxy frontend).
-  # D-10 literals are inlined here (bats grep-asserts the exact strings; expansion-via-vars
+  # drift-verify pattern (which inspects serverlb only). The capsule-proxy NodePort Service
+  # is routed via serverlb -> server-0 transparently (k3d's serverlb is just an HAProxy frontend).
+  # The pinned literals are inlined here (bats grep-asserts the exact strings; expansion-via-vars
   # would let a single-character typo silently drift the published port or SAN nodefilter).
   k3d cluster create "${POC_CLUSTER}" \
     --image "${K3S_STOCK_IMAGE}" \

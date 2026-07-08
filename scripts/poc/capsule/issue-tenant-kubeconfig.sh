@@ -2,27 +2,30 @@
 # scripts/poc/capsule/issue-tenant-kubeconfig.sh
 # Mints a tenant owner kubeconfig that routes through capsule-proxy NodePort 30443.
 #
-# REQs: PROXY-01 / PROXY-02 / PROXY-03.
-# Decisions: D-10-01 (TokenRequest API), D-10-03 (<owner> = existing SA), D-10-06 (TLS embed via tls.crt).
-# Isolation: P31 (POC isolation -- script lives under scripts/poc/capsule/, never invoked by task rebuild).
-# ADR-004: hub-only Flux -- this script reads from spoke-capsule directly (no Flux on spoke per ADR-004).
+# The token is minted via the TokenRequest API (kubectl create token); <owner> must be an
+# EXISTING ServiceAccount in the tenant-<tenant> namespace (this script never creates
+# identities). TLS trust is embedded from the capsule-proxy Secret's tls.crt.
+# Standalone POC helper for the persistent spoke-capsule cluster; never invoked by task rebuild
+# (enforced by tests/bats/poc-isolation-01-static.bats).
+# Hub-only Flux control plane: this script reads from spoke-capsule directly -- no Flux runs
+# on the spoke (see docs/adr/0004-hub-only-flux-control-plane.md).
 #
 # Idempotency: each invocation produces a fresh TokenRequest token (no state mutation). Operator
 # re-runs to refresh tokens; running twice produces two valid kubeconfigs (different iat claims).
 #
-# Stdout/stderr contract (Pitfall 10-P7): stdout = pure YAML kubeconfig; stderr = preflight-lib
+# Stdout/stderr contract: stdout = pure YAML kubeconfig; stderr = preflight-lib
 # log lines. Mechanism: shadow each preflight-lib helper (section/pass/info/warn/fail) with a
 # printf-to-stderr equivalent defined below. Every subsequent call site emits to stderr without
 # per-call-site `>&2`. The original ANSI-colored helpers from preflight-lib are unused here --
 # this script does not emit stdout summary lines (stdout is reserved for the kubeconfig YAML
-# payload). Per RESEARCH §Pitfall 10-P7, per-call-site `>&2` is equivalent and explicitly NOT
+# payload). Per-call-site `>&2` would be equivalent but is explicitly NOT
 # used (it would require ~50 redirects throughout the script). The chosen approach avoids that.
 #
-# Pitfall 10-P1: capsule-proxy Secret has tls.crt + tls.key keys ONLY (no ca.crt). The chart's
+# CA gotcha: capsule-proxy Secret has tls.crt + tls.key keys ONLY (no ca.crt). The chart's
 # kube-webhook-certgen Job runs with --cert-name=tls.crt --key-name=tls.key and self-signs;
 # tls.crt IS the CA root. Script reads tls.crt directly via jsonpath '{.data.tls\.crt}'.
 #
-# Pitfall 10-P2: k3s on this pin does NOT clamp at 24h. --duration is honored exactly (verified
+# Duration gotcha: k3s on this pin does NOT clamp at 24h. --duration is honored exactly (verified
 # live for up to 720h). The info-warn at >24h is a portability note for distros that DO clamp via
 # --service-account-max-token-expiration.
 
@@ -34,7 +37,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck disable=SC1091
 source "${REPO_ROOT}/scripts/lib/preflight-lib.sh"
 
-# Pitfall 10-P7 stderr-redirect: shadow preflight-lib helpers with printf-to-stderr equivalents.
+# Stderr-redirect: shadow preflight-lib helpers with printf-to-stderr equivalents.
 # preflight-lib helpers write to stdout by default; stdout in THIS script is the kubeconfig YAML
 # payload, so log lines on stdout would corrupt it. We replace each helper with a printf-to-stderr
 # function. Every subsequent call site emits to stderr without per-call-site `>&2`. The original
@@ -50,7 +53,7 @@ info()    { printf '  --  %s\n' "$*" >&2; }
 warn()    { printf '  !!  %s\n' "$*" >&2; }
 fail()    { printf '  xx  %s\n' "$*" >&2; }
 
-# D-10 pins (LOCKED -- bats grep-asserts these literals):
+# Pinned literals (LOCKED -- bats suites grep-assert these):
 readonly POC_CTX="k3d-spoke-capsule"
 readonly POC_NODEPORT="30443"
 readonly DEFAULT_DURATION="1h"
@@ -67,8 +70,8 @@ Mints a tenant-owner kubeconfig that routes through capsule-proxy NodePort 30443
 Args:
   <tenant>        Tenant name (e.g., alpha, bravo). MUST match existing Tenant CR on spoke-capsule.
   <owner>         ServiceAccount name in tenant-<tenant> namespace; one of:
-                    - gitops-reconciler  (Flux automation; Phase 10 default)
-                    - human-tenant-owner (RBAC-02 human-exercised; Phase 13 default)
+                    - gitops-reconciler  (Flux automation identity)
+                    - human-tenant-owner (human-exercised tenant-owner identity)
 
 Flags:
   --duration <d>  TokenRequest duration (default: ${DEFAULT_DURATION}). Valid: golang time.Duration string (e.g., 1h, 24h, 7d).
@@ -83,10 +86,10 @@ Examples:
   bash scripts/poc/capsule/issue-tenant-kubeconfig.sh alpha gitops-reconciler --duration 24h \\
        --write-to ${TENANT_TMPDIR}/alpha.kubeconfig
 
-References:
-  Phase 10 PROXY-01..03 + D-10-01 (TokenRequest) + D-10-03 (<owner> = SA) + D-10-06 (TLS embed)
-  Phase 7 P31 (POC isolation: this script lives under scripts/poc/capsule/, never invoked by task rebuild)
-  ADR-004 (hub-only Flux: NO Flux on spoke-capsule)
+Notes:
+  Token is minted via the TokenRequest API; <owner> must be an existing ServiceAccount.
+  Standalone POC helper: never invoked by task rebuild (tests/bats/poc-isolation-01-static.bats).
+  Hub-only Flux: NO Flux runs on spoke-capsule (see docs/adr/0004-hub-only-flux-control-plane.md).
 USAGE_EOF
   exit "${1:-0}"
 }
@@ -99,9 +102,9 @@ WRITE_TO=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    # WR-05: accept both space form (`--duration 24h`) and equals form (`--duration=24h`).
-    # `kubectl create token --duration=…` itself uses equals form (line 210 below); operators
-    # who copy that style onto this script's surface previously hit "unknown flag: --duration=24h".
+    # Accept both space form (`--duration 24h`) and equals form (`--duration=24h`).
+    # `kubectl create token --duration=…` itself uses equals form; operators who copy
+    # that style onto this script's surface previously hit "unknown flag: --duration=24h".
     --duration=*) DURATION="${1#--duration=}"; shift ;;
     --duration) DURATION="${2:?--duration requires a value}"; shift 2 ;;
     --write-to=*) WRITE_TO="${1#--write-to=}"; shift ;;
@@ -118,7 +121,7 @@ done
 [[ -z "$TENANT" ]] && { fail "missing positional <tenant>"; usage 1; }
 [[ -z "$OWNER"  ]] && { fail "missing positional <owner>"; usage 1; }
 
-# WR-04: strict-format validator -- TENANT and OWNER must be valid RFC 1123 labels
+# Strict-format validator -- TENANT and OWNER must be valid RFC 1123 labels
 # (lowercase alphanumeric + dashes, max 63 chars). Matches Tenant CR / SA / Namespace
 # name validity in apiserver. Without this gate, whitespace/tab/shell-special chars
 # (e.g. backticks, `$()`) flow into kubectl invocations + the unquoted KUBECONFIG_EOF
@@ -161,34 +164,35 @@ section "Tenant CR check"
 if ! kubectl --context="${POC_CTX}" get tenant "${TENANT}" >/dev/null 2>&1; then
   fail "Tenant CR '${TENANT}' not found on ${POC_CTX}.
        Inspect: kubectl --context=${POC_CTX} get tenants
-       Fix:     run /gsd-execute-phase 9 first if Phase 9 has not landed yet."
+       Fix:     reconcile the Tenant CRs from the hub:
+                flux --context=k3d-hub-flux reconcile kustomization poc-capsule-spoke-tenants --with-source"
   exit 1
 fi
 pass "Tenant CR '${TENANT}' exists"
 
 # ---------- Section 4: Owner SA exists ----------
-section "Owner SA check (D-10-03)"
+section "Owner SA check"
 if ! kubectl --context="${POC_CTX}" -n "tenant-${TENANT}" get sa "${OWNER}" >/dev/null 2>&1; then
   AVAILABLE_SAS=$(kubectl --context="${POC_CTX}" -n "tenant-${TENANT}" get sa -o name 2>/dev/null \
       | sed 's|serviceaccount/||g' | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
   fail "Owner '${OWNER}' SA not found in namespace tenant-${TENANT}.
        Available SAs in this tenant: ${AVAILABLE_SAS:-<none>}.
-       Hint: run /gsd-execute-phase 9 first if Phase 9 has not landed yet,
-             or pass a known SA name (currently 'gitops-reconciler' or
-             'human-tenant-owner' — Phase 13 RBAC-02 default)."
+       Hint: reconcile the tenant resources from the hub:
+               flux --context=k3d-hub-flux reconcile kustomization poc-capsule-spoke --with-source
+             or pass a known SA name (currently 'gitops-reconciler' or 'human-tenant-owner')."
   exit 1
 fi
 pass "owner SA '${OWNER}' exists in tenant-${TENANT}"
 
 # ---------- Section 5: --write-to validation ----------
 if [[ -n "$WRITE_TO" ]]; then
-  section "--write-to validation (T-10-02 mitigation)"
-  # BL-02: tighten umask so the kubeconfig (containing a live bearer token) is
+  section "--write-to validation"
+  # Tighten umask so the kubeconfig (containing a live bearer token) is
   # owner-private on creation. Default umask 0022 produces mode 0644 (world-readable);
   # 0077 produces mode 0600 (owner-only). Applied here so it covers both the
   # subsequent install -d (tmpdir 0700) and the > "$RESOLVED" redirect later.
   umask 0077
-  # BL-01: defeat symlink pre-placement attack on ${TENANT_TMPDIR}.
+  # Defeat symlink pre-placement attack on ${TENANT_TMPDIR}.
   # If an attacker pre-places ${TENANT_TMPDIR} as a symlink to /etc (or any chosen dir),
   # `realpath -m` on both sides resolves through the symlink and the prefix check
   # passes -- but `> "$RESOLVED"` follows the symlink at write-time, landing the
@@ -206,12 +210,13 @@ if [[ -n "$WRITE_TO" ]]; then
   TMPDIR_RESOLVED=$(realpath -m "${TENANT_TMPDIR}")
   if [[ "$RESOLVED" != "${TMPDIR_RESOLVED}/"* ]]; then
     fail "--write-to '${WRITE_TO}' is outside ${TENANT_TMPDIR}/.
-       Hint: tenant kubeconfigs MUST live in tmpdir per Phase 10 PROXY-03 + Phase 7 P29 invariant.
+       Hint: tenant kubeconfigs MUST live under the tmpdir so live bearer tokens never
+             land in the repo or a home directory.
        Try: --write-to ${TENANT_TMPDIR}/${TENANT}.kubeconfig"
     exit 1
   fi
   mkdir -p "$(dirname "$RESOLVED")"
-  # BL-01 (defense in depth): after mkdir, verify the resolved parent dir is NOT a symlink.
+  # Defense in depth: after mkdir, verify the resolved parent dir is NOT a symlink.
   # Catches the secondary TOCTOU where an attacker swaps a real component of RESOLVED
   # for a symlink between the prefix check above and the redirect at end-of-script.
   PARENT_REAL=$(realpath -e "$(dirname "$RESOLVED")")
@@ -224,7 +229,7 @@ if [[ -n "$WRITE_TO" ]]; then
 fi
 
 # ---------- Section 6: Duration portability info-warn ----------
-# WR-02: convert <int><unit> duration to hours. Supports kubectl's accepted units (s/m/h/d).
+# Convert <int><unit> duration to hours. Supports kubectl's accepted units (s/m/h/d).
 # Compound forms (e.g. 1h30m) collapse to the leading numeric+unit segment, which is acceptable
 # for the >24h portability heuristic -- the leading segment dominates for the values operators
 # actually pass. Returns 0 for unparseable input (no false-positive warns).
@@ -252,19 +257,19 @@ if [[ "$DURATION_HOURS" -gt 24 ]]; then
 fi
 
 # ---------- Section 7: Mint TokenRequest token ----------
-section "Mint TokenRequest token (D-10-01)"
+section "Mint TokenRequest token"
 TOKEN=$(kubectl --context=k3d-spoke-capsule create token "${OWNER}" -n "tenant-${TENANT}" --duration="${DURATION}")
 pass "token issued (duration ${DURATION})"
 
-# ---------- Section 8: Read CA cert (Pitfall 10-P1: tls.crt only, no ca.crt) ----------
-# WR-09: capture stderr to a tmpfile + exit code via direct subshell return so we can
+# ---------- Section 8: Read CA cert (tls.crt only, no ca.crt) ----------
+# Capture stderr to a tmpfile + exit code via direct subshell return so we can
 # distinguish three failure modes (was previously collapsed by `2>/dev/null || true`):
 #   (a) Secret exists but tls.crt key is empty (CA_B64="", RC=0 -> chart-rotation retry)
 #   (b) Secret NotFound (RC!=0, stderr contains "NotFound" -> install hint)
 #   (c) apiserver unreachable (RC!=0, stderr contains "connection refused"/"i/o timeout")
 # Note: the obvious printf '%s\0%s' helper trick fails here because bash command
 # substitution strips null bytes (warning: "ignored null byte in input"); use a tmpfile.
-section "Read proxy CA cert (D-10-06 / Pitfall 10-P1: tls.crt only)"
+section "Read proxy CA cert (tls.crt only; Secret has no ca.crt)"
 CA_STDERR=$(mktemp -t karyon-ca-stderr-XXXX)
 trap 'rm -f "$CA_STDERR"' EXIT
 read_capsule_proxy_tls_crt() {
@@ -279,7 +284,8 @@ if [[ "$CA_RC" -ne 0 ]]; then
   if echo "$CA_ERR" | grep -qF NotFound; then
     fail "capsule-proxy Secret not found in namespace capsule-system on ${POC_CTX}.
        Inspect: kubectl --context=${POC_CTX} -n capsule-system get secret
-       Hint:    capsule-proxy may not yet be installed on spoke-capsule (Phase 8 D-08-13 push-gate deferred to Phase 11 VAL-05)."
+       Hint:    capsule-proxy may not yet be installed on spoke-capsule. Reconcile from the hub:
+                flux --context=k3d-hub-flux reconcile kustomization poc-capsule --with-source"
     exit 1
   fi
   warn "kubectl call failed (RC=${CA_RC}): ${CA_ERR}. Retrying once after 5s (likely transient apiserver/network)..."
@@ -303,12 +309,13 @@ fi
 if [[ -z "$CA_B64" ]]; then
   fail "capsule-proxy Secret tls.crt is empty after retry.
        Inspect: kubectl --context=${POC_CTX} -n capsule-system get secret capsule-proxy -o jsonpath='{.data}' | jq 'keys'
-       Hint:    capsule-proxy may not yet be installed on spoke-capsule (Phase 8 D-08-13 push-gate deferred to Phase 11 VAL-05)."
+       Hint:    capsule-proxy may not yet be installed on spoke-capsule. Reconcile from the hub:
+                flux --context=k3d-hub-flux reconcile kustomization poc-capsule --with-source"
   exit 1
 fi
 pass "tls.crt read (chart-self-signed CA root)"
 
-# ---------- Section 9: Emit kubeconfig (D-10-07: heredoc with parameterized values) ----------
+# ---------- Section 9: Emit kubeconfig (heredoc with parameterized values) ----------
 section "Emit kubeconfig"
 
 emit_kubeconfig() {
@@ -336,7 +343,7 @@ KUBECONFIG_EOF
 
 if [[ -n "$WRITE_TO" ]]; then
   emit_kubeconfig > "$RESOLVED"
-  # BL-02: belt-and-braces -- if a future maintainer overrides umask before this
+  # Belt-and-braces -- if a future maintainer overrides umask before this
   # block, chmod 0600 here ensures the file mode is owner-private regardless.
   chmod 0600 "$RESOLVED"
   pass "kubeconfig written to ${RESOLVED} (mode 0600)"

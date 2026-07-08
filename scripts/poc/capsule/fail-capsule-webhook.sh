@@ -2,18 +2,18 @@
 # scripts/poc/capsule/fail-capsule-webhook.sh
 #
 # Scales capsule-controller-manager Deployment to N replicas (test-only failure simulation).
-# `task fail-capsule-webhook -- 0` -> apiserver returns "no endpoints available" for capsule webhooks
-#                                    (failurePolicy: Fail blocks tenant pod create; N11 falsifier).
-# `task fail-capsule-webhook -- 1` -> recovery: scale to 1, polls rollout-status to Ready (90s timeout).
-#                                    (N12 falsifier -- apply succeeds again post-recovery).
+# `task fail-capsule-webhook -- 0` -> apiserver returns "no endpoints available" for capsule webhooks;
+#                                    with failurePolicy: Fail this blocks tenant pod create (fail-closed proof).
+# `task fail-capsule-webhook -- 1` -> recovery: scale to 1, polls rollout-status to Ready (90s timeout);
+#                                    applies succeed again post-recovery.
 #
 # Surfaces as `task fail-capsule-webhook -- 0|1`. Idempotent -- re-running with the same
 # replica count is a no-op (kubectl scale is declarative).
 #
-# REQ: VAL-02. Decision: D-11-09 (scale Deployment 0/1; rollout-status with 90s timeout on recovery).
-# D-12 / P31: Lives under scripts/poc/capsule/; the v0.18 scripts have ZERO references
-#             to this file (tests/bats/poc-isolation-01-static.bats enforces).
-# ADR-004: NO Flux on spoke-capsule -- this script reads from spoke-capsule directly via kubectl context.
+# Standalone POC helper for the persistent spoke-capsule cluster; never invoked by task rebuild
+# (enforced by tests/bats/poc-isolation-01-static.bats).
+# Hub-only Flux control plane: NO Flux on spoke-capsule -- this script talks to spoke-capsule
+# directly via kubectl context (see docs/adr/0004-hub-only-flux-control-plane.md).
 
 set -euo pipefail
 

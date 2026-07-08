@@ -2,10 +2,8 @@
 # scripts/build-image.sh
 #
 # Builds karyon/k3s-cuda from images/Dockerfile.k3s-cuda.
-# Separate script (not inlined in create-clusters.sh) per research recommendation.
-# scripts/create-clusters.sh calls it only if the image is absent.
-#
-# Requirements: IMG-01..05
+# Separate script (not inlined in create-clusters.sh) so the image can be built
+# on its own; scripts/create-clusters.sh calls it only if the image is absent.
 #
 # Usage: bash scripts/build-image.sh
 # Output: karyon/k3s-cuda:<K3S_TAG>-cuda<CUDA_TAG_SHORT> in local Docker image store.
@@ -32,7 +30,6 @@ pass "required files present"
 # `COPY --from=k3s / / --exclude=/bin` requires BuildKit + docker/dockerfile:1.7-labs frontend.
 # Gate on the envvar path rather than the buildx plugin: the plugin may be
 # absent in environments where BuildKit works fine via DOCKER_BUILDKIT=1.
-# (Cross-AI review Finding 6.)
 section "BuildKit availability"
 if ! DOCKER_BUILDKIT=1 docker build --help >/dev/null 2>&1; then
   fail "BuildKit capability check failed — Docker daemon does not support BuildKit; upgrade Docker Engine"

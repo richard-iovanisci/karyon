@@ -1,26 +1,23 @@
 #!/usr/bin/env bash
 # scripts/bootstrap-flux.sh
 # Runs `flux bootstrap github` on k3d-hub-flux with --path locked to
-# clusters/hub-flux (REQ-FLUX-02 — effectively immutable after first run).
-# Sources GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN from the gitignored .env
-# (REQ-FLUX-03). The token is never echoed to stdout.
+# clusters/hub-flux (effectively immutable after first run).
+# Sources GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN from the gitignored .env.
+# The token is never echoed to stdout.
 #
-# Requirements satisfied: FLUX-01, FLUX-02, FLUX-03, FLUX-04
-# Decisions honored:      D-01..D-16
-#
-# D-11 token-safety: set -euo pipefail INTENTIONALLY omits -x (no trace of
+# Token safety: set -euo pipefail INTENTIONALLY omits -x (no trace of
 # GITHUB_TOKEN on stdout/stderr; strict-mode only, no debug tracing).
 #
 # Structure:
-#   Section 1: Preflight gate + gitleaks advisory (D-05, Phase-6 hand-off)
-#   Section 2: Context + idempotency checks       (D-06, D-07)
-#   Section 3: flux bootstrap                     (D-01..D-04, D-08, D-11)
-#   Section 4: Post-bootstrap verification        (D-09, D-10)
-#   Section 5: Patch-surface marker               (D-13)
+#   Section 1: Preflight gate + gitleaks advisory
+#   Section 2: Context + idempotency checks
+#   Section 3: flux bootstrap
+#   Section 4: Post-bootstrap verification
+#   Section 5: Patch-surface marker
 #
 # Usage:   bash scripts/bootstrap-flux.sh
-# Pre-req: scripts/preflight.sh exits 0 (port 6443 already bound by hub-flux
-#          post-Phase-2 produces a warn, not a fail — preflight tolerates it);
+# Pre-req: scripts/preflight.sh exits 0 (port 6443 already bound by an existing
+#          hub-flux cluster produces a warn, not a fail — preflight tolerates it);
 #          kubectl context is k3d-hub-flux;
 #          .env has GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN non-empty.
 
@@ -32,7 +29,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 
-# Constants — --path is hard-coded per FLUX-02 / D-decisions; do NOT parameterize.
+# Constants — --path is intentionally hard-coded; do NOT parameterize.
 readonly FLUX_PATH="clusters/hub-flux"
 readonly KUBE_CTX="k3d-hub-flux"
 readonly FLUX_NS="flux-system"
@@ -42,7 +39,7 @@ ENV_KEYS_LOADED=0
 load_env_key() {
   local key="$1" raw val first last
   if [[ ! -f "${REPO_ROOT}/.env" ]]; then
-    fail "${REPO_ROOT}/.env missing — preflight PRE-09 should have caught this; rerun: scripts/preflight.sh"
+    fail "${REPO_ROOT}/.env missing — the preflight .env check should have caught this; rerun: scripts/preflight.sh"
     exit 1
   fi
   raw="$(grep -E "^${key}=" "${REPO_ROOT}/.env" | tail -n1 | cut -d= -f2-)"
@@ -61,7 +58,7 @@ load_env_key() {
     exit 1
   fi
   if [[ -z "${val}" ]]; then
-    fail "${key} missing or empty in ${REPO_ROOT}/.env — fix the value and rerun. (Preflight PRE-09 covers presence; an empty value bypasses that gate.)"
+    fail "${key} missing or empty in ${REPO_ROOT}/.env — fix the value and rerun. (Preflight covers key presence; an empty value bypasses that gate.)"
     exit 1
   fi
   printf -v "${key}" '%s' "${val}"
@@ -124,11 +121,11 @@ check_origin_main_fast_forwardable() {
   fi
 }
 
-# ---------- Section 1: Preflight gate + gitleaks advisory (D-05, Phase-6 hand-off) ----------
+# ---------- Section 1: Preflight gate + gitleaks advisory ----------
 section "Preflight gate"
 PREFLIGHT_LOG="$(mktemp -t karyon-preflight.XXXXXX.log)"
-# Note (codex HIGH-2): scripts/preflight.sh emits port-in-use and existing-k3d-cluster
-# checks as WARN (not FAIL). After Phase 2 ran, port 6443 is bound by k3d-hub-flux's
+# Note: scripts/preflight.sh emits port-in-use and existing-k3d-cluster checks
+# as WARN (not FAIL). Once clusters exist, port 6443 is bound by k3d-hub-flux's
 # load-balancer container — preflight warns but exits 0. This script tolerates that
 # state. If a future preflight rewrite turns these warns into fails, this gate will
 # block and the developer must update preflight or split bootstrap-specific gating.
@@ -141,22 +138,22 @@ pass "preflight green"
 rm -f "${PREFLIGHT_LOG}"
 load_github_env
 
-# Phase-6 gitleaks pre-commit advisory (codex MEDIUM-4 / RESEARCH.md Q10).
-# CONTEXT.md "Claude's Discretion" recommended warn-only — Phase 6 REPO-04 lands the
-# actual hook. This is a belt-and-suspenders advisory: PAT in .env is gitignored, so
-# pre-commit gitleaks is defense-in-depth, not the primary control. Non-fatal.
+# Gitleaks pre-commit advisory (warn-only — the actual hook is wired by
+# scripts/install-tools.sh via core.hooksPath). This is a belt-and-suspenders
+# advisory: PAT in .env is gitignored, so pre-commit gitleaks is
+# defense-in-depth, not the primary control. Non-fatal.
 section "Gitleaks pre-commit advisory"
 GITLEAKS_HOOK="${REPO_ROOT}/.git/hooks/pre-commit"
 if [ -f "${GITLEAKS_HOOK}" ] && grep -qF gitleaks "${GITLEAKS_HOOK}"; then
   pass "gitleaks pre-commit hook present"
 else
-  warn "gitleaks pre-commit hook not detected — Phase 6 (REPO-04) lands gitleaks before first 'git push'. PAT in .env is gitignored; this is a belt-and-suspenders advisory."
+  warn "gitleaks pre-commit hook not detected — run 'bash scripts/install-tools.sh' to wire it before your first 'git push'. PAT in .env is gitignored; this is a belt-and-suspenders advisory."
 fi
 
-# ---------- Section 2: Context + idempotency checks (D-06, D-07) ----------
+# ---------- Section 2: Context + idempotency checks ----------
 section "Context + idempotency checks"
 
-# D-06: kubectl context gate — read-only assertion; NEVER auto-switch.
+# kubectl context gate — read-only assertion; NEVER auto-switch.
 ctx="$(kubectl config current-context 2>/dev/null || true)"
 if [[ "${ctx}" != "${KUBE_CTX}" ]]; then
   fail "kubectl context is ${ctx:-unset}, expected ${KUBE_CTX}.
@@ -165,8 +162,8 @@ if [[ "${ctx}" != "${KUBE_CTX}" ]]; then
 fi
 pass "kubectl context: ${KUBE_CTX}"
 
-# D-07: three-part idempotency AND (ns exists AND flux check AND 4 controllers Available).
-# Pitfall 4 guard: count deployments BEFORE kubectl wait --all (empty set trivially passes).
+# Three-part idempotency gate: ns exists AND flux check AND 4 controllers Available.
+# Count deployments BEFORE kubectl wait --all (an empty set trivially passes the wait).
 ns_ok=0; check_ok=0; ctrl_ok=0
 
 if kubectl --context "${KUBE_CTX}" get ns "${FLUX_NS}" >/dev/null 2>&1; then
@@ -204,29 +201,26 @@ if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
   fi
 fi
 
-# ---------- Section 3: flux bootstrap github (D-01..D-04, D-08, D-11) ----------
+# ---------- Section 3: flux bootstrap github ----------
 if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
   section "flux bootstrap"
 
-  # D-11 + CR-02: load .env keys as DATA, not as shell. The parser only ever runs
+  # Load .env keys as DATA, not as shell. The parser only ever runs
   # `grep -E '^KEY=' .env` against the three expected keys; it never sources or
   # runs the file as shell. A malicious .env with extra shell statements between keys
   # cannot trigger execution because no line is ever passed to the shell as code.
   load_github_env
 
-  # D-01..D-04 flag surface; D-11 token passing.
   # GITHUB_TOKEN is re-exported explicitly into the flux process environment.
   # It does NOT appear in `ps auxww` (argv only shows --owner / --repository / etc.).
   # --token-auth is a boolean toggle; flux reads GITHUB_TOKEN from env.
   #
-  # --network-policy=false (codex LOW-1): this is a single-user lab with no adversarial namespace
+  # --network-policy=false: this is a single-user lab with no adversarial namespace
   # boundary; we disable Flux's default deny-all NetworkPolicy on flux-system to
-  # reduce debug surface. Note: k3s ships an embedded kube-router netpol controller, so the
-  # NP would actually be enforced (RESEARCH.md Pitfall 6 corrects CONTEXT.md D-03's
-  # "flannel does not enforce NetworkPolicies" claim). The flag value is unchanged; this
-  # comment exists so a maintainer reading the script sees the corrected rationale at the
-  # call site rather than only in the plan threat-model. See docs/flux-hub-spoke.md Rule 3
-  # footnote and 03-02-PLAN.md threat model T-3-05 for the full correction trail.
+  # reduce debug surface. Note: k3s ships an embedded kube-router netpol controller,
+  # so the NetworkPolicy WOULD actually be enforced — the common claim that
+  # flannel-based k3s cannot enforce NetworkPolicies is wrong. See the
+  # docs/flux-hub-spoke.md Rule 3 footnote.
   GITHUB_TOKEN="${GITHUB_TOKEN}" flux bootstrap github \
     --owner "${GITHUB_OWNER}" \
     --repository "${GITHUB_REPO}" \
@@ -239,12 +233,12 @@ if [[ ${SKIP_BOOTSTRAP} -eq 0 ]]; then
   pass "flux bootstrap complete"
 fi
 
-# ---------- Section 4: Post-bootstrap verification (D-09, D-10) ----------
+# ---------- Section 4: Post-bootstrap verification ----------
 # Runs on BOTH code paths (skip-if-healthy AND fresh-bootstrap) to close the loop:
 # the skip path re-proves health; the fresh path proves bootstrap succeeded.
 section "Post-bootstrap verification"
 
-# D-09 gate 1: flux check
+# Gate 1: flux check
 if ! flux --context "${KUBE_CTX}" check >/dev/null 2>&1; then
   fail "flux check failed post-bootstrap.
      Debug: flux --context ${KUBE_CTX} check
@@ -253,7 +247,7 @@ if ! flux --context "${KUBE_CTX}" check >/dev/null 2>&1; then
 fi
 pass "flux check: ok"
 
-# D-09 gate 2 + Pitfall 4: assert 4 deployments exist BEFORE kubectl wait --all
+# Gate 2: assert 4 deployments exist BEFORE kubectl wait --all
 # (wait --all on an empty set trivially returns 0 — would mask a total bootstrap failure).
 deploy_count="$(kubectl --context "${KUBE_CTX}" -n "${FLUX_NS}" get deploy --no-headers 2>/dev/null | wc -l)"
 if [[ "${deploy_count}" -ne 4 ]]; then
@@ -261,7 +255,7 @@ if [[ "${deploy_count}" -ne 4 ]]; then
      Fix: kubectl --context ${KUBE_CTX} -n ${FLUX_NS} get deploy,pod"
   exit 1
 fi
-# D-10: idiomatic 120s wait — not a custom bash poll.
+# Idiomatic 120s wait — not a custom bash poll.
 if ! kubectl --context "${KUBE_CTX}" -n "${FLUX_NS}" wait \
        --for=condition=Available deploy --all --timeout=120s >/dev/null 2>&1; then
   fail "flux controllers did not reach Ready in 120s.
@@ -271,9 +265,9 @@ if ! kubectl --context "${KUBE_CTX}" -n "${FLUX_NS}" wait \
 fi
 pass "4 flux controllers Available within 120s"
 
-# D-09 gate 3: flux-system Kustomization Ready=True.
-# Use kubectl jsonpath (not `flux get ... | awk`) — avoids Pitfall 5 (grep Ready matching
-# NotReady substring) AND avoids the column-index fragility of `flux get` table output.
+# Gate 3: flux-system Kustomization Ready=True.
+# Use kubectl jsonpath (not `flux get ... | awk`) — a bare `grep Ready` would match
+# the NotReady substring, and `flux get` table output has fragile column indexes.
 ks_ready="$(kubectl --context "${KUBE_CTX}" -n "${FLUX_NS}" get kustomization "${FLUX_NS}" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
 if [[ "${ks_ready}" != "True" ]]; then
@@ -284,10 +278,10 @@ if [[ "${ks_ready}" != "True" ]]; then
 fi
 pass "Kustomization ${FLUX_NS}: Ready=True"
 
-# ---------- Section 5: Patch-surface marker (D-13) ----------
+# ---------- Section 5: Patch-surface marker ----------
 section "Patch-surface marker"
 
-# CR-01 fix: flux bootstrap github writes manifests through a temporary git worktree
+# flux bootstrap github writes manifests through a temporary git worktree
 # and pushes to GitHub — it does NOT update THIS local checkout. If KUST_FILE is
 # absent locally, the bootstrap manifests are on the remote `main` branch but not
 # here. Sync via fast-forward pull, gated on a clean worktree under ${FLUX_PATH} so
@@ -342,7 +336,7 @@ EOF
   pass "applied: patch-surface marker prepended to ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml"
 fi
 
-# Developer-flow hint (codex HIGH-3): the marker prepend is a LOCAL edit. flux bootstrap
+# Developer-flow hint: the marker prepend is a LOCAL edit. flux bootstrap
 # already pushed the bootstrap files to GitHub; for the marker to be part of the GitOps
 # tree Flux reconciles, the developer must commit + push this local diff. The script
 # intentionally does NOT auto-push (matches the broader "no automated git mutations"
@@ -352,7 +346,7 @@ fi
 if git -C "${REPO_ROOT}" diff --quiet -- "${FLUX_PATH}/${FLUX_NS}/kustomization.yaml" 2>/dev/null; then
   info "patch-surface marker already in HEAD — no commit needed"
 else
-  info "patch-surface marker added to ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml — commit and push so Flux reconciles a tree containing the marker: git add ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml && git commit -m 'docs(03): add patch-surface marker' && git push"
+  info "patch-surface marker added to ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml — commit and push so Flux reconciles a tree containing the marker: git add ${FLUX_PATH}/${FLUX_NS}/kustomization.yaml && git commit -m 'docs: add patch-surface marker' && git push"
 fi
 
 if git -C "${REPO_ROOT}" fetch origin main >/dev/null 2>&1; then

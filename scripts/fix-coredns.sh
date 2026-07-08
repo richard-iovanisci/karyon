@@ -62,8 +62,8 @@ pass "hub node Ready=True"
 
 # ---------- Section 4: Flux readiness ----------
 section "Flux readiness"
-# MED-3: count deployments BEFORE kubectl wait --all to prevent empty-set
-# trivial pass. Pattern matches scripts/bootstrap-flux.sh lines 256-263.
+# Count deployments BEFORE kubectl wait --all to prevent empty-set trivial
+# pass. Pattern matches the post-bootstrap gate in scripts/bootstrap-flux.sh.
 deploy_count="$(kubectl --context k3d-hub-flux -n flux-system get deploy --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')"
 if [[ "${deploy_count}" -ge 4 ]]; then
   pass "Flux controller deployment count ok: ${deploy_count}"
@@ -94,7 +94,7 @@ pass "flux check: ok"
 
 # ---------- Section 5: Post-restart spoke DNS probe ----------
 section "Post-restart spoke DNS probe"
-# MED-2: prove the workaround actually fixed spoke DNS resolution.
+# Prove the workaround actually fixed spoke DNS resolution.
 # Read-only probe via kubectl exec into existing source-controller pod
 # (no resource creation, no deletion).
 dns_ok=1

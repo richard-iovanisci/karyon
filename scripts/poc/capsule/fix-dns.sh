@@ -6,13 +6,13 @@
 #
 # Surfaces as `task fix-dns-poc-capsule`. DISTINCT from `task fix-dns` (which
 # calls scripts/fix-coredns.sh for hub-flux only). The two tasks are SIBLINGS
-# (NOT a parent/child env-var dispatch -- D-16 anti-pattern).
+# (NOT a parent/child env-var dispatch), so this script MUST NOT touch the
+# default `task fix-dns` surface (zero hub-flux cluster commands).
 #
-# REQ: CAPCLU-03.
-# D-16: MUST NOT affect default task fix-dns surface (zero hub-flux mentions).
-# D-17 / ADR-004: NO Flux runs on spoke-capsule -- no `flux check` invocation.
-# D-12 / P31: Lives under scripts/poc/capsule/; the v0.18 scripts have ZERO
-#             references to this file (tests/bats/poc-isolation-01-static.bats enforces).
+# Hub-only Flux control plane: NO Flux runs on spoke-capsule, so there is no
+# `flux check` invocation here (see docs/adr/0004-hub-only-flux-control-plane.md).
+# Standalone POC helper for the persistent spoke-capsule cluster; never invoked by task rebuild
+# (enforced by tests/bats/poc-isolation-01-static.bats).
 
 set -euo pipefail
 
@@ -64,8 +64,8 @@ if ! kubectl --context "${POC_CTX}" wait --for=condition=Ready node --all --time
 fi
 pass "${POC_CLUSTER} node Ready=True"
 
-# D-17 / ADR-004: NO `flux check` invocation against spoke-capsule (no Flux runs there).
-# D-16: NO hub-flux interaction (default task fix-dns covers that surface).
+# NO `flux check` invocation against spoke-capsule (no Flux runs there -- hub-only Flux control plane).
+# NO hub-flux interaction (default task fix-dns covers that surface).
 
 # ---------- Section 4: Summary ----------
 section "Summary"

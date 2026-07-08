@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/poc/keycloak/e2e-oidc-test.sh
-# Headless end-to-end falsifier for the OIDC → capsule-proxy → Capsule chain
-# (tenant-ui-oidc quick task). Proves, without a browser:
+# Headless end-to-end test of the OIDC → capsule-proxy → Capsule chain.
+# Proves, without a browser:
 #   Keycloak password grant → real OIDC JWT (groups claim, aud=kubectl)
 #   → bearer to capsule-proxy → apiserver OIDC validation (TokenReview)
 #   → Capsule owner matching → tenant-scoped LIST.

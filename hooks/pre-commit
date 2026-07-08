@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # hooks/pre-commit
 # Wired via `git config core.hooksPath hooks` (run once by scripts/install-tools.sh).
-# REQ-REPO-04 (D-06): blocks commits that would leak secrets into a public repo.
+# Blocks commits that would leak secrets into a public repo.
 # Uses gitleaks v8.30.1 git subcommand (the post-v8.19.0 canonical invocation).
 
 set -euo pipefail

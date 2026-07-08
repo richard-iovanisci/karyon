@@ -8,7 +8,7 @@
 #
 # This script calls `nvidia-ctk runtime configure --runtime=docker` which adds
 # ONLY the `runtimes.nvidia` key to daemon.json via structured merge. It does NOT
-# write default-runtime or dns — those are owned by install-docker.sh (Plan 02).
+# write default-runtime or dns — those are owned by install-docker.sh.
 #
 # Usage:  bash scripts/install-nvidia-container-toolkit.sh
 # Safe to re-run — skips steps already done.
@@ -25,7 +25,7 @@ DAEMON_JSON=/etc/docker/daemon.json
 
 # ---------------------------------------------------------------------------
 # Pre-check: verify Docker daemon is reachable and default-runtime=nvidia is
-# already set (H1 guard — prevents execution-order violation with Plan 02).
+# already set (guards the required install-docker.sh-first execution order).
 # ---------------------------------------------------------------------------
 section "Pre-check: Docker daemon and daemon.json state"
 if ! have docker || ! docker info >/dev/null 2>&1; then
@@ -35,7 +35,6 @@ fi
 pass "Docker daemon is reachable"
 
 # Guard: verify daemon.json default-runtime state.
-# FIXED (CR-01) — direct jq key access, no _key variable.
 # On first-ever run, default-runtime is absent (install-docker.sh defers writing it until
 # runtimes.nvidia exists). On second+ runs, it is present and must equal "nvidia".
 _dr_check=$(jq -r '."default-runtime" // empty' "$DAEMON_JSON" 2>/dev/null || echo "")
@@ -88,7 +87,7 @@ fi
 # ---------------------------------------------------------------------------
 # Section 3: nvidia-ctk runtime configure
 # Guard: docker info shows Runtimes:.*nvidia
-# Post-verify: confirm default-runtime=nvidia preserved after nvidia-ctk merge (H1).
+# Post-verify: confirm default-runtime=nvidia preserved after nvidia-ctk merge.
 # nvidia-ctk configure uses structured merge — adds runtimes.nvidia ONLY.
 # It does NOT write default-runtime or dns (owned by install-docker.sh).
 # ---------------------------------------------------------------------------
@@ -99,8 +98,8 @@ else
   sudo nvidia-ctk runtime configure --runtime=docker
   sudo systemctl restart docker
 
-  # FIXED (CR-01) — direct jq key access. nvidia-ctk configure only writes runtimes.nvidia;
-  # it does NOT write default-runtime (01-RESEARCH.md §Ref-3). Pre-existing
+  # nvidia-ctk configure only writes runtimes.nvidia;
+  # it does NOT write default-runtime. Pre-existing
   # default-runtime values (if any) are preserved; absence on first run is expected
   # and handled by the new Section 4 below.
   _dr_post=$(jq -r '."default-runtime" // empty' "$DAEMON_JSON" 2>/dev/null || echo "")
@@ -117,13 +116,13 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 4: daemon.json default-runtime=nvidia (Option B, gap plan 01-08)
+# Section 4: daemon.json default-runtime=nvidia
 #
-# CR-02 fix: install-docker.sh's Section 6 deferred the default-runtime write on
+# install-docker.sh's Section 6 deferred the default-runtime write on
 # first runs because runtimes.nvidia did not yet exist. Now that Section 3 above
 # has registered runtimes.nvidia via nvidia-ctk runtime configure, it is safe to
 # set default-runtime=nvidia — dockerd will accept it because the named runtime
-# exists. Use the same jq-merge pattern as install-docker.sh (RESEARCH.md §Ref-4).
+# exists. Use the same jq-merge pattern as install-docker.sh.
 #
 # Guards (content-correct, not file-exists):
 #   - .runtimes.nvidia must exist (proved by Section 3 completing; double-check here).

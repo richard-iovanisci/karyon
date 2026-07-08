@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/teardown-01-static-script.bats
-# Phase 11 / Wave 0 -- D-11-10 / D-11-11 static script-shape contract for
-# scripts/poc/capsule/destroy-poc.sh. RED until Plan 11-02 lands the script.
+# Static script-shape contract for scripts/poc/capsule/destroy-poc.sh:
+# ordered teardown sequence, PVC finalizer mitigation, sentinel preservation.
 
 load 'test_helper'
 
@@ -9,11 +9,11 @@ setup() {
   SCRIPT="${REPO_ROOT}/scripts/poc/capsule/destroy-poc.sh"
 }
 
-@test "D-11-10: scripts/poc/capsule/destroy-poc.sh exists" {
+@test "scripts/poc/capsule/destroy-poc.sh exists" {
   [ -f "$SCRIPT" ]
 }
 
-@test "D-11-10: script has shebang + strict-mode + path pinning + preflight-lib source" {
+@test "script has shebang + strict-mode + path pinning + preflight-lib source" {
   [ -f "$SCRIPT" ]
   for literal in \
     '#!/usr/bin/env bash' \
@@ -26,18 +26,27 @@ setup() {
   done
 }
 
-@test "D-11-10: head comment cites VAL-03 + D-11-10 + D-11-11 + P31 + ADR-004" {
+@test "head comment documents teardown order + POC isolation contract" {
   [ -f "$SCRIPT" ]
-  for literal in 'VAL-03' 'D-11-10' 'D-11-11' 'P31' 'ADR-004' ; do
+  # The head comment must keep the load-bearing rationale in plain language:
+  # the ordered teardown shape, the PVC finalizer mitigation, and the
+  # standalone-POC-helper isolation contract.
+  for literal in \
+    'Ordered teardown' \
+    'Suspend-before-delete' \
+    'force-delete PVC finalizers after 60s' \
+    'never invoked by task rebuild' \
+    'poc-isolation-01-static.bats' ; do
     run grep -F -- "$literal" "$SCRIPT"
     [ "$status" -eq 0 ]
   done
 }
 
-@test "D-11-10: script implements 5-step canonical sequence + --full flag (REVISED per-Kustomization suspend per reviewer HIGH #5)" {
+@test "script implements 5-step canonical sequence + --full flag (per-Kustomization suspend)" {
   [ -f "$SCRIPT" ]
-  # REVISED 2026-05-05 (reviewer HIGH #5): script must invoke flux suspend ONE PER Kustomization
-  # (not multi-arg). Each name must appear as its own suspend invocation literal.
+  # The script must invoke flux suspend ONCE PER Kustomization (not multi-arg): the multi-arg
+  # form may not be valid for the installed flux CLI version and obscures error attribution.
+  # Each name must appear as its own suspend invocation literal.
   for literal in \
     'flux suspend kustomization tenant-alpha' \
     'flux suspend kustomization tenant-bravo' \
@@ -50,7 +59,7 @@ setup() {
     run grep -F -- "$literal" "$SCRIPT"
     [ "$status" -eq 0 ]
   done
-  # REVISED 2026-05-05 (reviewer MEDIUM #11): standardize task command form (with `--`)
+  # Standardized task command form (with `--`)
   for literal in \
     'task destroy-poc -- capsule' ; do
     run grep -F -- "$literal" "$SCRIPT"
@@ -58,10 +67,11 @@ setup() {
   done
 }
 
-@test "D-11-11: script has PVC strand auto force-delete logic via NS_LIST loop (REVISED per reviewer MEDIUM #9)" {
+@test "script has PVC strand auto force-delete logic via NS_LIST loop" {
   [ -f "$SCRIPT" ]
-  # REVISED 2026-05-05 (reviewer MEDIUM #9): drop -l label selector when listing PVCs;
-  # use NS_LIST-of-labeled-namespaces loop instead. Required literals:
+  # PVCs do NOT carry the capsule.clastix.io/tenant label (only namespaces do), so the
+  # script must walk the NS_LIST of labeled namespaces instead of using a -l selector
+  # on the PVC list. Required literals:
   for literal in \
     'NS_LIST=' \
     'finalizers' \
@@ -72,7 +82,7 @@ setup() {
   done
 }
 
-@test "D-11-10 / sentinel preservation: destroy-poc.sh does NOT mutate flux-system kustomization.yaml" {
+@test "sentinel preservation: destroy-poc.sh does NOT mutate flux-system kustomization.yaml" {
   [ -f "$SCRIPT" ]
   # Comment-stripped grep ensures head-comment context references to the file path don't trip the lint
   run bash -c "grep -v '^[[:space:]]*#' '$SCRIPT' | grep -F -- 'flux-system/kustomization.yaml'"

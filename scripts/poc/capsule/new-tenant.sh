@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # scripts/poc/capsule/new-tenant.sh
-# Provisions a new Capsule Tenant via the platform-owner kubeconfig (Phase 13).
+# Provisions a new Capsule Tenant via the platform-owner kubeconfig.
 #
-# REQ: RBAC-05 (platform-owner Tenant CR lifecycle).
-# Decision: D-13-08 (inline-heredoc template + --kubeconfig flag + name regex
-#           ^[a-z][a-z0-9-]{1,30}$).
-# Isolation: P31 (POC isolation — under scripts/poc/capsule/, never invoked by
-#            task rebuild).
-# ADR-004: hub-only Flux — this script applies directly via kubectl, not via Flux reconcile.
+# Renders an inline-heredoc template; tenant name must match ^[a-z][a-z0-9-]{1,30}$.
+# Standalone POC helper for the persistent spoke-capsule cluster; never invoked by task rebuild
+# (enforced by tests/bats/poc-isolation-01-static.bats).
+# Hub-only Flux control plane: applies directly via kubectl, not via a Flux reconcile
+# (see docs/adr/0004-hub-only-flux-control-plane.md).
 #
 # Stdout/stderr contract: stdout = informational summary; NO YAML on stdout in
 # non-dry-run mode (apply consumes the YAML via stdin). In --dry-run mode the
@@ -18,7 +17,7 @@
 #   bash scripts/poc/capsule/new-tenant.sh <name> [--kubeconfig <path>] [--dry-run]
 #
 # Examples:
-#   bash scripts/poc/capsule/new-tenant.sh phase13-fresh   # uses platform-owner kc
+#   bash scripts/poc/capsule/new-tenant.sh team-foo   # uses platform-owner kc
 #   bash scripts/poc/capsule/new-tenant.sh charlie --kubeconfig /tmp/po.kc
 #   bash scripts/poc/capsule/new-tenant.sh demo --dry-run > /tmp/demo-tenant.yaml
 
@@ -30,7 +29,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck disable=SC1091
 source "${REPO_ROOT}/scripts/lib/preflight-lib.sh"
 
-# D-13 pins (LOCKED -- bats grep-asserts these literals):
+# Pinned literals (LOCKED -- bats suites grep-assert these):
 readonly POC_CTX="k3d-spoke-capsule"
 readonly TMPDIR_DEFAULT="${TMPDIR:-/tmp}"
 readonly DEFAULT_PO_KC="${TMPDIR_DEFAULT}/karyon-tenants/platform-owner.kubeconfig"
@@ -45,12 +44,12 @@ Provisions a new Capsule Tenant + home namespace + human-tenant-owner SA.
 
 Arguments:
   <name>       Tenant name. Must match ${NAME_RE}.
-               (Examples: phase13-fresh, charlie, demo, team-foo.)
+               (Examples: charlie, demo, team-foo.)
 
 Flags:
   --kubeconfig <path>   Override platform-owner kubeconfig path.
                         Default: ${DEFAULT_PO_KC}
-                        (falls back to \$HOME/.kube/config if not found — Pitfall 13-P5).
+                        (falls back to \$HOME/.kube/config if not found).
   --dry-run             Print rendered YAML to stdout WITHOUT applying.
   --help                Show this help.
 
@@ -62,8 +61,8 @@ Behavior:
     - SA human-tenant-owner@tenant-<name> with clusterRoles: [tenant-workload-editor]
   Applies via 'kubectl --kubeconfig=\$KC apply -f -'.
 
-Threat-model: T-13-03 mitigation — Tenant CR CRUD via platform-owner identity
-(NOT cluster-admin), so RBAC-05 is exercised, not bypassed.
+Threat-model: Tenant CR CRUD runs via the platform-owner identity
+(NOT cluster-admin), so the intended RBAC surface is exercised, not bypassed.
 USAGE_EOF
   exit "${1:-0}"
 }
@@ -99,7 +98,7 @@ section "Validate tenant name"
 if [[ ! "$NAME" =~ $NAME_RE ]]; then
   fail "Tenant name '${NAME}' is invalid (must match ${NAME_RE}).
        Lowercase letters/digits/hyphens, start with a letter, max 31 chars.
-       Hint: try 'phase13-fresh' for the RBAC-05 test or 'charlie' for the demo."
+       Hint: try a name like 'charlie' or 'team-foo'."
   exit 1
 fi
 pass "name '${NAME}' matches ${NAME_RE}"
@@ -121,7 +120,7 @@ if [[ -z "$KC" ]]; then
     pass "using default platform-owner kubeconfig: ${KC}"
   else
     warn "platform-owner kubeconfig not found at ${DEFAULT_PO_KC}; falling back to \$HOME/.kube/config (cluster-admin)"
-    warn "  Pitfall 13-P5: cluster-admin works but RBAC-05 demo intent is to exercise platform-owner identity. Hint: mint via"
+    warn "  cluster-admin works, but the intent is to exercise the platform-owner identity. Hint: mint one via"
     warn "    bash scripts/poc/capsule/issue-platform-owner-kubeconfig.sh --write-to ${DEFAULT_PO_KC}"
     KC="${HOME}/.kube/config"
   fi
@@ -138,7 +137,7 @@ fi
 section "Cluster reachable"
 # Use `kubectl version` rather than `cluster-info`: cluster-info requires
 # `list services -n kube-system` which the platform-owner SA does NOT have
-# (T-13-03 ceiling: no kube-system reads). `version` calls the discovery
+# (its ceiling denies kube-system reads). `version` calls the discovery
 # endpoint which is granted to system:authenticated by default.
 if ! kubectl --kubeconfig="$KC" version --request-timeout=5s >/dev/null 2>&1; then
   if ! kubectl --kubeconfig="$KC" --context="$POC_CTX" version --request-timeout=5s >/dev/null 2>&1; then
@@ -168,7 +167,7 @@ pass "tenant '${NAME}' does not exist"
 # (no RoleBinding yet in the brand-new tenant ns).
 render_tenant_cr() {
   cat <<TENANT_EOF
-# NEW Tenant ${NAME} — D-13-08 template (Phase 13)
+# NEW Tenant ${NAME} (rendered template)
 # Provisioned by scripts/poc/capsule/new-tenant.sh via platform-owner kubeconfig.
 # spec.owners[] carries default co-ownership shape:
 #   - SA flux-reconciler@flux-system           (Tier 1 future-Flux reconcile belt-and-suspenders)
@@ -178,7 +177,7 @@ render_tenant_cr() {
 #   - Group tenant-${NAME}-devs                 (Tier 3 OIDC dev group — inert until
 #     the Keycloak group exists AND is appended to CapsuleConfiguration userGroups;
 #     see docs/tenant-access.md §New tenant identity contract)
-# forceTenantPrefix: false matches Phase 11 D-11-07 — home ns is tenant-<NAME>,
+# forceTenantPrefix: false — home ns is tenant-<NAME>,
 # NOT <NAME>-tenant-<NAME>.
 apiVersion: capsule.clastix.io/v1beta2
 kind: Tenant

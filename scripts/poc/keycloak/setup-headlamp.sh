@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/poc/keycloak/setup-headlamp.sh
-# Imperative half of the Headlamp tenant UI (tenant-ui-oidc quick task):
+# Imperative half of the Headlamp tenant UI:
 #   1. ConfigMap capsule-system/karyon-oidc-ca from ~/.karyon/oidc-pki/ca.crt
 #      (public cert; kept imperative because it is per-install PKI state).
 #   2. Day-2 Keycloak client update: append Headlamp's redirect URI + web

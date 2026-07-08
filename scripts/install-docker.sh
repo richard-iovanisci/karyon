@@ -7,7 +7,7 @@
 # Usage:  bash scripts/install-docker.sh
 # Safe to re-run — skips steps already done.
 #
-# Security note (T-02-04): docker group = root-equivalent. User must explicitly
+# Security note: docker group = root-equivalent. User must explicitly
 # run 'newgrp docker' or log out and back in — no silent activation.
 
 set -euo pipefail
@@ -19,10 +19,10 @@ source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 
 # ---------------------------------------------------------------------------
 # Section 0: Prerequisites (jq, gnupg, ca-certificates, curl, util-linux-extra) — MUST BE FIRST
-# H3 fix: jq needed for daemon.json merge (Section 6); gnupg for GPG key
+# jq needed for daemon.json merge (Section 6); gnupg for GPG key
 # dearmor (Section 2). Install before any section that depends on them.
 #
-# Plan 01-09 gap-closure: util-linux-extra provides /sbin/hwclock on Ubuntu 24.04
+# util-linux-extra provides /sbin/hwclock on Ubuntu 24.04
 # (split from util-linux in noble). hwclock-resume.service (Section 7 below) has
 # ExecStart=/sbin/hwclock --hctosys; on minimal WSL2 images the binary is absent
 # by default and the unit silently fails on every resume.
@@ -56,7 +56,7 @@ fi
 
 # ---------------------------------------------------------------------------
 # Section 3: Docker apt repository
-# M2 content-correct guard: verify exact repo line (not just file presence).
+# Content-correct guard: verify exact repo line (not just file presence).
 # Detects drift (wrong codename, wrong signing-key path, stale Ubuntu version).
 # ---------------------------------------------------------------------------
 section "Docker apt repository"
@@ -88,7 +88,7 @@ fi
 # ---------------------------------------------------------------------------
 # Section 5: docker group membership
 # Guard: invoking user already in docker group
-# T-02-04: docker group = root-equivalent; user must explicitly re-login
+# docker group = root-equivalent; user must explicitly re-login
 # ---------------------------------------------------------------------------
 section "docker group membership"
 if id -nG "$USER" | tr ' ' '\n' | grep -qx docker; then
@@ -102,7 +102,7 @@ fi
 # ---------------------------------------------------------------------------
 # Section 6: daemon.json — dns (always) + default-runtime (conditional on runtimes.nvidia)
 #
-# CR-02 fix (Option B, gap plan 01-08): On a fresh host, runtimes.nvidia does not yet
+# On a fresh host, runtimes.nvidia does not yet
 # exist in daemon.json (it is written by nvidia-ctk runtime configure in
 # install-nvidia-container-toolkit.sh). Docker refuses to start when default-runtime
 # names an undefined runtime, so we must NOT write default-runtime=nvidia on a fresh
@@ -113,8 +113,8 @@ fi
 #                in a single jq-merge, restart Docker; on a fully-configured host both
 #                keys are already correct and the guard skips the write entirely.
 #
-# jq-merge strategy (RESEARCH.md §Ref-4, D-05). T-02-05: guard checks both keys before
-# writing; jq merge preserves existing keys including runtimes.nvidia.
+# jq-merge strategy: guard checks both keys before writing; jq merge
+# preserves existing keys including runtimes.nvidia.
 # ---------------------------------------------------------------------------
 section "daemon.json (dns always; default-runtime conditional on runtimes.nvidia)"
 DAEMON_JSON=/etc/docker/daemon.json
@@ -178,17 +178,17 @@ fi
 
 # ---------------------------------------------------------------------------
 # Section 7: hwclock-resume.service (clock-skew fix)
-# M2 content-correct guard: uses systemctl is-enabled (not file-exists).
+# Content-correct guard: uses systemctl is-enabled (not file-exists).
 # Detects drift: file present but unit disabled/removed from systemd.
-# D-08: this script is the owner of hwclock-resume.service installation.
-# T-02-06: ExecStart is /sbin/hwclock --hctosys only — no network, no file writes.
+# This script is the owner of hwclock-resume.service installation.
+# ExecStart is /sbin/hwclock --hctosys only — no network, no file writes.
 # ---------------------------------------------------------------------------
 section "hwclock-resume.service (clock-skew fix)"
 UNIT_SRC="${SCRIPT_DIR}/../config/hwclock-resume.service"
 UNIT_DEST=/etc/systemd/system/hwclock-resume.service
 
 if [[ ! -f "$UNIT_SRC" ]]; then
-  fail "config/hwclock-resume.service not found at ${UNIT_SRC} — run from repo root or check Plan 01 output"
+  fail "config/hwclock-resume.service not found at ${UNIT_SRC} — run from a full checkout of the repo (the unit file ships in config/)"
   exit 1
 fi
 

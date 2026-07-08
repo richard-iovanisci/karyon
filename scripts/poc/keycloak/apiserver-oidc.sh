@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # scripts/poc/keycloak/apiserver-oidc.sh
 # Retrofit OIDC validation onto the spoke-capsule apiserver — NO cluster
-# recreate (tenant-ui-oidc quick task, 2026-07-06; design in
-# docs/poc-keycloak.md §OIDC + research 2026-07-06).
+# recreate (2026-07-06; design in docs/poc-keycloak.md §OIDC).
 #
 # Safe because the node's CLI args are ONLY `server --tls-san=...` (verified):
 # k3s merges /etc/rancher/k3s/config.yaml with nothing to clobber.

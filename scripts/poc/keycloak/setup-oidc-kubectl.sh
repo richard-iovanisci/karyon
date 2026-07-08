@@ -2,7 +2,7 @@
 # scripts/poc/keycloak/setup-oidc-kubectl.sh
 # Terminal access for OIDC tenants: installs kubelogin (kubectl oidc-login)
 # and writes ~/.karyon/oidc.kubeconfig whose server is capsule-proxy and whose
-# user is the Keycloak OIDC exec plugin (tenant-ui-oidc quick task).
+# user is the Keycloak OIDC exec plugin.
 #
 # Flow at `kubectl get ...` time: kubelogin opens the browser (WSL mirrored
 # networking → Windows browser; redirect http://localhost:8000) → Keycloak

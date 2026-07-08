@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scripts/verify-flux-bootstrap-live.sh
-# Runs the Phase 03 live/destructive Flux bootstrap idempotency proof.
+# Runs the live/destructive Flux bootstrap idempotency proof for task
+# bootstrap-flux.
 #
 # This mutates the real k3d-hub-flux cluster and may push bootstrap commits to
 # the configured GitHub repository through `flux bootstrap github`.
@@ -23,12 +24,12 @@ usage() {
   cat <<'EOF'
 Usage: bash scripts/verify-flux-bootstrap-live.sh [--yes] [--precheck-only] [--tap-out PATH]
 
-Runs the Phase 03 live/destructive Flux bootstrap proof:
+Live idempotency verifier for task bootstrap-flux:
   1. Checks the local Flux path is clean before bootstrap can pull origin/main.
   2. Checks .env contains GITHUB_OWNER, GITHUB_REPO, and GITHUB_TOKEN without printing values.
   3. Checks kubectl is pointed at k3d-hub-flux and the hub-flux k3d cluster exists.
   4. Runs the live destructive Bats proof with both gates set.
-  5. Prints marker and Flux readiness evidence for the GSD checkpoint.
+  5. Prints marker and Flux readiness evidence as the verification record.
 
 Options:
   --yes              Skip the interactive confirmation prompt.
@@ -247,7 +248,7 @@ run_live_bats() {
   section "Live destructive Bats proof"
   mkdir -p "$(dirname "$TAP_OUT")"
   rm -f "$TAP_OUT"
-  local live_line_re='^ok [0-9]+ FLUX-04 \+ D-13 \(live/destructive, combined\)'
+  local live_line_re='^ok [0-9]+ flux bootstrap rerun is idempotent \(live/destructive, combined\)'
 
   (
     cd "$REPO_ROOT"
@@ -278,9 +279,9 @@ print_supporting_evidence() {
   flux --context "$KUBE_CTX" check
   flux --context "$KUBE_CTX" get kustomizations -A
 
-  section "Checkpoint resume text"
+  section "Verification summary"
   cat <<EOF
-approved - TAP shows the FLUX-04 + D-13 live/destructive proof passed and all preconditions passed
+Verified: TAP shows the flux bootstrap rerun idempotency proof passed and all preconditions passed
 
 Paste the full contents of:
   ${TAP_OUT}

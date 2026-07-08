@@ -4,15 +4,12 @@
 # Idempotently creates the k8s-net Docker bridge network and the three k3d clusters
 # (hub-flux, spoke-ml, spoke-apps) on a pinned shared network.
 #
-# Requirements satisfied: CLU-01, CLU-02, CLU-03, CLU-04, CLU-05
-# Decisions honored:      D-07, D-08, D-09, D-11, D-12, D-13
-#
-# Idempotency model (D-09, D-12): skip if exists + verify expected config.
-# Error recovery (D-10): no auto-cleanup; set -euo pipefail exits on failure;
-#                       user fixes and reruns — succeeded clusters skip, failed retries.
+# Idempotency model: skip if exists + verify expected config.
+# Error recovery: no auto-cleanup; set -euo pipefail exits on failure;
+#                 user fixes and reruns — succeeded clusters skip, failed retries.
 #
 # Usage:  bash scripts/create-clusters.sh
-# Pre-req: scripts/preflight.sh exits 0 (Phase 1 contract).
+# Pre-req: scripts/preflight.sh exits 0.
 
 set -euo pipefail
 
@@ -22,7 +19,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 
-# ---------- Constants (D-11, D-04) ----------
+# ---------- Constants ----------
 readonly K8S_NET_NAME="k8s-net"
 readonly K8S_NET_SUBNET="172.30.0.0/16"
 readonly K8S_NET_DRIVER="bridge"
@@ -40,7 +37,7 @@ fi
 pass "preflight green"
 rm -f /tmp/preflight-$$.log
 
-# ---------- Section 1: k8s-net network (CLU-01, D-11, D-12) ----------
+# ---------- Section 1: k8s-net network ----------
 section "k8s-net network"
 if docker network inspect "$K8S_NET_NAME" >/dev/null 2>&1; then
   current_subnet="$(docker network inspect "$K8S_NET_NAME" -f '{{(index .IPAM.Config 0).Subnet}}' 2>/dev/null || echo "")"
@@ -73,7 +70,7 @@ else
   fi
 fi
 
-# ---------- helper: create_cluster name port [extra k3d args ...] (D-07, D-13) ----------
+# ---------- helper: create_cluster name port [extra k3d args ...] ----------
 create_cluster() {
   local name="$1" port="$2"
   shift 2
@@ -81,7 +78,7 @@ create_cluster() {
 
   section "${name} cluster"
 
-  # Idempotency check (D-09) — must verify IMAGE, NETWORK, API PORT, and GPU (spoke-ml only)
+  # Idempotency check — must verify IMAGE, NETWORK, API PORT, and GPU (spoke-ml only)
   if k3d cluster list --no-headers 2>/dev/null | awk '{print $1}' | grep -qx "$name"; then
     local srv_container="k3d-${name}-server-0"
     local lb_container="k3d-${name}-serverlb"
@@ -146,7 +143,7 @@ create_cluster() {
     pass "created: cluster ${name}"
   fi
 
-  # ---------- D-13 SAN verification (bounded retry: 10 attempts × 3s = 30s cap) ----------
+  # ---------- SAN verification (bounded retry: 10 attempts × 3s = 30s cap) ----------
   local expected_san="k3d-${name}-server-0"
   local san_ok=0
   for i in $(seq 1 10); do
@@ -170,7 +167,7 @@ create_cluster() {
   fi
 }
 
-# ---------- Section 3-5: three clusters (CLU-02/03/04, D-08 serial order) ----------
+# ---------- Section 3-5: three clusters (created serially) ----------
 create_cluster hub-flux   6443 --image "$K3S_STOCK_IMAGE"
 create_cluster spoke-ml   6444 --image "$CUDA_IMAGE_TAG" --gpus all
 create_cluster spoke-apps 6445 --image "$K3S_STOCK_IMAGE"

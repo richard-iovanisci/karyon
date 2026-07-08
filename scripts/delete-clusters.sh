@@ -2,11 +2,9 @@
 # scripts/delete-clusters.sh
 #
 # INTENTIONALLY NOT calling `docker system prune` or `docker builder prune`.
-# CUDA build layers must survive the `task rebuild` SLO (REQ-DESTROY-03).
-# A lint in Phase 6 (REQ-DESTROY-04) will enforce this across scripts/.
-#
-# Requirements satisfied: CLU-06
-# Decisions honored:      D-14
+# CUDA build layers must survive teardown so `task rebuild` stays inside its
+# time budget. A static lint (tests/bats/destroy-rebuild-01-static.bats)
+# enforces this across scripts/.
 #
 # Usage: bash scripts/delete-clusters.sh
 
@@ -47,8 +45,8 @@ else
   info "already done, skipping: ${K8S_NET_NAME} (not present)"
 fi
 
-# ---------- Section 3: post-run image-survival verification (D-14) ----------
-# Defense-in-depth before Phase 6 DESTROY-04 lint ships. Any script downstream of us
+# ---------- Section 3: post-run image-survival verification ----------
+# Defense-in-depth alongside the static prune lint. Any script downstream of us
 # that adds `docker system prune` / `docker builder prune` would make this check fail.
 section "Build cache defense"
 if docker images "$CUDA_IMAGE_TAG" --format '{{.Repository}}:{{.Tag}}' | grep -qx "$CUDA_IMAGE_TAG"; then

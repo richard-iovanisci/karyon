@@ -3,12 +3,12 @@
 #
 # Provisions the per-cluster RBAC + token Secret on the POC spoke + applies the
 # kubeconfig Secret to hub-flux + patches the FLUX PATCH SURFACE with the
-# # KARYON POC MOUNT sentinel + ../pocs resource line + verifies the P18
+# # KARYON POC MOUNT sentinel + ../pocs resource line + verifies the
 # silent-misroute defense (node-name proof against the spoke's apiserver).
 #
-# Single-cluster mirror of scripts/register-spokes-for-flux.sh per D-07 — that
-# script's per-spoke for-loop body is ported here as the main flow against the
-# single positional <cluster-name>. Helper bodies are bug-for-bug compatible.
+# Single-cluster mirror of scripts/register-spokes-for-flux.sh — that script's
+# per-spoke for-loop body is ported here as the main flow against the single
+# positional <cluster-name>. Helper bodies are bug-for-bug compatible.
 #
 # Usage: bash scripts/register-poc-cluster.sh <cluster-name>
 # Effect:
@@ -16,18 +16,19 @@
 #      Secret on k3d-${name}.
 #   2. Builds kubeconfig payload from the SA token + apiserver cert.
 #   3. Applies kubeconfig as Secret flux-system/${name}-kubeconfig on
-#      k3d-hub-flux (--from-file=value.yaml=/dev/stdin; D-11 token safety).
-#   4. Patches FLUX PATCH SURFACE (D-09) with # KARYON POC MOUNT sentinel +
-#      ../pocs (idempotent via cmp-then-mv; P30 — distinct insertion function
-#      from ensure_hub_spokes_mount).
-#   5. Verifies P18 silent-misroute defense (node-name proof: spoke node IS in
+#      k3d-hub-flux (--from-file=value.yaml=/dev/stdin; token-safe — the
+#      payload never appears in argv).
+#   4. Patches FLUX PATCH SURFACE with # KARYON POC MOUNT sentinel +
+#      ../pocs (idempotent via cmp-then-mv; distinct insertion function
+#      from ensure_hub_spokes_mount so the two sentinels never collide).
+#   5. Verifies the silent-misroute defense (node-name proof: spoke node IS in
 #      /api/v1/nodes; hub-flux node is NOT).
 #
-# Idempotent. NEVER invoked by `task rebuild`. NOT chained from anywhere
-# (D-12 / P31 isolation contract; v0.18 scripts have ZERO mentions of this
-# script; tests/bats/poc-isolation-01-static.bats enforces).
+# Idempotent. NEVER invoked by `task rebuild`. NOT chained from anywhere —
+# the core lab scripts have ZERO mentions of this script (isolation contract
+# enforced by tests/bats/poc-isolation-01-static.bats).
 #
-# D-11 safety: set -euo pipefail INTENTIONALLY omits trace mode. Bearer data
+# Token safety: set -euo pipefail INTENTIONALLY omits trace mode. Bearer data
 # is never written to logs, helper output, committed files, tee, or
 # --from-literal. The hub Secret is applied imperatively from stdin; it is
 # not git-tracked.
@@ -40,7 +41,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 
-# ---------- Constants (D-07 / D-09 / D-11 invariants) ----------
+# ---------- Constants ----------
 readonly HUB_CTX="k3d-hub-flux"
 readonly FLUX_NS="flux-system"
 readonly HUB_KUST_FILE="${REPO_ROOT}/clusters/hub-flux/flux-system/kustomization.yaml"
@@ -51,15 +52,15 @@ readonly RECONCILER_SA="flux-reconciler"
 readonly RECONCILER_BINDING="flux-reconciler-cluster-admin"
 readonly RECONCILER_SECRET="flux-reconciler-token"
 readonly CREDENTIAL_WAIT_SECONDS=10
-# P18 falsifier negative-proof literal — verify_credential_layer() asserts
+# Misroute negative-proof literal — verify_credential_layer() asserts
 # this node-name does NOT appear in the spoke's /api/v1/nodes response.
 readonly EXPECTED_FORBIDDEN_NODE="k3d-hub-flux-server-0"
-# Phase 7 lives on a single POC cluster (spoke-capsule). The host-published
-# apiserver port for spoke-capsule is 6446 (D-10). verify_credential_layer
+# The POC runs on a single cluster (spoke-capsule). The host-published
+# apiserver port for spoke-capsule is 6446. verify_credential_layer
 # uses this port for the openssl s_client TLS probe from the WSL host.
 readonly POC_HOST_PORT="6446"
 
-# ---------- Single positional arg validation (D-07) ----------
+# ---------- Single positional arg validation ----------
 if [[ "$#" -ne 1 ]]; then
   fail "usage: bash scripts/register-poc-cluster.sh <cluster-name>"
   exit 1
@@ -67,7 +68,7 @@ fi
 readonly POC_CLUSTER="$1"
 readonly POC_CTX="k3d-${POC_CLUSTER}"
 
-# Validate implicit context exists (D-07 fails fast)
+# Validate implicit context exists (fail fast)
 if ! kubectl config get-contexts -o name 2>/dev/null | grep -qx "${POC_CTX}"; then
   fail "kubectl context ${POC_CTX} not found.
      Fix: bash scripts/poc/${POC_CLUSTER}/create-cluster.sh"
@@ -90,7 +91,7 @@ decode_b64() {
 }
 
 # ---------- apply_spoke_rbac: SA + cluster-admin CRB + legacy SA-token Secret ----------
-# Mirrors register-spokes-for-flux.sh apply_spoke_rbac() lines 275-311 verbatim.
+# Mirrors register-spokes-for-flux.sh apply_spoke_rbac() verbatim.
 apply_spoke_rbac() {
   local spoke="$1"
   kubectl --context "k3d-${spoke}" apply -f - <<EOF
@@ -130,7 +131,8 @@ EOF
 }
 
 # ---------- wait_for_token_secret: bounded retry until SA-token populated ----------
-# Sets globals TOKEN_DECODED + CA_B64 on success. Mirrors analog lines 313-336.
+# Sets globals TOKEN_DECODED + CA_B64 on success. Mirrors the
+# register-spokes-for-flux.sh analog.
 wait_for_token_secret() {
   local spoke="$1"
   local ctx="k3d-${spoke}"
@@ -158,7 +160,7 @@ wait_for_token_secret() {
 
 # ---------- build_kubeconfig: emit kind: Config payload ----------
 # Server URL is the in-cluster k3d-${POC_CLUSTER}-server-0:6443 form (NOT the
-# host-published :6446). Mirrors analog lines 338-361 verbatim.
+# host-published :6446). Mirrors the register-spokes-for-flux.sh analog verbatim.
 build_kubeconfig() {
   local spoke="$1" bearer="$2" cert_part="$3"
   local server
@@ -184,7 +186,7 @@ current-context: ${spoke}
 EOF
 }
 
-# ---------- apply_hub_secret: D-11 token-safe imperative apply ----------
+# ---------- apply_hub_secret: token-safe imperative apply ----------
 # --from-file=value.yaml=/dev/stdin only — NEVER --from-literal (would expose
 # token in argv / shell history / process listings). NEVER tee. NEVER echo.
 apply_hub_secret() {
@@ -195,28 +197,28 @@ apply_hub_secret() {
     kubectl --context "${HUB_CTX}" -n "${FLUX_NS}" apply -f -
 }
 
-# ---------- mirror_kubeconfig_to_tenant_namespaces: RESEARCH §Gap 1 ----------
+# ---------- mirror_kubeconfig_to_tenant_namespaces ----------
 # Mirror spoke-capsule-kubeconfig Secret into per-tenant namespaces on hub-flux.
-# Required because Flux's kubeConfig.secretRef has UNCONDITIONAL same-namespace
-# constraint (RESEARCH §Gap 1 — Flux v2.8 docs + Go API source citation). The
-# tenant namespaces tenant-alpha + tenant-bravo host the per-tenant inner
-# Kustomization CRs (defined in pocs/capsule/tenants/<name>.yaml), which
-# reference this Secret. Without the mirror, those CRs reach Ready=False with
-# `secret "spoke-capsule-kubeconfig" not found`.
+# Required because Flux's kubeConfig.secretRef has an UNCONDITIONAL
+# same-namespace constraint (secretRef has no namespace field — Flux v2.8 docs
+# + Go API source). The tenant namespaces tenant-alpha + tenant-bravo host the
+# per-tenant inner Kustomization CRs (defined in pocs/capsule/tenants/<name>.yaml),
+# which reference this Secret. Without the mirror, those CRs reach Ready=False
+# with `secret "spoke-capsule-kubeconfig" not found`.
 #
 # Idempotent: re-run safe (kubectl apply + dry-run client + yq strip metadata).
 # yq strip is required: a Secret applied verbatim from another ns rejects with
 # "field is immutable" on resourceVersion / uid / creationTimestamp conflict.
 #
 # Operates only on tenant-{alpha,bravo} on k3d-hub-flux. Does NOT touch spoke
-# clusters. Phase 11 VAL-04 SLO regression is unaffected (this function is
-# only called by register-poc-cluster.sh, which is NEVER invoked by task rebuild
-# per P31 isolation contract — verified by tests/bats/poc-isolation-01-static.bats).
+# clusters, and the `task rebuild` time budget is unaffected because this
+# function is only called by register-poc-cluster.sh, which task rebuild never
+# invokes (verified by tests/bats/poc-isolation-01-static.bats).
 mirror_kubeconfig_to_tenant_namespaces() {
   local tenant
   for tenant in alpha bravo; do
-    # Ensure the per-tenant namespace exists on hub-flux (Plan 09-02 commits
-    # this namespace as part of pocs/capsule/tenants/<name>.yaml, but Flux's
+    # Ensure the per-tenant namespace exists on hub-flux (the namespace is
+    # committed as part of pocs/capsule/tenants/<name>.yaml, but Flux's
     # reconcile of that file may not have happened yet at register-time).
     kubectl --context="${HUB_CTX}" create namespace "tenant-${tenant}" \
       --dry-run=client -o yaml | kubectl --context="${HUB_CTX}" apply -f -
@@ -230,20 +232,21 @@ mirror_kubeconfig_to_tenant_namespaces() {
   done
 }
 
-# ---------- mirror_kubeconfig_to_capsule_system_namespace: G-05 (Phase 11) ----------
+# ---------- mirror_kubeconfig_to_capsule_system_namespace ----------
 # Mirror spoke-capsule-kubeconfig into the capsule-system namespace on hub-flux.
-# Required because the Phase 8 split-path (D-08-12) places the capsule operator HR
+# Required because the split-path layout places the capsule operator HR
 # and capsule-proxy HR in capsule-system (NOT flux-system), and Flux's
-# kubeConfig.secretRef has UNCONDITIONAL same-namespace constraint (RESEARCH §Gap 1
-# — Flux v2.8 docs + Go API source citation; secretRef has no namespace field).
+# kubeConfig.secretRef has an UNCONDITIONAL same-namespace constraint
+# (secretRef has no namespace field — Flux v2.8 docs + Go API source).
 #
 # Without this mirror, both HRs reach Ready=False with
 # `could not get KubeConfig secret 'capsule-system/spoke-capsule-kubeconfig': not found`
-# once their parent poc-capsule Kustomization is Ready (G-04 #1 namespace fix
-# in Plan 11-06 unblocked the CR apply path; this mirror unblocks the helm install).
+# once their parent poc-capsule Kustomization is Ready (the committed
+# capsule-system Namespace manifest unblocked the CR apply path; this mirror
+# unblocks the helm install).
 #
 # The capsule-system namespace itself is reconciled onto hub by
-# pocs/capsule/namespace.yaml (Plan 11-06 Task 1), but Flux may not have applied it
+# pocs/capsule/namespace.yaml, but Flux may not have applied it
 # yet at register-time, so create it imperatively first (idempotent).
 mirror_kubeconfig_to_capsule_system_namespace() {
   kubectl --context="${HUB_CTX}" create namespace capsule-system \
@@ -261,18 +264,19 @@ mirror_kubeconfig_to_capsule_system_namespace() {
 # tenant-alpha + tenant-bravo as `karyon-git-auth`, referenced by the per-tenant
 # GitRepository secretRef in pocs/capsule/tenants/{alpha,bravo}.yaml.
 #
-# WHY: Phase 9 designed the tenant GitRepositories for anonymous HTTPS clone
-# ("repo is public per Phase 6 REPO-01..04"), but the repo went private between
-# Phase 9 and Plan 11-07 — tenant-{alpha,bravo}-source sat Ready=False
-# ("authentication required") and the tenant GitOps delivery path was dead.
+# WHY: the tenant GitRepositories were designed for anonymous HTTPS clone while
+# the repo was public, but the repo later went private —
+# tenant-{alpha,bravo}-source sat Ready=False ("authentication required") and
+# the tenant GitOps delivery path was dead.
 # Same-namespace mirror pattern as mirror_kubeconfig_to_tenant_namespaces above
-# (Flux secretRef has no namespace field). P29 is a git-commit hygiene rule and
-# does not prohibit in-cluster mirroring; the hub tenant namespaces are
-# operator-only (tenants only ever reach spoke-capsule via capsule-proxy).
+# (Flux secretRef has no namespace field). The no-committed-secrets rule is a
+# git-commit hygiene rule and does not prohibit in-cluster mirroring; the hub
+# tenant namespaces are operator-only (tenants only ever reach spoke-capsule
+# via capsule-proxy).
 #
 # LEAST-PRIVILEGE NOTE: this mirrors the repo-write PAT that bootstrap created.
 # A read-only fine-grained PAT (or deploy key) in its place is the better
-# long-term posture — tracked in PROJECT.md carry-forward parking lot.
+# long-term posture — tracked in docs/backlog.md.
 mirror_git_auth_to_tenant_namespaces() {
   local tenant
   for tenant in alpha bravo; do
@@ -287,11 +291,11 @@ mirror_git_auth_to_tenant_namespaces() {
   done
 }
 
-# ---------- ensure_hub_pocs_mount: P30 INDEPENDENT sentinel insertion ----------
+# ---------- ensure_hub_pocs_mount: INDEPENDENT sentinel insertion ----------
 # Distinct function from ensure_hub_spokes_mount() in register-spokes-for-flux.sh
-# (P30 sentinel-uniqueness contract requires DEDICATED functions for SPOKES vs
-# POC mounts; preserves the cmp-then-mv idempotency pattern from the analog
-# lines 525-579, with sentinel + path swap to # KARYON POC MOUNT + ../pocs).
+# (sentinel uniqueness requires DEDICATED functions for the SPOKES vs POC
+# mounts; preserves the cmp-then-mv idempotency pattern from the analog,
+# with sentinel + path swap to # KARYON POC MOUNT + ../pocs).
 ensure_hub_pocs_mount() {
   local tmp tmp_with_sentinel
 
@@ -348,14 +352,14 @@ ensure_hub_pocs_mount() {
   fi
 }
 
-# ---------- verify_credential_layer: P18 silent-misroute falsifier ----------
-# Live TLS proof + /readyz + /api/v1/nodes node-name P18 falsifier.
-# - openssl s_client to 127.0.0.1:6446 (host-published port; D-10) verifies
+# ---------- verify_credential_layer: silent-misroute falsifier ----------
+# Live TLS proof + /readyz + /api/v1/nodes node-name proof.
+# - openssl s_client to 127.0.0.1:6446 (host-published port) verifies
 #   the spoke apiserver is reachable AND its certificate validates the
 #   k3d-${spoke}-server-0 SAN.
 # - HTTPS GET /readyz with the bearer token confirms the credential layer end-to-end.
 # - HTTPS GET /api/v1/nodes asserts the spoke's k3d-${spoke}-server-0 IS present
-#   AND k3d-hub-flux-server-0 is NOT (P18 silent-misroute negative proof).
+#   AND k3d-hub-flux-server-0 is NOT (silent-misroute negative proof).
 verify_credential_layer() {
   local spoke="$1"
   local value_b64 value_yaml expected actual bearer cert_part cert_tmp ready nodes expected_node http_status
@@ -437,7 +441,7 @@ verify_credential_layer() {
   fi
   pass "auth roundtrip ok: ${spoke} /readyz returned ok"
 
-  # 6. P18 falsifier — /api/v1/nodes proves we routed to ${spoke}, NOT to hub-flux.
+  # 6. Misroute falsifier — /api/v1/nodes proves we routed to ${spoke}, NOT to hub-flux.
   expected_node="k3d-${spoke}-server-0"
   nodes="$(curl -sS --max-time 10 \
     --cacert "${cert_tmp}" \
@@ -451,12 +455,12 @@ verify_credential_layer() {
     exit 1
   fi
 
-  # P18 falsifier:
+  # Misroute proof:
   #   POSITIVE proof: spoke-capsule's k3d-spoke-capsule-server-0 IS in /api/v1/nodes
   #   NEGATIVE proof: hub-flux's k3d-hub-flux-server-0 is NOT in /api/v1/nodes
-  # If the negative proof fires, the credential is silent-misrouted to hub.
+  # If the negative proof fires, the credential is silently misrouted to hub.
   if [[ "${nodes}" != *"${expected_node}"* || "${nodes}" == *"${EXPECTED_FORBIDDEN_NODE}"* ]]; then
-    fail "P18 SILENT MISROUTE warning for ${spoke}: expected ${expected_node} and not ${EXPECTED_FORBIDDEN_NODE}.
+    fail "SILENT-MISROUTE warning for ${spoke}: expected ${expected_node} in /api/v1/nodes and not ${EXPECTED_FORBIDDEN_NODE}.
        Inspect: kubectl --context ${HUB_CTX} -n ${FLUX_NS} get secret ${spoke}-kubeconfig -o yaml
        Fix: do NOT push current state; rerun bash scripts/register-poc-cluster.sh ${spoke}"
     exit 1
@@ -488,25 +492,25 @@ pass "credential data populated for ${POC_CLUSTER}"
 # Build kubeconfig payload (server URL: in-cluster k3d-${POC_CLUSTER}-server-0:6443)
 kubeconfig_yaml="$(build_kubeconfig "${POC_CLUSTER}" "${TOKEN_DECODED}" "${CA_B64}")"
 
-# Apply hub Secret (D-11 token-safe path — never echoed, never tee'd, never argv'd)
+# Apply hub Secret (token-safe path — never echoed, never tee'd, never argv'd)
 apply_hub_secret "${POC_CLUSTER}" "${kubeconfig_yaml}"
 pass "applied: ${POC_CLUSTER} hub Secret"
 
 # Mirror spoke-capsule-kubeconfig into per-tenant namespaces on hub-flux
-# (RESEARCH §Gap 1 — Flux's kubeConfig.secretRef has UNCONDITIONAL same-namespace
-# constraint). Without this mirror, Phase 9 per-tenant inner Kustomizations fail
+# (Flux's kubeConfig.secretRef has an UNCONDITIONAL same-namespace constraint).
+# Without this mirror, the per-tenant inner Kustomizations fail
 # with `secret "spoke-capsule-kubeconfig" not found`.
-section "Mirror spoke-capsule-kubeconfig to per-tenant namespaces (RESEARCH §Gap 1)"
+section "Mirror spoke-capsule-kubeconfig to per-tenant namespaces"
 mirror_kubeconfig_to_tenant_namespaces
 pass "mirrored: spoke-capsule-kubeconfig → tenant-alpha + tenant-bravo on ${HUB_CTX}"
 
-# Mirror spoke-capsule-kubeconfig into capsule-system on hub-flux (G-05 fix).
-# Capsule operator + capsule-proxy HRs are in capsule-system per D-08-12 split-path;
+# Mirror spoke-capsule-kubeconfig into capsule-system on hub-flux.
+# Capsule operator + capsule-proxy HRs live in capsule-system (split-path layout);
 # their helm install on spoke requires the kubeconfig secret in the HR's own namespace
-# (Flux secretRef has no namespace field). G-04 #1 (Plan 11-06) created the namespace;
-# this mirror creates the secret. Without both, capsule operator HR fails with
+# (Flux secretRef has no namespace field). The committed manifest creates the namespace;
+# this mirror creates the secret. Without both, the capsule operator HR fails with
 # `secrets "spoke-capsule-kubeconfig" not found` and capsule-proxy is blocked by dependsOn.
-section "Mirror spoke-capsule-kubeconfig to capsule-system namespace (G-05)"
+section "Mirror spoke-capsule-kubeconfig to capsule-system namespace"
 mirror_kubeconfig_to_capsule_system_namespace
 pass "mirrored: spoke-capsule-kubeconfig → capsule-system on ${HUB_CTX}"
 
@@ -522,8 +526,8 @@ pass "mirrored: flux-system git credential → karyon-git-auth in tenant-alpha +
 section "Hub-side FLUX PATCH SURFACE patch"
 ensure_hub_pocs_mount
 
-# Verify P18 silent-misroute defense (node-name falsifier)
-section "P18 silent-misroute falsifier"
+# Verify the silent-misroute defense (node-name falsifier)
+section "Silent-misroute falsifier"
 verify_credential_layer "${POC_CLUSTER}"
 
 # ---------- Section 2: Summary ----------

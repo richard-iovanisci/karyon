@@ -77,8 +77,8 @@ done
 
 # ---------- Section 2: Flux controllers ----------
 section "Flux controllers"
-# MED-3: count deployments BEFORE kubectl wait --all to prevent empty-set
-# trivial pass. Pattern matches scripts/bootstrap-flux.sh lines 256-263.
+# Count deployments BEFORE kubectl wait --all to prevent empty-set trivial
+# pass. Pattern matches the post-bootstrap gate in scripts/bootstrap-flux.sh.
 deploy_count="$(kubectl --context k3d-hub-flux -n flux-system get deploy --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')"
 if [[ "${deploy_count}" -ge 4 ]]; then
   pass "Flux controller deployment count ok: ${deploy_count}"
@@ -114,7 +114,7 @@ require_kustomization_ready spoke-apps
 
 # ---------- Section 4: Hub DNS probe ----------
 section "Hub DNS probe"
-# HIGH-2: read-only DNS probe via kubectl exec into existing
+# Read-only DNS probe via kubectl exec into existing
 # source-controller pod. This satisfies BOTH the read-only contract
 # (no resource creation/deletion) AND the in-hub probe requirement.
 # Alternative `kubectl run --rm` is forbidden - it is apply+delete

@@ -9,19 +9,25 @@
 # does NOT mutate clusters/hub-flux/flux-system/kustomization.yaml (the # KARYON POC MOUNT
 # sentinel + ../pocs mount line stay verbatim post-teardown regardless of --full).
 #
-# REQ: VAL-03. Decisions: D-11-10 (5-step canonical), D-11-11 (PVC strand auto force-delete after 60s).
-# D-12 / P31: Lives under scripts/poc/capsule/; the v0.18 scripts have ZERO references
-#             to this file (tests/bats/poc-isolation-01-static.bats enforces).
-# D-17 / ADR-004: NO Flux runs on spoke-capsule -- `flux suspend` targets hub-flux only.
+# Suspend-before-delete order matters: if the Flux Kustomizations stay active, the
+# kustomize-controller re-applies Tenant CRs and namespaces mid-teardown and the delete
+# never converges. Cluster delete stays opt-in (--full) so the persistent POC cluster
+# survives a routine tenant teardown.
 #
-# REVISIONS 2026-05-05 (see 11-REVIEWS.md):
-#   - reviewer HIGH #5(a): per-Kustomization `flux suspend` (one invocation per name, NOT multi-arg)
-#   - reviewer HIGH #5(b): non-zero RC emits `warn`, NOT `|| true` swallow
-#   - reviewer HIGH #5(c): every kubectl call explicitly uses --context=k3d-spoke-capsule
-#   - reviewer HIGH #5 + MEDIUM #11: each suspend verified via kubectl get kustomization spec.suspend
-#   - reviewer MEDIUM #9: PVC enumeration via NS_LIST loop (drop -l label selector on PVC list;
-#     PVCs do NOT carry the capsule.clastix.io/tenant label per Phase 9 D-09-04 -- only namespaces do)
-#   - reviewer MEDIUM #11: standardized invocation form `task destroy-poc -- capsule [--full]` (with `--`)
+# Standalone POC helper for the persistent spoke-capsule cluster; never invoked by task rebuild
+# (enforced by tests/bats/poc-isolation-01-static.bats).
+# Hub-only Flux control plane: NO Flux runs on spoke-capsule -- `flux suspend` targets
+# hub-flux only (see docs/adr/0004-hub-only-flux-control-plane.md).
+#
+# Design notes:
+#   - per-Kustomization `flux suspend` (one invocation per name, NOT multi-arg): multi-arg form
+#     may not be valid for the installed flux CLI version and obscures error attribution
+#   - non-zero suspend RC emits `warn`, NOT an `|| true` swallow
+#   - every kubectl call explicitly pins its --context so an operator's current-context never leaks in
+#   - each suspend is verified via kubectl get kustomization spec.suspend
+#   - PVC enumeration via NS_LIST loop (no -l label selector on the PVC list;
+#     PVCs do NOT carry the capsule.clastix.io/tenant label -- only namespaces do)
+#   - standardized invocation form `task destroy-poc -- capsule [--full]` (with `--`)
 
 set -euo pipefail
 
@@ -31,7 +37,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck disable=SC1091
 source "${REPO_ROOT}/scripts/lib/preflight-lib.sh"
 
-# ---------- Section 0: Arg parse (D-11-10 --full flag handling per CONTEXT specifics) ----------
+# ---------- Section 0: Arg parse ----------
 FULL=false
 SAW_CAPSULE=false
 while [[ $# -gt 0 ]]; do
@@ -57,15 +63,15 @@ for cmd in kubectl k3d flux jq; do
 done
 pass "required commands present"
 
-# ---------- Section 2: Step 1/5 -- per-Kustomization suspend (REVISED reviewer HIGH #5) ----------
+# ---------- Section 2: Step 1/5 -- per-Kustomization suspend ----------
 section "Step 1/5: suspend tenant inner Ks + spoke-targeted outer K (per-Kustomization)"
-# REVISED 2026-05-05 per reviewer HIGH #5(a): one `flux suspend kustomization NAME` invocation per object
-# (multi-arg `flux suspend kustomization a b c` may not be valid for the installed flux CLI version
+# One `flux suspend kustomization NAME` invocation per object (multi-arg
+# `flux suspend kustomization a b c` may not be valid for the installed flux CLI version
 # and obscures error attribution). Each name is invoked LITERALLY (NOT via a $k loop variable) so
-# teardown-01 grep contract sees `flux suspend kustomization tenant-alpha`, `... tenant-bravo`, and
-# `... poc-capsule-spoke` as fixed strings in the script source.
-# REVISED 2026-05-05 per reviewer HIGH #5(b): collect non-zero RC as `warn` (NOT `|| true` swallow).
-# REVISED 2026-05-05 per reviewer HIGH #5 + MEDIUM #11: verify via kubectl get kustomization spec.suspend.
+# the teardown-01 grep contract sees `flux suspend kustomization tenant-alpha`, `... tenant-bravo`,
+# and `... poc-capsule-spoke` as fixed strings in the script source.
+# Non-zero RC is collected as `warn` (NOT an `|| true` swallow), and each suspend is
+# verified via kubectl get kustomization spec.suspend.
 
 # --- tenant-alpha (inner Kustomization owned by tenant-alpha owner) ---
 if flux suspend kustomization tenant-alpha -n flux-system 2>/dev/null; then
@@ -118,10 +124,10 @@ kubectl --context=k3d-spoke-capsule delete tenant alpha bravo --wait=true --igno
 pass "Tenant CRs deleted (or already absent)"
 
 # ---------- Section 4: Step 3/5 -- poll cascade (90s budget; PVC finalizer mitigation @60s) ----------
-section "Step 3/5: poll namespace cascade (max 90s; auto force-delete PVCs after 60s per D-11-11)"
-# REVISED 2026-05-05 per reviewer HIGH #5(c): every kubectl call uses --context=k3d-spoke-capsule explicitly.
-# REVISED 2026-05-05 per reviewer MEDIUM #9: PVC enumeration via NS_LIST loop (drop -l label selector on
-# PVC list -- PVCs do NOT carry capsule.clastix.io/tenant label per Phase 9 D-09-04; only namespaces do).
+section "Step 3/5: poll namespace cascade (max 90s; auto force-delete PVCs after 60s)"
+# Every kubectl call uses --context=k3d-spoke-capsule explicitly.
+# PVC enumeration via NS_LIST loop (drop -l label selector on the PVC list --
+# PVCs do NOT carry the capsule.clastix.io/tenant label; only namespaces do).
 CASCADE_DONE=false
 for i in $(seq 1 90); do
   REMAINING=$(kubectl --context=k3d-spoke-capsule get ns -l capsule.clastix.io/tenant -o name 2>/dev/null | wc -l)
@@ -131,7 +137,7 @@ for i in $(seq 1 90); do
     break
   fi
   if [[ "$i" -eq 60 ]]; then
-    info "namespace cascade stuck at ${i}s; force-clearing PVC finalizers (P36 / D-11-11 mitigation; reviewer MEDIUM #9 NS_LIST loop)"
+    info "namespace cascade stuck at ${i}s; force-clearing PVC finalizers (PVCs do not carry the tenant label, so enumerate per surviving namespace)"
     # NS_LIST = surviving labeled namespaces. PVC enumeration walks namespaces (not the
     # PVC label) because PVCs themselves do NOT carry capsule.clastix.io/tenant.
     NS_LIST=$(kubectl --context=k3d-spoke-capsule get ns -l capsule.clastix.io/tenant -o name 2>/dev/null | sed 's|namespace/||')
@@ -149,9 +155,9 @@ if [[ "$CASCADE_DONE" != "true" ]]; then
   warn "namespace cascade did not complete within 90s; continuing teardown"
 fi
 
-# ---------- Section 5: Step 4/5 -- suspend operator outer K (REVISED single-object) ----------
+# ---------- Section 5: Step 4/5 -- suspend operator outer K ----------
 section "Step 4/5: suspend operator outer K (preserves GitOps install state)"
-# REVISED 2026-05-05 per reviewer HIGH #5(a): single-object `flux suspend kustomization poc-capsule`.
+# Single-object `flux suspend kustomization poc-capsule` (same one-invocation-per-name rule as Step 1).
 if flux suspend kustomization poc-capsule -n flux-system 2>/dev/null; then
   pass "suspended: poc-capsule"
 else

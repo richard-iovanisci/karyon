@@ -2,7 +2,8 @@
 # scripts/preflight.sh
 # Read-only environment check for the karyon project.
 # Run inside your WSL2 Ubuntu instance. Makes no changes to persistent host state.
-# (PRE-14 creates ephemeral Docker resources that are trap-cleaned before exit.)
+# (The bridge networking probe creates ephemeral Docker resources that are
+# trap-cleaned before exit.)
 #
 # Usage:  bash scripts/preflight.sh
 # Exit:   0 if no blockers, 1 if blockers present.
@@ -15,16 +16,16 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 
-# ---------- 1. WSL environment (PRE-01/02/03) ----------
-section "WSL environment (PRE-01/02/03)"
+# ---------- 1. WSL environment ----------
+section "WSL environment"
 
-# PRE-01: WSL2 kernel detection — delegates to library function (callable from bats)
+# WSL2 kernel detection — delegates to library function (callable from bats)
 preflight_check_wsl_kernel
 
-# PRE-02: Ubuntu 24.04 — delegates to library function (callable from bats)
+# Ubuntu 24.04 — delegates to library function (callable from bats)
 preflight_check_ubuntu_24_04
 
-# PRE-03: Mirrored-mode detection (D-01/D-02)
+# Mirrored-mode detection
 # Uses ip_in_cidr() to test whether Windows host IP is inside any WSL interface CIDR.
 # Algorithm: enumerate non-lo WSL CIDRs, determine Windows host IP via gateway/resolv.conf,
 # fail if any WSL CIDR contains the Windows host IP (subnet overlap = mirrored indicator).
@@ -88,13 +89,14 @@ if mount 2>/dev/null | grep -qi "docker-desktop"; then
   docker_desktop=1
 fi
 
-# Additional docker.sock symlink detection (RESEARCH.md §Ref-10)
+# Additional docker.sock symlink detection
 sock_target=$(readlink /var/run/docker.sock 2>/dev/null || echo "")
 if [[ "$sock_target" == *"docker-desktop"* ]] || [[ "$sock_target" == *"/mnt/wsl"* ]]; then
   docker_desktop=1
 fi
 
-# PRE-08: Docker Desktop detection upgraded from warn to fail (RESEARCH.md §Ref-10)
+# Docker Desktop detection is a hard fail (not a warn) — this project requires
+# native Docker Engine; Desktop's socket integration breaks the k3d + GPU wiring.
 if (( docker_desktop == 1 )); then
   fail "Docker Desktop WSL integration is active on this distro.
       This project requires Docker Engine installed natively (not via Desktop integration).
@@ -162,7 +164,7 @@ elif have docker; then
   info "docker nvidia runtime not registered yet"
 fi
 
-# PRE-04 enhancement: check default-runtime is nvidia (RESEARCH.md §Ref-5)
+# Check default-runtime is nvidia — k3d GPU nodes need it set at the daemon level.
 if have docker && docker info >/dev/null 2>&1; then
   if docker info --format '{{.DefaultRuntime}}' 2>/dev/null | grep -qx "nvidia"; then
     pass "docker default-runtime is nvidia"
@@ -189,23 +191,24 @@ for p in 6443 6444 6445 8080 8081 8082; do
   check_port "$p"
 done
 
-# v0.19 POC-04 / D-15: strict-mode port check — fails fast (does NOT warn) when
-# the port is in use. Used for POC-reserved ports where a stale listener would
-# block k3d cluster create. UNCHANGED check_port() preserved above for v0.18 ports.
+# Strict-mode port check — fails fast (does NOT warn) when the port is in use.
+# Used for POC-reserved ports where a stale listener would block k3d cluster
+# create. The warn-only check_port() above is kept unchanged for the core ports.
 check_port_strict() {
   local port="$1"
   if ss -ltn 2>/dev/null | awk 'NR>1 {print $4}' | grep -qE "[:.]${port}$"; then
-    fail "Port ${port} is in use elsewhere on the host (POC-04 reserved).
+    fail "Port ${port} is in use elsewhere on the host (reserved for the POC cluster).
       Inspect: ss -ltnp | awk '\$4 ~ /:${port}\$/{print}'
       Fix: free the port (kill the listener) or stop the offending service before continuing"
     ss -ltnp 2>/dev/null | awk -v p=":${port}" '$4 ~ p {print "      " $0}' | head -2
   else
-    pass "Port ${port} free (POC-04 fail-fast)"
+    pass "Port ${port} free (strict fail-fast)"
   fi
 }
 
-# ---------- 5b. Network / ports (PRE-15: POC-reserved) ----------
-section "Network / ports (PRE-15: POC-reserved)"
+# ---------- 5b. Network / ports (POC-reserved) ----------
+# (Greppable marker for the strict-port test suite: PRE-15)
+section "Network / ports (POC-reserved)"
 check_port_strict 30443
 
 # ---------- 6. Existing container / k8s state ----------
@@ -305,12 +308,12 @@ else
   fail "asdf not installed — run scripts/install-tools.sh"
 fi
 
-# ---------- 9. .env secrets (PRE-09) ----------
-section ".env secrets presence (PRE-09)"
+# ---------- 9. .env secrets ----------
+section ".env secrets presence"
 preflight_check_env_file "${REPO_ROOT}/.env"
 
-# ---------- 10. Tool shim precedence (PRE-10) ----------
-section "Tool shim precedence (PRE-10)"
+# ---------- 10. Tool shim precedence ----------
+section "Tool shim precedence"
 SHIM_DIR="${ASDF_DATA_DIR:-$HOME/.asdf}/shims"
 for tool in kubectl helm k3d; do
   if have "$tool"; then
@@ -327,12 +330,12 @@ for tool in kubectl helm k3d; do
   fi
 done
 
-# ---------- 11. systemd-resolved stub (PRE-11) ----------
-section "systemd-resolved DNS stub (PRE-11)"
+# ---------- 11. systemd-resolved stub ----------
+section "systemd-resolved DNS stub"
 preflight_check_systemd_resolved /etc/resolv.conf
 
-# ---------- 12. Clock skew check (PRE-12) ----------
-section "Clock skew check (PRE-12)"
+# ---------- 12. Clock skew check ----------
+section "Clock skew check"
 sys_epoch="$(date -u +%s 2>/dev/null)"
 win_epoch=""
 
@@ -354,34 +357,34 @@ if [[ -z "$win_epoch" ]]; then
 fi
 
 if [[ -z "$sys_epoch" || -z "$win_epoch" ]]; then
-  warn "PRE-12 clock skew: could not read reference time (powershell.exe not reachable and sudo -n hwclock failed).
-    Install Windows PowerShell WSL integration or run preflight with sudo for PRE-12 enforcement."
+  warn "clock skew: could not read reference time (powershell.exe not reachable and sudo -n hwclock failed).
+    Install Windows PowerShell WSL integration or run preflight with sudo to enforce the clock-skew check."
 else
   skew=$(( sys_epoch - win_epoch ))
   skew_abs="${skew#-}"  # absolute value via string manipulation
   if (( skew_abs > 30 )); then
-    fail "PRE-12 clock skew: WSL vs Windows differs by ${skew_abs}s (threshold 30s).
+    fail "clock skew: WSL vs Windows differs by ${skew_abs}s (threshold 30s).
       Fix: sudo hwclock -s  (or: sudo systemctl restart systemd-timesyncd)"
   else
-    pass "PRE-12 clock skew within ${skew_abs}s (threshold 30s)"
+    pass "clock skew within ${skew_abs}s (threshold 30s)"
   fi
 fi
 
-# ---------- 13. cgroup v2 purity (PRE-13) ----------
-section "cgroup v2 purity (PRE-13)"
+# ---------- 13. cgroup v2 purity ----------
+section "cgroup v2 purity"
 preflight_check_cgroup_v2
 
-# ---------- 14. Bridge networking probe (PRE-14) ----------
-# D-04: belt-and-suspenders check — runs regardless of PRE-03 mirrored detection result.
+# ---------- 14. Bridge networking probe ----------
+# Belt-and-suspenders check — runs regardless of the mirrored-mode detection result.
 # Creates ephemeral Docker resources (network + 2 containers) and trap-cleans them.
-# preflight.sh is read-only w.r.t. persistent host state; PRE-14 ephemeral Docker
-# resources are the sole exception — all are removed before this section exits.
-section "Bridge networking probe (PRE-14)"
+# preflight.sh is read-only w.r.t. persistent host state; this probe's ephemeral
+# Docker resources are the sole exception — all are removed before this section exits.
+section "Bridge networking probe"
 
 if ! have docker || ! docker info >/dev/null 2>&1; then
   warn "docker not reachable — skipping bridge probe (install docker first)"
 else
-  # Run PRE-14 in a subshell so the EXIT trap is scoped to this probe only.
+  # Run the probe in a subshell so the EXIT trap is scoped to this probe only.
   (
     _PRE14_NET="preflight-pre14-net"
     _PRE14_A="preflight-pre14-a"
@@ -396,11 +399,11 @@ else
 
     # Pre-check: remove stragglers from a crashed prior run
     if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q '^preflight-pre14-'; then
-      info "PRE-14: cleaning up preflight-pre14-* stragglers from prior run"
+      info "bridge probe: cleaning up preflight-pre14-* stragglers from prior run"
       docker rm -f "$_PRE14_A" "$_PRE14_B" >/dev/null 2>&1 || true
     fi
     if docker network ls --format '{{.Name}}' 2>/dev/null | grep -qx "$_PRE14_NET"; then
-      info "PRE-14: removing straggler network ${_PRE14_NET} from prior run"
+      info "bridge probe: removing straggler network ${_PRE14_NET} from prior run"
       docker network rm "$_PRE14_NET" >/dev/null 2>&1 || true
     fi
 
@@ -424,7 +427,7 @@ else
     # Post-cleanup verification: warn if stragglers persist (not a config failure)
     straggler_names="$(docker ps -a --filter "name=preflight-pre14" --format '{{.Names}}' 2>/dev/null)"
     if [[ -n "$straggler_names" ]]; then
-      warn "PRE-14 left stragglers after cleanup: ${straggler_names} — may be a Docker race; re-run preflight"
+      warn "bridge probe left stragglers after cleanup: ${straggler_names} — may be a Docker race; re-run preflight"
     fi
 
     if (( probe_pass == 1 )); then
@@ -443,7 +446,7 @@ else
   if (( _pre14_rc != 0 )); then
     # fail() already called inside subshell; outer FAIL counter needs incrementing
     # (subshell counters are separate). Re-record the failure at outer scope.
-    fail "PRE-14 bridge probe failed (see above)"
+    fail "bridge networking probe failed (see above)"
   fi
 fi
 

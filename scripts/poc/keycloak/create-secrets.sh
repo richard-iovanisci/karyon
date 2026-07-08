@@ -2,7 +2,7 @@
 # scripts/poc/keycloak/create-secrets.sh
 # Imperative Secret bootstrap for the Keycloak IdP POC on k3d-spoke-capsule.
 #
-# WHY IMPERATIVE: secrets never land in git (P29-adjacent repo policy; the repo
+# WHY IMPERATIVE: secrets never land in git (repo policy; the repo
 # was designed public-safe). GitOps applies everything EXCEPT credentials; this
 # script supplies the one Secret the manifests reference:
 #   keycloak/keycloak-db-secret  (keys: username, password) — consumed by both
@@ -21,7 +21,7 @@
 # Secret without resetting the PVC would break the database. (To rotate: delete
 # the Secret AND the postgres PVC, then rerun.)
 #
-# D-11 token-safety: secret material never appears in argv, logs, or files;
+# Token safety: secret material never appears in argv, logs, or files;
 # generated in-process and piped via process substitution (/dev/fd). No trace
 # mode. Mirrors scripts/register-poc-cluster.sh conventions.
 set -euo pipefail

@@ -58,7 +58,7 @@ main() {
   echo ">>> step create-clusters" | tee -a "$LOG_FILE"
   bash "${SCRIPT_DIR}/create-clusters.sh" 2>&1 | tee -a "$LOG_FILE"
 
-  # HIGH-1: k3d cluster create switches current context to the last-created
+  # k3d cluster create switches current context to the last-created
   # cluster. After create-clusters.sh finishes, current context is
   # k3d-spoke-apps. bootstrap-flux.sh and register-spokes-for-flux.sh fail if
   # current context is not k3d-hub-flux because they intentionally only assert
