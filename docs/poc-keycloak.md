@@ -1,6 +1,6 @@
 # POC: Keycloak IdP on spoke-capsule
 
-status: Active (quick task keycloak-idp-poc, 2026-07-06)
+status: Active (2026-07-06)
 scope: Keycloak 26.6.4 + official operator + Postgres, GitOps-delivered onto
 k3d-spoke-capsule as a third tenant-shaped POC. Provides realms/users/groups
 management for the Capsule multi-tenancy POC. OIDC wiring (apiserver +
@@ -11,7 +11,7 @@ capsule-proxy + Headlamp tenant UI) is LIVE as of 2026-07-06 — see
 
 - **Placement — spoke-capsule, not the hub or a new spoke.** Co-located with
   its consumer (capsule-proxy), outside `task rebuild`'s scorched-earth path
-  (P31 isolation → no rebuild-SLO impact), and reuses the existing
+  (POC isolation → no rebuild-SLO impact), and reuses the existing
   `spoke-capsule-kubeconfig` delivery machinery. A dedicated IdP spoke was
   considered and rejected: a whole new cluster lifecycle surface for a POC.
 - **A `keycloak` Tenant, not a plain namespace.** Capsule's namespaces
@@ -26,12 +26,13 @@ capsule-proxy + Headlamp tenant UI) is LIVE as of 2026-07-06 — see
   so the three upstream files are vendored verbatim under
   `pocs/keycloak/spoke/operator/vendored/` pinned to tag **26.6.4**.
 - **Three outer Kustomizations** (mirrors the capsule DAG lessons):
-  `poc-keycloak-tenant` (Tenant CR; D-11-07: Tenant before labeled namespace)
-  → `poc-keycloak-spoke` (namespace + CRDs + operator + Postgres; wait: true)
-  → `poc-keycloak-app` (Keycloak CR + realm import; never races CRD
-  establishment). All spoke-targeted with the full P18 kubeConfig block +
-  P27 `serviceAccountName: flux-reconciler`. Keycloak depends on capsule,
-  never the reverse.
+  `poc-keycloak-tenant` (Tenant CR; the Tenant must exist before its labeled
+  namespace) → `poc-keycloak-spoke` (namespace + CRDs + operator + Postgres;
+  wait: true) → `poc-keycloak-app` (Keycloak CR + realm import; never races
+  CRD establishment). All spoke-targeted with the full `spec.kubeConfig`
+  block (omit it and Flux silently reconciles into the hub while reporting
+  Ready) + explicit `serviceAccountName: flux-reconciler`. Keycloak depends
+  on capsule, never the reverse.
 - **Secrets are imperative** (repo policy: secrets never in git):
   `scripts/poc/keycloak/create-secrets.sh` creates `keycloak-db-secret` after
   Flux has created the namespace (the script cannot create it — see webhook
@@ -86,7 +87,8 @@ delete + recreate the realm — destructive: wipes its users/sessions).
 
 - The match-all `GlobalTenantResource hello-world-seeded` seeds its
   Deployment + Service into the `keycloak` namespace too — harmless, and a
-  live demo of D-13-11. `keycloak-03-live.bats` pins it as expected behavior.
+  live demo of the match-all seeding contract. `keycloak-03-live.bats` pins
+  it as expected behavior.
 - `kubectl get tenants` (platform-owner view, demo Act 2) now shows a third
   row: `keycloak`. The runbook's expected output includes it.
 - `scripts/poc/capsule/destroy-poc.sh` (tenant-cascade path) deletes only
@@ -97,8 +99,8 @@ delete + recreate the realm — destructive: wipes its users/sessions).
   here (the pvc-protection finalizer is controller-restored, so effectively
   harmless — but be aware if you run the capsule teardown with Keycloak up).
   `--full` teardown deletes the whole cluster, keycloak included.
-- `scripts/preflight.sh` POC-04 strict check fails while the POC cluster is
-  up (its own serverlb legitimately binds host port 30443, and the check
+- `scripts/preflight.sh`'s strict reserved-port check fails while the POC
+  cluster is up (its own serverlb legitimately binds host port 30443, and the check
   cannot tell it from a squatter) — this blocks `task deploy-examples` /
   full preflight runs during POC coexistence. Pre-existing lab defect,
   tracked in `docs/backlog.md`; not keycloak-specific.
@@ -141,10 +143,11 @@ and `keycloak-05-live-oidc.bats`. The original design notes (amended):
 
 ## Related decisions
 
-- `capsule-addon-fluxcd` evaluated 2026-07-06 → **PASS** (ADR-008 addendum):
+- `capsule-addon-fluxcd` evaluated 2026-07-06 → **PASS** (ADR 0008 addendum):
   its kubeconfig-factory output lands on the Capsule cluster and is only
-  consumable by a same-cluster Flux, which ADR-004 forbids; karyon's P27
-  pattern already delivers tenant GitOps deploys.
+  consumable by a same-cluster Flux, which ADR 0004 forbids; karyon's
+  explicit-SA tenant impersonation pattern already delivers tenant GitOps
+  deploys.
 - Cross-references: `docs/adr/0004-hub-only-flux-control-plane.md`,
   `docs/adr/0008-capsule-multi-tenancy-graduation.md`,
   `docs/poc-capsule.md`, `docs/capsule-portable-setup-guide.md`.

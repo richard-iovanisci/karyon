@@ -17,7 +17,7 @@ fetches needed. The inline mermaid below is the compact render-anywhere view.
 
 One hub cluster runs Flux and nothing else; every other cluster is a "dumb"
 spoke that Flux reaches remotely through per-spoke kubeconfig Secrets
-(ADR-004). One spoke runs Capsule, which turns it into a multi-tenant cluster:
+(ADR 0004). One spoke runs Capsule, which turns it into a multi-tenant cluster:
 Tenant CRs define ownership and policy, admission webhooks enforce them, and
 capsule-proxy gives tenant identities a filtered view of cluster-scoped
 resources (the one thing vanilla RBAC cannot express). Keycloak — GitOps-
@@ -38,7 +38,7 @@ flowchart LR
     FLUX["Flux controllers"]
     KS["outer Kustomizations: spokes + capsule DAG + keycloak DAG"]
     HR["HelmReleases capsule + capsule-proxy"]
-    TK["tenant-alpha-app / tenant-bravo-app (SA gitops-reconciler, P27)"]
+    TK["tenant-alpha-app / tenant-bravo-app (SA gitops-reconciler)"]
   end
   subgraph SPOKE ["spoke-capsule — zero Flux components"]
     API["k3s apiserver"]
@@ -50,7 +50,7 @@ flowchart LR
   OP -- "A1: git push (GitOps)" --> GH
   GH -- pull 1m --> FLUX
   FLUX --> KS
-  KS -- "SSA via spoke kubeconfig (P18)" --> CAPS
+  KS -- "SSA via spoke kubeconfig" --> CAPS
   KS -- "keycloak DAG" --> KC
   HR -- "helm install via kubeConfig" --> CAPS
   TK -- "SSA as gitops-reconciler" --> TNS
@@ -100,7 +100,7 @@ CRDs, or escalate — the same login that grants the wide view enforces it.
 | U1 | Clicks *Sign in* (Headlamp) or runs `kubectl auth whoami` (kubelogin) → Keycloak login page, PKCE | Keycloak issues an id_token with `groups: [tenant-alpha-devs, …]` |
 | U2 | Lands in Headlamp: tenant-alpha's workloads, logs, events, in-browser pod shell — and *nothing else*. No bravo, no keycloak, no kube-system | Headlamp → capsule-proxy LIST filter + Capsule-injected RBAC |
 | U3 | Same identity in the terminal: `KUBECONFIG=~/.karyon/oidc.kubeconfig kubectl get ns` → exactly `tenant-alpha` | kubelogin reuses the cached token; proxy applies the same filter |
-| U4 | Ships workloads via git: commits to the tenant app path; Flux applies them *as* `gitops-reconciler`, scoped inside the tenant (P27) | Flux tenant Kustomization on the hub |
+| U4 | Ships workloads via git: commits to the tenant app path; Flux applies them *as* `gitops-reconciler`, scoped inside the tenant | Flux tenant Kustomization on the hub |
 | U5 | Tries to escape — `create secret`, list bravo's pods, make a namespace outside the tenant | **Forbidden** — `tenant-workload-editor` ceiling + Capsule webhooks |
 
 The experience contract: bob's identity is one group membership. No
@@ -109,26 +109,26 @@ log in, and the cluster is exactly tenant-alpha-sized.
 
 ## Layer 1 — GitOps delivery (Flux, hub-only)
 
-- **ADR-004**: Flux v2.8.6 runs ONLY on `k3d-hub-flux`. Spokes carry zero
-  GitOps footprint. The hub's kustomize-controller reconciles into spokes via
-  `spec.kubeConfig.secretRef` — per-spoke kubeconfig Secrets created
-  imperatively by the register scripts (bearer token of a spoke-side
-  `flux-reconciler` SA).
-- **P18 (silent misroute)**: a spoke-targeted Kustomization that omits
+- **Hub-only control plane (ADR 0004)**: Flux v2.8.6 runs ONLY on
+  `k3d-hub-flux`. Spokes carry zero GitOps footprint. The hub's
+  kustomize-controller reconciles into spokes via `spec.kubeConfig.secretRef`
+  — per-spoke kubeconfig Secrets created imperatively by the register scripts
+  (bearer token of a spoke-side `flux-reconciler` SA).
+- **Silent misroute**: a spoke-targeted Kustomization that omits
   `spec.kubeConfig` applies to the HUB while reporting Ready — every
   spoke-targeted manifest pins the full block, and register scripts run
-  node-name falsifiers to prove routing.
-- **P27**: `--default-service-account` lockdown applies to kubeConfig
-  Kustomizations too, so every one carries an explicit `serviceAccountName`.
-  Tenant Kustomizations impersonate a LESSER identity (`gitops-reconciler`,
-  scoped inside the tenant) — that is what makes "tenants deploy through
-  Flux" safe.
-- **Split-path (D-08-12)**: HelmRelease/OCIRepository CRs land on the hub
+  node-name checks to prove routing.
+- **Explicit service accounts**: `--default-service-account` lockdown applies
+  to kubeConfig Kustomizations too, so every one carries an explicit
+  `serviceAccountName`. Tenant Kustomizations impersonate a LESSER identity
+  (`gitops-reconciler`, scoped inside the tenant) — that is what makes
+  "tenants deploy through Flux" safe.
+- **Split-path**: HelmRelease/OCIRepository CRs land on the hub
   (spokes have no Flux CRDs); each HelmRelease then carries its own
   `spec.kubeConfig` so helm-controller installs onto the spoke.
 - **The keycloak DAG** reuses all of it: `poc-keycloak-tenant` →
   `poc-keycloak-spoke` → `poc-keycloak-app`, ordered so the Tenant CR exists
-  before the labeled namespace (D-11-07) and CRDs before CRs.
+  before the labeled namespace and CRDs before CRs.
 
 ## Layer 2 — Tenancy enforcement (Capsule + capsule-proxy)
 
@@ -140,7 +140,7 @@ log in, and the cluster is exactly tenant-alpha-sized.
   (`tenant-workload-editor`, narrower than `edit`).
 - **Webhooks enforce at admission**: the `namespaces` pair runs
   `failurePolicy: Fail` (chart default, restored after the cold-bootstrap
-  deadlock — ADR-008 addendum). Consequence every workload on this spoke
+  deadlock — ADR 0008 addendum). Consequence every workload on this spoke
   lives with: NOBODY (not even cluster-admin) can create a namespace outside
   a tenant — which is why Keycloak itself is a tenant.
 - **capsule-proxy** does exactly one load-bearing thing: it filters
@@ -191,7 +191,7 @@ log in, and the cluster is exactly tenant-alpha-sized.
 |---|---|
 | Git → clusters | Flux PAT (hub Secret `flux-system`), mirrored read path `karyon-git-auth` per tenant ns |
 | Hub → spokes | `flux-reconciler` SA bearer kubeconfigs (imperative Secrets, never in git) |
-| Tenant reconcile privilege | P27 impersonation: `gitops-reconciler`, tenant-scoped |
+| Tenant reconcile privilege | explicit-SA impersonation: `gitops-reconciler`, tenant-scoped |
 | Human tenant access | Keycloak OIDC tokens via capsule-proxy (LIVE); TokenRequest kubeconfigs remain the no-IdP fallback |
 | Keycloak DB / admin | `keycloak-db-secret` (imperative, non-rotating) / `keycloak-initial-admin` (operator-generated) |
 | Enforcement point | Capsule admission webhooks (`namespaces`=Fail) + injected RBAC + proxy LIST filter |

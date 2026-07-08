@@ -103,16 +103,16 @@ divergent bootstrap commit under the new path, orphans the old `flux-system/` tr
 leaves the cluster reconciling from the new directory with no history continuity. There
 is no documented migration path back. Treat the initial `--path` as a locked decision,
 captured in code as a `readonly` bash constant in `scripts/bootstrap-flux.sh` and
-enforced at test time by `tests/bats/bootstrap-flux-01-idempotent.bats` (the FLUX-02
-test rejects any `FLUX_PATH="${FLUX_PATH:-...}"` override pattern).
+enforced at test time by `tests/bats/bootstrap-flux-01-idempotent.bats` (which
+rejects any `FLUX_PATH="${FLUX_PATH:-...}"` override pattern).
 
 > **Footnote (`--network-policy=false` rationale).** The bootstrap call also passes
 > `--network-policy=false`. This disables Flux's default deny-all NetworkPolicy on
 > `flux-system` because this is a single-user lab with no adversarial namespace
 > boundary — NOT because k3s cannot enforce NetworkPolicies. k3s ships an embedded
 > kube-router netpol controller, so any NetworkPolicy resources in the cluster ARE
-> enforced; we simply choose not to install Flux's restrictive default. If a future
-> milestone introduces multi-tenant or adversarial separation, revisit this flag.
+> enforced; we simply choose not to install Flux's restrictive default. If future
+> work introduces multi-tenant or adversarial separation, revisit this flag.
 
 ## Rerun behavior
 
@@ -123,7 +123,7 @@ all three are true, it logs `already done, skipping: flux bootstrap` and proceed
 directly to post-bootstrap verification plus the patch-surface marker idempotency check.
 `flux bootstrap github` is not invoked a second time.
 
-## Phase 4: Hub-spoke reconciliation
+## Hub-spoke reconciliation
 
 After `bash scripts/register-spokes-for-flux.sh` runs, the hub knows how to
 reconcile manifests into each spoke. Three artifacts make this work:
@@ -134,8 +134,7 @@ reconcile manifests into each spoke. Three artifacts make this work:
    (TokenRequest) because token expiry is not a useful failure mode in a lab.
 
 2. **Hub-side `<spoke>-kubeconfig` Secret.** Lives in `flux-system` on
-   `k3d-hub-flux`, key `value.yaml` (the explicit key REQ-SPOKE-04 locks).
-   Contains the spoke's CA-data + bearer token + `https://k3d-<spoke>-server-0:6443`
+   `k3d-hub-flux`, under the explicit key `value.yaml`. Contains the spoke's CA-data + bearer token + `https://k3d-<spoke>-server-0:6443`
    server URL. Applied imperatively (never committed — bearer token).
 
 3. **Hub-side Flux `Kustomization` per spoke.** Lives at
@@ -145,7 +144,7 @@ reconcile manifests into each spoke. Three artifacts make this work:
    include `spec.kubeConfig.secretRef.{name,key}` — both fields explicit. The
    `key: value.yaml` is belt-and-suspenders against future Flux defaults.
 
-### Silent-misroute pitfall (P18)
+### Silent-misroute pitfall
 
 **The real failure mode is a Kustomization YAML that omits `spec.kubeConfig`
 entirely.** When that block is absent, the kustomize-controller reconciles via
@@ -162,7 +161,7 @@ Two defenses:
 - `scripts/register-spokes-for-flux.sh` runs verified in-pod HTTPS probes per
   spoke from inside the hub cluster. `openssl s_client -verify_return_error
   -verify_hostname k3d-<spoke>-server-0 -CAfile <decoded CA>` proves the
-  kubeconfig's embedded CA validates the spoke apiserver cert (SPOKE-06), then
+  kubeconfig's embedded CA validates the spoke apiserver cert, then
   the same verified TLS connection carries the bearer-token HTTP requests for
   `/readyz` and `/api/v1/nodes` over stdin rather than argv. The node response
   must include `k3d-<spoke>-server-0` and must not include

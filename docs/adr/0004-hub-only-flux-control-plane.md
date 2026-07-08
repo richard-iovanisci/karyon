@@ -17,8 +17,8 @@ deployment topologies are common for multi-cluster GitOps:
    hub's `kustomize-controller` and `helm-controller` reconcile manifests
    into spokes via `spec.kubeConfig` and a remote kubeconfig Secret.
 
-The Phase 4 implementation work (SPOKE-01..06) surfaced one significant
-risk in the hub-only pattern: P18 silent-misroute. If a Flux Kustomization
+Implementing spoke registration surfaced one significant
+risk in the hub-only pattern: the silent misroute. If a Flux Kustomization
 omits `spec.kubeConfig`, the controller falls back to its own in-cluster
 ServiceAccount and reconciles the manifests into the HUB cluster (where the
 controller runs) while reporting `Ready=True`. The Kustomization appears
@@ -31,8 +31,9 @@ under `clusters/hub-flux/spokes/<spoke>.yaml` with `spec.kubeConfig.secretRef`
 pointing at a kubeconfig Secret in the `flux-system` namespace, key
 `value.yaml`. Each spoke's `kubeconfig` Secret is provisioned by
 `scripts/register-spokes-for-flux.sh` from a `kubernetes.io/service-account-token`-typed
-Secret on the spoke (legacy Secret-backed SA token; not `kubectl create
-token` — see SPOKE-02).
+Secret on the spoke (legacy Secret-backed SA token with indefinite lifetime;
+not `kubectl create token`, whose TokenRequest expiry is not a useful failure
+mode in a lab).
 
 ## Consequences
 
@@ -44,30 +45,30 @@ token` — see SPOKE-02).
   reconcile loops). They can be torn down and recreated without losing
   GitOps state on the hub.
 - The `spec.kubeConfig` reconciliation pattern is documented in
-  `../flux-hub-spoke.md` (DOCS-03 ✅) — the patch surface and immutability
+  `../flux-hub-spoke.md` — the patch surface and immutability
   rules carry through unchanged from a vanilla Flux install.
 
 **Harder:**
-- The P18 silent-misroute risk is real and not visible in `kubectl` output
+- The silent-misroute risk is real and not visible in `kubectl` output
   alone. Defense in depth requires:
   1. Every spoke Kustomization MUST include `spec.kubeConfig.secretRef.name:
      <spoke>-kubeconfig` AND `spec.kubeConfig.secretRef.key: value.yaml`.
      Both fields are explicit; the key defaults to `value.yaml` but is
-     pinned for clarity (Phase 4 SPOKE-04).
+     pinned for clarity.
   2. Negative-proof tests in `tests/bats/register-spokes-02-live.bats`
      verify that `.status.inventory` of each spoke Kustomization contains
      at least one resource (e.g., a `ConfigMap` named `karyon-spoke-id`)
      that exists ONLY on the spoke and NOT on the hub — proves
-     reconciliation landed on the right cluster, not the hub (P18).
+     reconciliation landed on the right cluster, not the hub.
   3. The hub's `kustomize-controller` has cluster-admin equivalent on every
-     spoke (via the ServiceAccount → ClusterRoleBinding chain in
-     SPOKE-01). This is acceptable for lab scope but would not be acceptable
-     in production (a v2 concern would be per-namespace RBAC).
+     spoke (via the ServiceAccount → ClusterRoleBinding chain the register
+     script creates). This is acceptable for lab scope but would not be
+     acceptable in production (a v2 concern would be per-namespace RBAC).
 - DNS dependence: the hub's `kustomize-controller` reaches each spoke's
   apiserver by Docker embedded DNS hostname (`k3d-<spoke>-server-0`).
   Stale CoreDNS NodeHosts after Docker / WSL restart manifest as
   reconcile failures on the hub side. The lab ships `task fix-dns`
-  (HEALTH-07) as the canonical workaround.
+  as the canonical workaround.
 
 **No-change:**
 - Per-cluster controllers remain feasible (and may be preferred at higher

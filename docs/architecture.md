@@ -73,9 +73,9 @@ flowchart LR
 
 - **Spoke kubeconfig Secrets:** `scripts/register-spokes-for-flux.sh`
   provisions a legacy-Secret-backed ServiceAccount token on each spoke
-  (Phase 4 SPOKE-01..02) and embeds the kubeconfig (server + CA + token)
-  into a `flux-system/<spoke>-kubeconfig` Secret on the hub under the key
-  `value.yaml`. Phase 4 SPOKE-03..04.
+  and embeds the kubeconfig (server + CA + token) into a
+  `flux-system/<spoke>-kubeconfig` Secret on the hub under the key
+  `value.yaml`.
 
 - **Cross-cluster reconciliation:** Each spoke `Kustomization` on the hub
   has `spec.kubeConfig.secretRef.name: <spoke>-kubeconfig` AND
@@ -83,10 +83,10 @@ flowchart LR
   `kustomize-controller` reads the kubeconfig from the Secret, talks to the
   spoke's apiserver via the Docker DNS hostname, and applies the manifests
   there. See [`adr/0004-hub-only-flux-control-plane.md`](adr/0004-hub-only-flux-control-plane.md)
-  for the rationale and the P18 silent-misroute defense.
+  for the rationale and the silent-misroute defense.
 
-- **Workload examples:** `spoke-ml` runs an `nvidia-smi` smoke-test Job
-  (DEP-02..03); `spoke-apps` runs the standard podinfo Deployment (DEP-01).
+- **Workload examples:** `spoke-ml` runs an `nvidia-smi` smoke-test Job;
+  `spoke-apps` runs the standard podinfo Deployment.
   Manifests live under [`../examples/`](../examples/).
 
 ***

@@ -1,7 +1,6 @@
 # Tenant access runbook: Keycloak login → capsule-proxy → your tenant
 
-status: Active (tenant-ui-oidc quick task, 2026-07-06; every command below was
-run live during wiring)
+status: Active (2026-07-06; every command below was run live during wiring)
 scope: How humans get into the karyon multi-tenant spoke — web UI (Headlamp),
 terminal (kubectl + kubelogin), and the Keycloak administration needed to
 onboard users, groups, and new tenants. Architecture background:

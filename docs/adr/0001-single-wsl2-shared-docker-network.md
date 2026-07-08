@@ -48,7 +48,7 @@ Two architectural questions converge here:
   (`k3d-hub-flux-server-0`, `k3d-spoke-ml-server-0`,
   `k3d-spoke-apps-server-0`) on `k8s-net` without TLS-SAN gymnastics for
   cross-distro routing — required for hub-only Flux reconciliation per
-  ADR-004.
+  `0004-hub-only-flux-control-plane.md`.
 - The `--gpus all` GPU pass-through works directly from the host into the
   spoke-ml cluster's k3s container, no extra hop through a Docker Desktop
   bridge.
@@ -59,13 +59,12 @@ Two architectural questions converge here:
   is the canonical workaround for the related CoreDNS NodeHosts staleness
   issue).
 - Disk pressure is concentrated in one distro's filesystem; the dev box must
-  provision enough free space (`scripts/preflight.sh` enforces 30 GB / 100 GB
-  / target floors per HOST-03).
+  provision enough free space (`scripts/preflight.sh` enforces the free-space
+  floors).
 
 **No-change:**
 - v1 ships with this single-distro topology. Per-cluster distros remain
-  out of scope (REQUIREMENTS.md "Out of Scope") because the isolation gain
-  is illusory.
+  out of scope because the isolation gain is illusory.
 - `docs/wsl-networking.md` documents the NAT-mode fallback for the
   mirrored-mode + Docker-custom-network breakage; the decision here doesn't
   change with networking mode, only the recovery procedure does.

@@ -15,7 +15,7 @@ rebuild-from-zero in under 20 minutes. The two main candidates are k3d
 Both are local-only Docker-based runtimes; both are well-supported by the
 Kubernetes community. They differ on three dimensions that matter to this
 lab: GPU pass-through, idle resource overhead, and explicit network control
-for the hub-spoke topology described in ADR-004.
+for the hub-spoke topology described in `0004-hub-only-flux-control-plane.md`.
 
 ## Decision
 
@@ -45,7 +45,7 @@ Use k3d for all three clusters in the lab (`hub-flux`, `spoke-ml`,
 - k3s has a smaller community than upstream Kubernetes; some upstream tools
   assume vanilla `kubectl` semantics that k3s deviates from in subtle ways
   (none surfaced for v1, but a future risk).
-- The custom `karyon/k3s-cuda` image (Phase 2 IMG-01..06) is more complex to
+- The custom `karyon/k3s-cuda` image is more complex to
   maintain than a stock Kind image — the 3-part k3d GPU contract
   (`/etc/docker/daemon.json` `default-runtime: nvidia` + Ubuntu 22.04 base
   image + containerd `config.toml.tmpl` setting `default_runtime_name = "nvidia"`)
@@ -53,5 +53,5 @@ Use k3d for all three clusters in the lab (`hub-flux`, `spoke-ml`,
 
 **No-change:**
 - Both runtimes are local-only. Cloud cluster migration (EKS / GKE / AKS) is
-  explicitly out of scope (see REQUIREMENTS.md "Out of Scope").
+  explicitly out of scope.
 - Both runtimes are dev-box-only; production hardening is out of scope.

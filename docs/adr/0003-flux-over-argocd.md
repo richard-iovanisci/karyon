@@ -34,12 +34,12 @@ each with `spec.kubeConfig` pointing at a kubeconfig Secret in `flux-system`.
 - Smaller controller footprint on the hub: 4 Flux controllers vs ArgoCD's
   full server+UI+repo-server+applicationset-controller stack. Fewer Pods and
   less idle RAM. Pertinent on a single dev box.
-- `flux bootstrap github` is a single, idempotent command (FLUX-01..04). No
+- `flux bootstrap github` is a single, idempotent command. No
   cluster-config-only-via-UI gotchas.
 - Tighter integration with `kustomize-controller`'s native `spec.kubeConfig`
   remote-cluster reconciliation (the hub-only pattern this lab uses; see
   ADR-004). Direct, no `Application` resource layer.
-- The Phase 4 P18 silent-misroute defense (explicit `spec.kubeConfig.secretRef`
+- The silent-misroute defense (explicit `spec.kubeConfig.secretRef`
   with `key: value.yaml`) is documented in `docs/flux-hub-spoke.md` and
   enforced in `clusters/hub-flux/spokes/spoke-{ml,apps}.yaml`.
 
@@ -56,13 +56,13 @@ each with `spec.kubeConfig` pointing at a kubeconfig Secret in `flux-system`.
   scope for v1.
 
 **No-change:**
-- Both controllers are CNCF Graduated and well-supported. Flux choice is
-  reversible at a future milestone if the spoke count grows enough that
+- Both controllers are CNCF Graduated and well-supported. The Flux choice is
+  reversible later if the spoke count grows enough that
   ApplicationSet pays for itself.
 
 ## Migration note
 
-If a future milestone (e.g., when the lab grows to 5+ spokes) reverses this
+If future work (e.g., when the lab grows to 5+ spokes) reverses this
 decision, the migration is non-trivial but bounded:
 
 1. Replace `clusters/hub-flux/flux-system/` with the ArgoCD installation
@@ -74,7 +74,7 @@ decision, the migration is non-trivial but bounded:
    Cluster registrations (which use a Secret with `type: Opaque` and the
    `argocd.argoproj.io/secret-type: cluster` label) instead of Flux
    kubeconfig Secrets.
-4. The `spec.kubeConfig` defense-in-depth pattern (Phase 4 P18) does not
+4. The `spec.kubeConfig` defense-in-depth pattern does not
    exist in ArgoCD; the equivalent is the cluster-registration model itself.
    Re-document the silent-misroute defense for ArgoCD before the migration
    ships.

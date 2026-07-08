@@ -2,21 +2,21 @@
 status: Active
 audience: POC operators (WSL host)
 purpose: Runbook for the spoke-capsule POC -- host-restart recovery and troubleshooting.
-scope: Phase 7 ships the Host restart recovery section. Phase 10 added tenant kubeconfig delivery contract. Ordered teardown exists -- `scripts/poc/capsule/destroy-poc.sh`, run via `task destroy-poc`.
+scope: Host restart recovery, tenant + platform-owner kubeconfig delivery contracts. Ordered teardown exists -- `scripts/poc/capsule/destroy-poc.sh`, run via `task destroy-poc`.
 ---
 
 # spoke-capsule POC Operator's Runbook
 
-> **Status:** Active (Phase 7 -- host-restart recovery only).
+> **Status:** Active.
 > **Companion docs:** [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) (EKS platform translation + wiring appendix), [`docs/architecture.md`](architecture.md) (overall karyon topology).
 
-The `spoke-capsule` cluster is the karyon v0.19 Capsule POC's persistent isolated k3d cluster. It is **NOT** part of the default `task rebuild` chain -- it stays alive across rebuilds and is intentionally outside the v1 production topology until graduation ADR-008 says otherwise.
+The `spoke-capsule` cluster is the karyon v0.19 Capsule POC's persistent isolated k3d cluster. It is **NOT** part of the default `task rebuild` chain -- it stays alive across rebuilds and is intentionally outside the v1 production topology until the graduation decision in [`adr/0008-capsule-multi-tenancy-graduation.md`](adr/0008-capsule-multi-tenancy-graduation.md) says otherwise.
 
 | Property | Value |
 |---|---|
 | Cluster name | `spoke-capsule` |
 | Apiserver port (host) | `6446` |
-| **Reserved NodePort** | `30443` (capsule-proxy in Phase 8; see "Reserved ports" below) |
+| **Reserved NodePort** | `30443` (capsule-proxy; see "Reserved ports" below) |
 | Network | `k8s-net` (shared bridge) |
 | TLS SAN | `k3d-spoke-capsule-server-0` |
 | Stock image | `rancher/k3s:v1.34.6-k3s1` |
@@ -128,24 +128,24 @@ bash scripts/register-poc-cluster.sh spoke-capsule
 
 ## Reserved ports
 
-| Port | Reservation | Phase |
+| Port | Reservation | Where enforced |
 |---|---|---|
-| `6446` | spoke-capsule apiserver (host-published) | Phase 7 |
-| `30443` | capsule-proxy NodePort (host-published; future POC reserve) | Phase 7 (preflight reservation) -> Phase 8 (capsule-proxy install) |
+| `6446` | spoke-capsule apiserver (host-published) | `scripts/poc/capsule/create-cluster.sh` |
+| `30443` | capsule-proxy NodePort (host-published) | `scripts/preflight.sh` strict port check + capsule-proxy install |
 
 Future POCs adding more reserved ports should extend `scripts/preflight.sh` `check_port_strict` invocations and update this table. The bats test `tests/bats/preflight-pre15.bats` greps the literal `check_port_strict 30443`.
 
 ## Related references
 
 - `docs/eks-platform-handoff.md` -- EKS platform translation (single-cluster target + wiring appendix)
-- `scripts/poc/capsule/create-cluster.sh` -- persistent cluster creation (CAPCLU-01)
-- `scripts/register-poc-cluster.sh` -- register spoke-capsule with hub-flux (POC-02)
-- `scripts/poc/capsule/fix-dns.sh` -- this runbook's underlying script (CAPCLU-03)
+- `scripts/poc/capsule/create-cluster.sh` -- persistent cluster creation
+- `scripts/register-poc-cluster.sh` -- register spoke-capsule with hub-flux
+- `scripts/poc/capsule/fix-dns.sh` -- this runbook's underlying script
 - `scripts/fix-coredns.sh` -- v0.18 hub-flux equivalent (`task fix-dns`)
 
 ## Tenant kubeconfig delivery contract
 
-> **Status:** Active. Phase 10 — PROXY-01..03.
+> **Status:** Active.
 
 The `scripts/poc/capsule/issue-tenant-kubeconfig.sh` script mints a short-lived,
 tenant-owner kubeconfig that routes through capsule-proxy on NodePort 30443.
@@ -171,21 +171,21 @@ KUBECONFIG=/tmp/alpha.kubeconfig kubectl get namespaces
 | Default namespace in context | `tenant-<tenant>` (operator can override with `kubectl -n alpha-app1 ...`) |
 | Issued context name | `tenant-<tenant>-via-proxy` (unambiguous when multiple tenant kubeconfigs are merged) |
 
-### Mandatory invariants (P29 — leak defense)
+### Mandatory invariants (leak defense)
 
 Tenant kubeconfigs MUST NEVER land in git. The script defends in depth:
 
 1. Default to stdout (no file ever written without operator's explicit `--write-to`).
 2. `--write-to` strictly rooted under `${TMPDIR:-/tmp}/karyon-tenants/` (validated via `realpath -m` prefix check; symlink escapes are rejected fail-fast).
-3. `.gitignore` excludes `karyon-tenants/`, `*.tenant.kubeconfig`, `tenants/**/access.yaml`, `tenants/**/admin.yaml` (Phase 7 D-14 globs).
-4. `.gitleaks.toml` `kubeconfig-bearer-token` rule (Phase 7 D-14) catches `kind: Config` + `users.token` shape pre-commit and on push (Phase 11 VAL-05 first-push gate).
+3. `.gitignore` excludes `karyon-tenants/`, `*.tenant.kubeconfig`, `tenants/**/access.yaml`, `tenants/**/admin.yaml`.
+4. `.gitleaks.toml`'s `kubeconfig-bearer-token` rule catches the `kind: Config` + `users.token` shape pre-commit and on push.
 5. EKS-translation forward-pointer: in production, IRSA replaces TokenRequest cleanly (per [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Appendix: EKS wiring details"). The contract is unchanged — tokens never live in git.
 
 ### Cross-references
 
-- Phase 7 D-14 leak defenses: `.gitignore` + `.gitleaks.toml` (the rule that fires)
-- Phase 8 CAP-02: capsule-proxy NodePort 30443 install
-- Phase 9 D-09-02: per-tenant `gitops-reconciler` SA + Tenant CR multi-owner array
+- Leak defenses: `.gitignore` globs + `.gitleaks.toml` (the rule that fires)
+- capsule-proxy NodePort 30443 install: `pocs/capsule/proxy/`
+- Per-tenant `gitops-reconciler` SA + Tenant CR multi-owner array: `pocs/capsule/spoke/tenant-crs/`
 - [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Appendix: EKS wiring details": IRSA translation forward-pointer
 
 ## Capsule platform owner role
@@ -233,12 +233,12 @@ bats tests/bats/capsule-platform-owner-02-live-rbac.bats
 
 ## Platform-owner kubeconfig delivery contract
 
-> **Status:** Active. Phase 13 — RBAC-04..06.
+> **Status:** Active.
 
 The `scripts/poc/capsule/issue-platform-owner-kubeconfig.sh` script mints a short-lived,
 platform-owner kubeconfig that routes through capsule-proxy NodePort 30443. The
-identity is the `ServiceAccount/platform-owner` in the `capsule-system` namespace
-(D-13-06), bound to the existing `capsule-platform-owner` ClusterRole via the dual-
+identity is the `ServiceAccount/platform-owner` in the `capsule-system` namespace,
+bound to the existing `capsule-platform-owner` ClusterRole via the dual-
 subject ClusterRoleBinding (Group `capsule-platform-owners` impersonation path
 preserved character-for-character alongside the new SA subject).
 
@@ -265,12 +265,11 @@ KUBECONFIG=/tmp/po.kubeconfig kubectl get tenants
 
 ### Mandatory invariants
 
-- **P29 leak defense** — same `.gitignore` glob `karyon-tenants/` covers `platform-owner.kubeconfig` under tmpdir-root; `.gitleaks.toml` kubeconfig-bearer-token rule active.
-- **P31 isolation** — script lives under `scripts/poc/capsule/`; zero new `spoke-capsule` mentions in v0.18 default-path scripts (regression-gated by `bats tests/bats/poc-isolation-01-static.bats`).
+- **Leak defense** — same `.gitignore` glob `karyon-tenants/` covers `platform-owner.kubeconfig` under tmpdir-root; `.gitleaks.toml` kubeconfig-bearer-token rule active.
+- **POC isolation** — script lives under `scripts/poc/capsule/`; zero new `spoke-capsule` mentions in v0.18 default-path scripts (regression-gated by `bats tests/bats/poc-isolation-01-static.bats`).
 
 ### Cross-references
 
-- **REQ:** RBAC-04 (platform-owner ceiling — no cluster-admin); RBAC-05 (Tenant CR CRUD); RBAC-06 (co-owner LIST/EXEC across tenant namespaces).
-- **Decisions:** D-13-06 (SA + dual-subject CRB), D-13-09 (script), D-13-10 (proxy routing).
-- **Forward-pointer:** Phase 14 `docs/poc-capsule-demo.md` runbook act 2 expands this into the full demo narrative (platform-owner kubeconfig + Tenant CR LIST + at least one Forbidden cluster-admin action — DEMO-06 ceiling). See Phase 14.
+- **Grant surface:** the platform-owner ceiling excludes cluster-admin; the full grant is Tenant CR CRUD plus co-owner LIST/EXEC across tenant namespaces.
+- **Forward-pointer:** `docs/poc-capsule-demo.md` Act 2 expands this into the full demo narrative (platform-owner kubeconfig + Tenant CR LIST + at least one Forbidden cluster-admin action).
 - **EKS-translation:** in EKS, the Group `capsule-platform-owners` maps to an IdP group via the cluster's OIDC association — see [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Tier mapping".

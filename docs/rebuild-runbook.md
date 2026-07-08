@@ -12,8 +12,9 @@ the relevant remediation if anything fails.
 
 > **Timing disclaimer.** All per-step timings below are illustrative for a
 > warm CUDA image cache on RTX 5090 / 20-core dev box. Cold-cache rebuilds
-> (first run after `docker builder prune` — which the lab explicitly avoids;
-> see DESTROY-04) add ~5-10 minutes to step 3. Hardware that doesn't meet
+> (first run after `docker builder prune` — which the lab's scripts never
+> invoke; see the "CUDA image disappeared" appendix entry) add ~5-10 minutes
+> to step 3. Hardware that doesn't meet
 > the lab's floor (16 cores / 40 GB RAM / 100 GB free) will measure
 > longer; re-time on your own dev box and update if the difference is
 > material.
@@ -49,10 +50,9 @@ before anything destructive happens. Read-only; idempotent. Exits 0 on
 green / 1 on any blocker.
 
 If this step fails, the rebuild ABORTS before destroy. Read the preflight
-output to find the failing check (PRE-01..14 — the most common are
-PRE-09 `.env` keys missing, PRE-10 a system kubectl ahead of the asdf shim
-in `PATH`, PRE-11 `systemd-resolved`'s `127.0.0.53` leaking into
-containers).
+output to find the failing check — the most common are `.env` keys missing,
+a system kubectl ahead of the asdf shim in `PATH`, and `systemd-resolved`'s
+`127.0.0.53` leaking into containers.
 
 ***
 
@@ -133,8 +133,9 @@ authors hub-side `Kustomization` resources under
 `clusters/hub-flux/spokes/<spoke>.yaml` with explicit
 `spec.kubeConfig.secretRef`.
 
-Phase 4 P18 silent-misroute defense applies — see
-[`adr/0004-hub-only-flux-control-plane.md`](adr/0004-hub-only-flux-control-plane.md).
+The silent-misroute defense applies (a spoke Kustomization missing its
+`spec.kubeConfig` block would reconcile into the hub while reporting Ready) —
+see [`adr/0004-hub-only-flux-control-plane.md`](adr/0004-hub-only-flux-control-plane.md).
 
 ***
 
@@ -166,12 +167,12 @@ checks, in order:
    completed.
 
 If health-check fails, the runbook does NOT auto-recover — that is by
-design (HEALTH-04 is read-only). Use the [Common failures](#common-failures)
+design (the health check is strictly read-only). Use the [Common failures](#common-failures)
 appendix to map the failing check to the right `task` recovery.
 
 If health-check passes, the chain logs `rebuild elapsed seconds: <total>`
 and the wrapper exits 0. The 1200-second SLO ceiling is enforced — over
-that, the wrapper exits non-zero (DESTROY-06).
+that, the wrapper exits non-zero.
 
 ***
 
@@ -179,7 +180,7 @@ that, the wrapper exits non-zero (DESTROY-06).
 
 | Cache State | Total | Notes |
 |-------------|-------|-------|
-| Warm (CUDA image present) | ~190 seconds | The Phase 5 baseline. |
+| Warm (CUDA image present) | ~190 seconds | The measured baseline. |
 | Cold (image must be pulled / rebuilt) | ~10-15 minutes | First-ever rebuild OR after an accidental `docker system prune`. |
 | Hardware below floor | longer; re-time | Re-baseline on your own dev box and update locally. |
 
@@ -206,8 +207,8 @@ task health-check
 
 `task fix-dns` stops and starts only the hub cluster (NOT the spokes); the
 hub's CoreDNS picks up fresh Docker NodeHosts on restart. This is the
-documented k3d#1009 / #1112 workaround — see HEALTH-07 in REQUIREMENTS.md.
-Documented further in [`flux-hub-spoke.md`](flux-hub-spoke.md).
+documented k3d#1009 / #1112 workaround. Documented further in
+[`flux-hub-spoke.md`](flux-hub-spoke.md).
 
 ### "Missing GPU capacity on spoke-ml" — `nvidia.com/gpu` is 0
 
@@ -233,8 +234,8 @@ Full diagnosis procedure in [`gpu-notes.md`](gpu-notes.md).
 `Ready=False` with reason `connection refused`, `x509: certificate is
 valid for ...` errors in the kustomize-controller logs.
 
-**Recovery:** `--tls-san` is immutable after k3d cluster creation
-(CLU-05). The fix is to recreate the cluster with the right SANs:
+**Recovery:** `--tls-san` is immutable after k3d cluster creation.
+The fix is to recreate the cluster with the right SANs:
 
 ```bash
 task destroy        # only delete the affected cluster if you can; full
@@ -269,7 +270,7 @@ task build-image
 task rebuild
 ```
 
-DESTROY-04 ensures `scripts/` does not call `docker system prune` /
+The lab's scripts never call `docker system prune` /
 `docker builder prune`; if the cache vanished, an external action did it
 (e.g., a manual `docker system prune` or a Docker Desktop integration that
 ran prune behind the scenes).
@@ -288,9 +289,9 @@ includes `401 Unauthorized` from the GitHub API.
 3. Re-run `task rebuild` (or just `task bootstrap-flux` if everything
    else is intact).
 
-### ".env missing keys" — step 1 fails with PRE-09
+### ".env missing keys" — step 1 fails on the .env check
 
-**Symptom:** `preflight.sh` exits non-zero; the failing check is PRE-09
+**Symptom:** `preflight.sh` exits non-zero; the failing check reports
 "GITHUB_OWNER/GITHUB_REPO/GITHUB_TOKEN missing in .env".
 
 **Recovery:**
@@ -303,7 +304,7 @@ task preflight              # re-verify
 
 ### "WSL2 mirrored mode" — Docker custom networks cannot be bridged
 
-**Symptom:** preflight PRE-14 fails the bridge-curl probe; clusters
+**Symptom:** preflight fails the bridge-curl networking probe; clusters
 created but nothing reaches them.
 
 **Recovery:** switch WSL2 to NAT mode. Procedure documented in
