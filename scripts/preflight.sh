@@ -340,8 +340,7 @@ win_epoch=""
 # [DateTimeOffset]::UtcNow returns a UTC-anchored instant regardless of the host's local
 # timezone; .ToUnixTimeSeconds() returns a Unix epoch integer. The prior PowerShell call
 # used Get-Date with UFormat %s, which returned local-time-as-if-UTC seconds — a known
-# quirk causing PRE-12 to false-positive with a skew equal to the TZ offset (gap 1 in
-# .planning/phases/01-host-foundation/01-HUMAN-UAT.md).
+# quirk causing the clock-skew check to false-positive with a skew equal to the TZ offset.
 if have powershell.exe; then
   win_epoch="$(powershell.exe -NoProfile -Command '[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()' 2>/dev/null \
     | tr -d '\r' | awk '{print int($1)}')"

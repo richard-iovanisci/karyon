@@ -104,7 +104,7 @@ After this step, `kubectl --context k3d-spoke-ml get nodes` should show
 `kubectl config use-context k3d-hub-flux`. Required because
 `create-clusters.sh` finishes with the kubectl context pointing at
 `k3d-spoke-apps` (the last-created cluster), and the next steps assume the
-hub context. Phase 5 HIGH-1 fix (see STATE.md decision log).
+hub context.
 
 ***
 

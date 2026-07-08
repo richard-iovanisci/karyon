@@ -101,9 +101,9 @@ delete + recreate the realm — destructive: wipes its users/sessions).
   up (its own serverlb legitimately binds host port 30443, and the check
   cannot tell it from a squatter) — this blocks `task deploy-examples` /
   full preflight runs during POC coexistence. Pre-existing lab defect,
-  tracked in the PROJECT.md parking lot; not keycloak-specific.
+  tracked in `docs/backlog.md`; not keycloak-specific.
 
-## OIDC in front of capsule-proxy — WIRED (2026-07-06, tenant-ui-oidc quick task)
+## OIDC in front of capsule-proxy — WIRED (2026-07-06)
 
 The wiring is LIVE: issuer `https://localhost:31443/realms/karyon` (pinned;
 `host.k3d.internal` turned out to be NXDOMAIN in this lab — the plan below was

@@ -56,11 +56,9 @@ for sm_120.
   haven't caught up to sm_120 yet. This is why the GPU smoke-test runs only
   `nvidia-smi` (DEP-03) — it avoids coupling the lab's health to PyTorch
   nightly availability for sm_120.
-- The nvidia-device-plugin had to be pinned to v0.17.4 instead of
-  REQUIREMENTS.md's v0.19.0+ at Phase 2 research time (no stable v0.19.x
-  release compatible with Blackwell at that moment). Phase-scoped override
-  recorded in PROJECT.md "Key Decisions" + Phase 2 D-15. See
-  `../gpu-notes.md`.
+- The nvidia-device-plugin had to be pinned to v0.17.4 instead of the
+  originally-targeted v0.19.0+ (no stable v0.19.x release compatible with
+  Blackwell at pin time). See `../gpu-notes.md`.
 
 **No-change:**
 - Helm 3.20.x stays pinned via `.tool-versions`; Helm 4.x migration is out

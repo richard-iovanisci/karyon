@@ -97,17 +97,17 @@ Pinning rationale is documented in
 
 ***
 
-## Phase 2 Override: nvidia-device-plugin v0.17.4
+## Version override: nvidia-device-plugin v0.17.4
 
-REQUIREMENTS.md (IMG-04) calls for `nvidia-device-plugin` v0.19.0 or newer.
-Phase 2 RESEARCH.md surfaced that no stable v0.19.x release was compatible
-with RTX 5090 / Blackwell / sm_120 at research time; the lab pins to
-`v0.17.4` instead as a phase-scoped D-15 override (PROJECT.md "Key Decisions"
-records this explicitly).
+The original target was `nvidia-device-plugin` v0.19.0 or newer, but no
+stable v0.19.x release was compatible with RTX 5090 / Blackwell / sm_120 at
+pin time; the lab pins to `v0.17.4` instead (see the decision log in
+`backlog.md`).
 
 The override is not architectural — it's a "ship-with-what-works" decision.
-When a v0.19.x release lands with verified sm_120 support, the pin can be
-bumped via the standard ROADMAP / Phase-1+ flow.
+When a v0.19.x release lands with verified sm_120 support, bump the pin in
+`images/device-plugin-daemonset.yaml` (guarded by
+`tests/bats/cuda-image-04-device-plugin.bats`).
 
 ***
 

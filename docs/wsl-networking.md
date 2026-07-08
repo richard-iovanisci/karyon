@@ -27,8 +27,7 @@ Docker DNS name. `k3d` clusters placed on this network become unreachable across
 ## v1 Mandate: NAT Mode
 
 This project pins `networkingMode=NAT` explicitly in `config/wslconfig` (the template for
-`%USERPROFILE%\.wslconfig`). The decision is recorded as D-01 and D-03 in
-`.planning/phases/01-host-foundation/01-CONTEXT.md`.
+`%USERPROFILE%\.wslconfig`).
 
 **NAT mode is the only supported networking posture for v1.** The commented-out mirrored line
 in `config/wslconfig` exists to make the decision visible — do not uncomment it without reading

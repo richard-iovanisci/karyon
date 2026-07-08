@@ -58,8 +58,7 @@ bash scripts/install-docker.sh
 ```
 
 This sets `default-runtime: nvidia` and an explicit `dns` array in
-`/etc/docker/daemon.json` (HOST-04 — required for the 3-part k3d GPU
-contract).
+`/etc/docker/daemon.json` (required for the 3-part k3d GPU contract).
 
 ### 4. NVIDIA setup
 
@@ -87,7 +86,7 @@ bash scripts/install-tools.sh
 source ~/.bashrc            # picks up the new asdf shim path
 ```
 
-This step also wires the local git pre-commit hook (REPO-04) by setting
+This step also wires the local git pre-commit hook by setting
 `git config --local core.hooksPath hooks` — see
 [Repo Hygiene & CI](#repo-hygiene--ci) below.
 
@@ -174,19 +173,22 @@ task rebuild                # type "yes" to confirm
 Each task is a thin wrapper around a script under `scripts/`. All logic
 lives in the scripts; `Taskfile.yml` is the orchestration surface.
 
-| Task | Script | What it does | REQ-IDs |
-|------|--------|--------------|---------|
-| `preflight` | `scripts/preflight.sh` | Read-only environment check; idempotent; exits 0 / 1 | PRE-01..14 |
-| `build-image` | `scripts/build-image.sh` | Build the custom k3s+CUDA image (Ubuntu 22.04 + k3s + nvidia-device-plugin) | IMG-01..06 |
-| `create-clusters` | `scripts/create-clusters.sh` | Idempotently create `k8s-net` + three k3d clusters | CLU-01..05 |
-| `delete-clusters` | `scripts/delete-clusters.sh` | Remove clusters + `k8s-net`, preserve `karyon/k3s-cuda` image | CLU-06, IMG-06 |
-| `bootstrap-flux` | `scripts/bootstrap-flux.sh` | Bootstrap Flux GitOps on `hub-flux` | FLUX-01..05 |
-| `register-spokes` | `scripts/register-spokes-for-flux.sh` | Provision spoke kubeconfig Secrets + hub-side Kustomizations | SPOKE-01..06 |
-| `deploy-examples` | `scripts/deploy-examples.sh` | Reconcile podinfo (apps) + GPU smoke-test (ml) | DEP-01..04 |
-| `fix-dns` | `scripts/fix-coredns.sh` | Stop/start `hub-flux` to refresh stale CoreDNS NodeHosts | HEALTH-07 |
-| `health-check` | `scripts/health-check.sh` | Verify clusters, Flux, spokes, DNS, GPU capacity, TLS SANs | HEALTH-01..06 |
-| `destroy` | `scripts/destroy.sh` | Confirm + remove clusters + `k8s-net`; CUDA cache preserved | DESTROY-01..04 |
-| `rebuild` | `scripts/rebuild.sh` | Full destroy → create → bootstrap → register → deploy → health-check; < 20 min SLO | DESTROY-05..06 |
+| Task | Script | What it does |
+|------|--------|--------------|
+| `preflight` | `scripts/preflight.sh` | Read-only environment check; idempotent; exits 0 / 1 |
+| `build-image` | `scripts/build-image.sh` | Build the custom k3s+CUDA image (Ubuntu 22.04 + k3s + nvidia-device-plugin) |
+| `create-clusters` | `scripts/create-clusters.sh` | Idempotently create `k8s-net` + three k3d clusters |
+| `delete-clusters` | `scripts/delete-clusters.sh` | Remove clusters + `k8s-net`, preserve `karyon/k3s-cuda` image |
+| `bootstrap-flux` | `scripts/bootstrap-flux.sh` | Bootstrap Flux GitOps on `hub-flux` |
+| `register-spokes` | `scripts/register-spokes-for-flux.sh` | Provision spoke kubeconfig Secrets + hub-side Kustomizations |
+| `deploy-examples` | `scripts/deploy-examples.sh` | Reconcile podinfo (apps) + GPU smoke-test (ml) |
+| `fix-dns` | `scripts/fix-coredns.sh` | Stop/start `hub-flux` to refresh stale CoreDNS NodeHosts |
+| `fix-dns-poc-capsule` | `scripts/poc/capsule/fix-dns.sh` | Same CoreDNS refresh for the `spoke-capsule` POC cluster |
+| `health-check` | `scripts/health-check.sh` | Verify clusters, Flux, spokes, DNS, GPU capacity, TLS SANs |
+| `destroy` | `scripts/destroy.sh` | Confirm + remove clusters + `k8s-net`; CUDA cache preserved |
+| `rebuild` | `scripts/rebuild.sh` | Full destroy → create → bootstrap → register → deploy → health-check; < 20 min SLO |
+| `fail-capsule-webhook` | `scripts/poc/capsule/fail-capsule-webhook.sh` | Test-only: scale the Capsule controller to 0/1 to simulate webhook outage |
+| `destroy-poc` | `scripts/poc/capsule/destroy-poc.sh` | Ordered teardown of the Capsule POC (`-- capsule [--full]`) |
 
 `task --list` shows all tasks; `task --dry <name>` previews the script
 invocation without running it.
@@ -210,6 +212,22 @@ For deeper reference:
 + Flux patch-surface contract: [`docs/flux-hub-spoke.md`](docs/flux-hub-spoke.md)
 + WSL2 networking modes (mirrored vs NAT): [`docs/wsl-networking.md`](docs/wsl-networking.md)
 + Rebuild procedure + timings + failure-mode appendix: [`docs/rebuild-runbook.md`](docs/rebuild-runbook.md)
++ Open items, standing invariants, decision log: [`docs/backlog.md`](docs/backlog.md)
++ Root-cause analyses: [`docs/rca/`](docs/rca/)
+
+### Multi-tenancy POC (spoke-capsule)
+
+A fourth, persistent cluster hosts the multi-tenancy proof of concept —
+Capsule + capsule-proxy for tenant isolation, Keycloak for identity, and an
+OIDC-wired Headlamp UI:
+
++ Whole-pattern architecture (Flux + Capsule + Keycloak + Headlamp): [`docs/architecture-flux-capsule-keycloak.md`](docs/architecture-flux-capsule-keycloak.md)
++ Capsule POC operations (recovery, kubeconfig delivery contracts): [`docs/poc-capsule.md`](docs/poc-capsule.md)
++ Six-act demo runbook with expected outputs: [`docs/poc-capsule-demo.md`](docs/poc-capsule-demo.md)
++ Replicate the Capsule setup anywhere: [`docs/capsule-portable-setup-guide.md`](docs/capsule-portable-setup-guide.md)
++ Keycloak install + design rationale: [`docs/poc-keycloak.md`](docs/poc-keycloak.md)
++ User + admin access runbook (Headlamp, kubelogin, kcadm): [`docs/tenant-access.md`](docs/tenant-access.md)
++ EKS translation guide for the pattern: [`docs/eks-platform-handoff.md`](docs/eks-platform-handoff.md)
 
 ***
 
@@ -224,7 +242,7 @@ A `gitleaks` pre-commit hook (configured by
 core.hooksPath hooks`) blocks commits that would leak secrets. A GitHub
 Actions workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))
 runs the same gitleaks scan plus shellcheck, kubeconform, markdownlint, and
-the existing prune-lint bats test on every push and pull-request.
+all static bats suites on every push and pull-request.
 
 ### One-time branch-protection setup
 
@@ -246,12 +264,12 @@ After CI runs green at least once on `main`, configure branch protection:
 + `images/` — `Dockerfile.k3s-cuda` + `config.toml.tmpl` + the `nvidia-device-plugin` manifest
 + `clusters/hub-flux/` — Flux bootstrap manifests + spoke `Kustomization` resources
 + `clusters/spoke-{ml,apps}/` — per-spoke Kustomize trees (namespace, configmap, etc.)
++ `pocs/` — GitOps manifests for the Capsule/Keycloak/Headlamp multi-tenancy POC
 + `examples/` — workload manifests reconciled into spokes (podinfo, gpu-smoke-test)
-+ `docs/` — reference docs (this README + the files cross-linked above) and ADRs
++ `docs/` — reference docs (this README + the files cross-linked above), ADRs, and RCAs
 + `tests/bats/` — bats-core static and live tests; live tests gated by `KARYON_LIVE_TESTS=1`
 + `Taskfile.yml` — the single orchestration surface; runs scripts, never inline logic
 + `hooks/` — git hooks (currently `pre-commit` for gitleaks; wired via `core.hooksPath`)
-+ `.planning/` — the GSD v1 planning state (intentionally tracked; NOT a build artifact)
 
 ***
 

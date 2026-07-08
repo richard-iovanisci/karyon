@@ -25,8 +25,7 @@ source "${SCRIPT_DIR}/lib/preflight-lib.sh"
 # Plan 01-09 gap-closure: util-linux-extra provides /sbin/hwclock on Ubuntu 24.04
 # (split from util-linux in noble). hwclock-resume.service (Section 7 below) has
 # ExecStart=/sbin/hwclock --hctosys; on minimal WSL2 images the binary is absent
-# by default and the unit silently fails on every resume. See
-# .planning/phases/01-host-foundation/01-HUMAN-UAT.md ## Gaps gap 2.
+# by default and the unit silently fails on every resume.
 # ---------------------------------------------------------------------------
 section "Prerequisites (jq, gnupg, ca-certificates, curl, util-linux-extra)"
 if have jq \
