@@ -6,9 +6,10 @@ Capsule + capsule-proxy + Keycloak + Headlamp — using this repo as the
 reference implementation. This repo is public; every manifest, script, and
 bats contract referenced below is readable.
 companion: `architecture-flux-capsule-keycloak.md` (the pattern),
-`capsule-on-eks.md` (earlier EKS translation notes), `tenant-access.md`
-(user-facing runbook to adapt), `diagrams/eks-platform-sketch.drawio`
-(customer-facing diagram of the target).
+`tenant-access.md` (user-facing runbook to adapt),
+`diagrams/eks-platform-sketch.drawio` (customer-facing diagram of the
+target). AWS-specific wiring (IRSA, NLB/ALB exposure, the Capsule CRD
+inventory) lives in the appendix at the end of this doc.
 
 ## Target environment (assumptions this doc is written against)
 
@@ -201,7 +202,7 @@ the credential path and makes the proxy reconcile-load-bearing.
 
 ## Suggested build order (maps to the in-flight work)
 
-1. RDS PostgreSQL + Keycloak operator + `Keycloak` CR + realm import
+1. RDS MySQL + Keycloak operator + `Keycloak` CR + realm import
    (groups/client/mappers from `realm-karyon.yaml`, org-adjusted).
 2. Keycloak ingress with real TLS → freeze the issuer URL.
 3. EKS OIDC association (claims contract above) → verify with a raw JWT.
@@ -222,3 +223,189 @@ karyon guards every load-bearing setting with bats (`tests/bats/keycloak-*`,
 no-bare-Pods, proxy LIST filtering) into whatever test harness the platform
 uses — every one of them exists because its absence shipped a real defect
 here.
+
+## Appendix: EKS wiring details
+
+Merged from the earlier EKS translation notes (written 2026-05 against the
+k3d lab). Only the AWS-specific mechanics survive here — the rest of that
+doc is superseded by the sections above.
+
+### Capsule CRD inventory (9 on Capsule 0.12)
+
+`kubectl get crds | grep capsule.clastix.io` returns **9** entries once both
+charts are installed — 7 from the `capsule` chart (0.12.4) and 2 from the
+`capsule-proxy` chart (0.12.0). Verified live on the karyon lab cluster
+(2026-07-07). Plan the install so CRDs land before any `Tenant` CR is
+referenced — a Kustomization that applies a Tenant first fails with
+`no matches for kind "Tenant"`. In Flux, `install.crds: CreateReplace` +
+`upgrade.crds: CreateReplace` on the HelmRelease keeps CRD delivery
+deterministic (see `pocs/capsule/operator/helmrelease.yaml`).
+
+| CRD | Installed by | Purpose |
+|---|---|---|
+| `Tenant` | capsule | The boundary object: owners, namespace prefix, quotas, `allowedNodeSelectors`. |
+| `CapsuleConfiguration` | capsule | Cluster-wide controls: `forceTenantPrefix`, `userGroups`, node-selector defaults. |
+| `GlobalTenantResource` | capsule | Cluster-scoped resource auto-replicated into every tenant's namespaces (see the seeding caveat in §Capsule above). |
+| `TenantResource` | capsule | Tenant-scoped resource auto-replicated into all namespaces of one tenant. |
+| `ResourcePool` | capsule | Cross-tenant shared resource pool (a separate model from baseline tenant isolation). |
+| `ResourcePoolClaim` | capsule | Tenant claim against a `ResourcePool`. |
+| `TenantOwner` | capsule | Lookup CR for tenant ownership (Capsule v0.12+). |
+| `ProxySetting` | capsule-proxy | Namespaced grants of proxy-filtered cluster-scope visibility to extra subjects. |
+| `GlobalProxySettings` | capsule-proxy | Cluster-wide equivalent of `ProxySetting`. |
+
+### IRSA trust policy (ServiceAccount → IAM role)
+
+On EKS, any in-cluster ServiceAccount that needs AWS API access (Flux
+source-controller pulling charts from ECR, a tenant workload reaching S3)
+gets it via IRSA: an IAM role whose trust policy federates the cluster's
+OIDC provider, scoped to one `namespace:serviceaccount` subject. Substitute
+the subject pair per consumer.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/oidc.eks.<REGION>.amazonaws.com/id/<OIDC_ID>"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.<REGION>.amazonaws.com/id/<OIDC_ID>:sub": "system:serviceaccount:tenant-alpha:gitops-reconciler",
+          "oidc.eks.<REGION>.amazonaws.com/id/<OIDC_ID>:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+```
+
+```yaml
+# Companion ServiceAccount annotation
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitops-reconciler
+  namespace: tenant-alpha
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/karyon-tenant-alpha-gitops-reconciler
+```
+
+### capsule-proxy exposure: NLB Service or ALB Ingress
+
+Two working shapes for putting capsule-proxy behind a real endpoint (see
+§capsule-proxy above for the certificate caveats — clients pin the CA the
+proxy serves).
+
+Option A — NLB-fronted Service:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: capsule-proxy
+  namespace: capsule-system
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+spec:
+  type: LoadBalancer
+  ports:
+  - name: https
+    port: 443
+    targetPort: 9001
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: capsule-proxy
+```
+
+Option B — ALB Ingress (requires the AWS Load Balancer Controller installed
+in-cluster):
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: capsule-proxy
+  namespace: capsule-system
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+spec:
+  rules:
+  - host: capsule-proxy.<your-domain>
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: capsule-proxy
+            port:
+              number: 9001
+```
+
+### Constraining tenant scheduling: `allowedNodeSelectors`
+
+Keeps tenant pods off system / control-plane / GPU-only nodes; both
+cluster-autoscaler and Karpenter honor these selectors when scaling tenant
+pods.
+
+```yaml
+apiVersion: capsule.clastix.io/v1beta2
+kind: CapsuleConfiguration
+metadata:
+  name: default
+spec:
+  forceTenantPrefix: true
+  allowedNodeSelectors:
+  - key: karpenter.sh/nodepool
+    operator: In
+    values: ["tenant-default"]
+  - key: topology.kubernetes.io/zone
+    operator: In
+    values: ["us-east-1a", "us-east-1b"]
+  # Cluster-autoscaler and Karpenter both honor these selectors when scaling
+  # tenant pods; the CapsuleConfiguration-level constraint prevents a tenant
+  # from scheduling onto a system / control-plane / GPU-only node.
+```
+
+### Lab findings that shaped the translation
+
+Four findings from the k3d validation pass (recorded 2026-05), kept because
+each one changes an EKS design decision.
+
+> **Cert source (2026-05).** capsule-proxy's chart-default
+> `kube-webhook-certgen` Job emits `tls.crt` only; the chart self-signs the
+> root with `tls.crt` doubling as the CA — no `ca.crt` key is generated
+> (verified empirically). The controller-less certgen-Job pattern does not
+> translate cleanly to EKS without operational state-tracking; use
+> cert-manager (controller-managed) or AWS Certificate Manager (ALB-side
+> termination) instead.
+>
+> **EKS 24h token clamp (2026-05).** Short-lived ServiceAccount bearer
+> tokens behave differently across distros: k3s does not clamp
+> `--service-account-max-token-expiration` (verified live up to 720h);
+> EKS clamps token duration at 24h by default. Any token-minting or
+> refresh logic ported from the lab must adapt its duration assumptions.
+>
+> **Proxy LIST scope (2026-05).** Negative RBAC tests with cross-tenant
+> kubeconfigs pinned down exactly what capsule-proxy filters: namespace
+> LIST is filtered at the proxy edge; cluster-scoped resources
+> (ClusterRole, ClusterRoleBinding, nodes) are filtered by upstream RBAC,
+> not by the proxy — a ClusterRoleBinding escalation attempt is denied at
+> apiserver auth before the proxy is ever relevant.
+>
+> **Argo CD translation (2026-05).** If the target runs Argo CD instead of
+> Flux: Flux post-build patching maps to Argo CD post-render kustomize
+> patches; a repo-side `CapsuleConfiguration` update is portable as-is
+> (single declarative source of truth); tenant home-namespace labels need
+> Argo CD's `ServerSideApply` sync option because cluster-admin
+> (`system:masters`) bypasses Capsule's webhooks identically across
+> distros (verified in the lab).

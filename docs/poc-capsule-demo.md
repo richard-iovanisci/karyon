@@ -2,13 +2,13 @@
 status: Active
 audience: demo presenter + audience
 purpose: 6-act Capsule POC demo walkthrough — three-tier permission model end-to-end.
-scope: Phase 14 verification + demo runbook. Single canonical document; companion to docs/poc-capsule.md (operator runbook) and docs/capsule-on-eks.md (EKS translation).
+scope: Phase 14 verification + demo runbook. Single canonical document; companion to docs/poc-capsule.md (operator runbook) and docs/eks-platform-handoff.md (EKS translation).
 ---
 
 # spoke-capsule POC Demo Walkthrough
 
 > **Status:** Active (Phase 14 — Two-Perspective Demo Verification).
-> **Companion docs:** [`docs/poc-capsule.md`](poc-capsule.md) (operator runbook — host-restart recovery + kubeconfig delivery contracts), [`docs/capsule-on-eks.md`](capsule-on-eks.md) (EKS translation rough-cut), [`docs/adr/0008-capsule-multi-tenancy-graduation.md`](adr/0008-capsule-multi-tenancy-graduation.md) (POC graduation = DEFER framing).
+> **Companion docs:** [`docs/poc-capsule.md`](poc-capsule.md) (operator runbook — host-restart recovery + kubeconfig delivery contracts), [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) (EKS translation), [`docs/adr/0008-capsule-multi-tenancy-graduation.md`](adr/0008-capsule-multi-tenancy-graduation.md) (POC graduation = DEFER framing).
 
 This is the load-bearing 6-act demo runbook for the `spoke-capsule` POC. It walks a teammate cold through the three-tier permission model (Cloud Ops / Karyon Platform Team / Tenant Developers) in ≤ 15 minutes against a live k3d cluster.
 
@@ -61,7 +61,7 @@ Articulate the three tiers to the audience before any kubectl runs:
 - **Tier 2 — Karyon Platform Team.** The `platform-owner@capsule-system` ServiceAccount + `capsule-platform-owners` group. Bound to the `capsule-platform-owner` ClusterRole. Co-owner on every Tenant CR (via Phase 13 `spec.owners[]` co-ownership) so they can reach tenant workloads for break-glass ops. Lacks cluster-admin: cannot list/edit `nodes`, cannot approve `csr`, cannot write `clusterrolebindings`. This is the audience-visible ceiling demonstrated in Act 2. P27 isolation (Tenant Flux `spec.serviceAccountName: flux-reconciler`) keeps tenant GitOps surface pinned to this tier's narrower SA, not the platform-owner.
 - **Tier 3 — Tenant Developers.** The `human-tenant-owner@tenant-<name>` ServiceAccount (per tenant). Bound to the `tenant-workload-editor` ClusterRole (Phase 13 narrowed from upstream `edit` — drops Secret + cross-tenant access). Routed through capsule-proxy on NodePort 30443 for LIST-filter enforcement: cluster-wide `kubectl get namespaces` returns only this tenant's namespaces, cross-tenant pods LIST returns Forbidden at the apiserver.
 
-Production EKS translation lives in [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Three-tier permission model on EKS" — Tier 1 maps to AWS IAM admin, Tier 2 to an EKS IRSA-bound IAM role holding the `capsule-platform-owner` ClusterRole, Tier 3 to a per-tenant IRSA-bound role holding `tenant-workload-editor`. POC graduation framing lives in [`ADR-008`](adr/0008-capsule-multi-tenancy-graduation.md) — graduation is `DEFER` for v0.20; the POC remains evidence for a future production EKS cut, not a production-ready artifact.
+Production EKS translation lives in [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Tier mapping" — Tier 1 maps to the cloud-ops team holding cluster-admin, Tier 2 to the `capsule-platform-owner` ClusterRole granted via OIDC group mapping, Tier 3 to per-tenant dev groups holding `tenant-workload-editor`. POC graduation framing lives in [`ADR-008`](adr/0008-capsule-multi-tenancy-graduation.md) — graduation is `DEFER` for v0.20; the POC remains evidence for a future production EKS cut, not a production-ready artifact.
 
 ### Expected output
 
@@ -247,12 +247,12 @@ This is the apiserver's webhook-handshake retry loop against capsule-controller-
 
 **Historical note (fixed 2026-07-06).** Before the ADR-008 addendum amended the GTR seed to a Deployment, the controller log ALSO carried a permanent `unable to replicate the requested resources ... Pod "hello-world" is invalid` error loop — the bare-Pod rawItem hit Pod-spec immutability on every resync and sat in controller-runtime exponential backoff. How to read `unable to replicate` lines now: an occasional single line whose error is `Operation cannot be fulfilled ... the object has been modified` is a benign optimistic-concurrency race (Capsule's 60s resync UPDATE racing the deployment-controller's status writes; controller-runtime retries and succeeds on the next attempt). A line that REPEATS with the same error across consecutive reconciles is a regression signal (registry allowlist drift, immutable-shape rawItems, RBAC) — do not talk-track past that.
 
-**Why document-only.** Per [ADR-008](adr/0008-capsule-multi-tenancy-graduation.md) the Capsule POC is `DEFER` for production graduation; the chatter is cosmetic, not functional. Fixing it pulls in cert-manager / CA-distribution work that the lean v0.20 milestone is explicitly scope-guarded against. A production EKS cut would wire AWS Certificate Manager or cert-manager controller-managed certs cleanly; see [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Phase 11 Evidence — Cert source".
+**Why document-only.** Per [ADR-008](adr/0008-capsule-multi-tenancy-graduation.md) the Capsule POC is `DEFER` for production graduation; the chatter is cosmetic, not functional. Fixing it pulls in cert-manager / CA-distribution work that the lean v0.20 milestone is explicitly scope-guarded against. A production EKS cut would wire AWS Certificate Manager or cert-manager controller-managed certs cleanly; see the cert-source lab finding in [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Appendix: EKS wiring details".
 
 ## Forward pointers
 
 - [`docs/poc-capsule.md`](poc-capsule.md) §"Host restart recovery" — operator-side fix-dns + cluster-stop/start recovery procedures.
-- [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Three-tier permission model on EKS" — production translation of the three-tier carriers (Cloud Ops / Karyon Platform Team / Tenant Developers).
+- [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Tier mapping" — production translation of the three-tier carriers (Cloud Ops / Karyon Platform Team / Tenant Developers).
 - [`docs/adr/0008-capsule-multi-tenancy-graduation.md`](adr/0008-capsule-multi-tenancy-graduation.md) — POC graduation = DEFER framing (cited in "Known noise" appendix).
 
 ---

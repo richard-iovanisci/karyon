@@ -2,13 +2,13 @@
 status: Active
 audience: POC operators (WSL host)
 purpose: Runbook for the spoke-capsule POC -- host-restart recovery and troubleshooting.
-scope: Phase 7 ships the Host restart recovery section. Phase 10 added tenant kubeconfig delivery contract. Phase 11 will add ordered teardown procedure.
+scope: Phase 7 ships the Host restart recovery section. Phase 10 added tenant kubeconfig delivery contract. Ordered teardown exists -- `scripts/poc/capsule/destroy-poc.sh`, run via `task destroy-poc`.
 ---
 
 # spoke-capsule POC Operator's Runbook
 
 > **Status:** Active (Phase 7 -- host-restart recovery only).
-> **Companion docs:** [`docs/capsule-on-eks.md`](capsule-on-eks.md) (EKS rough-cut design), [`docs/architecture.md`](architecture.md) (overall karyon topology).
+> **Companion docs:** [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) (EKS platform translation + wiring appendix), [`docs/architecture.md`](architecture.md) (overall karyon topology).
 
 The `spoke-capsule` cluster is the karyon v0.19 Capsule POC's persistent isolated k3d cluster. It is **NOT** part of the default `task rebuild` chain -- it stays alive across rebuilds and is intentionally outside the v1 production topology until graduation ADR-008 says otherwise.
 
@@ -137,7 +137,7 @@ Future POCs adding more reserved ports should extend `scripts/preflight.sh` `che
 
 ## Related references
 
-- `docs/capsule-on-eks.md` -- EKS-target rough-cut design (EKSDOC-01)
+- `docs/eks-platform-handoff.md` -- EKS platform translation (single-cluster target + wiring appendix)
 - `scripts/poc/capsule/create-cluster.sh` -- persistent cluster creation (CAPCLU-01)
 - `scripts/register-poc-cluster.sh` -- register spoke-capsule with hub-flux (POC-02)
 - `scripts/poc/capsule/fix-dns.sh` -- this runbook's underlying script (CAPCLU-03)
@@ -179,14 +179,14 @@ Tenant kubeconfigs MUST NEVER land in git. The script defends in depth:
 2. `--write-to` strictly rooted under `${TMPDIR:-/tmp}/karyon-tenants/` (validated via `realpath -m` prefix check; symlink escapes are rejected fail-fast).
 3. `.gitignore` excludes `karyon-tenants/`, `*.tenant.kubeconfig`, `tenants/**/access.yaml`, `tenants/**/admin.yaml` (Phase 7 D-14 globs).
 4. `.gitleaks.toml` `kubeconfig-bearer-token` rule (Phase 7 D-14) catches `kind: Config` + `users.token` shape pre-commit and on push (Phase 11 VAL-05 first-push gate).
-5. EKS-translation forward-pointer: in production, IRSA replaces TokenRequest cleanly (per [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Rough EKS install path"). The contract is unchanged — tokens never live in git.
+5. EKS-translation forward-pointer: in production, IRSA replaces TokenRequest cleanly (per [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Appendix: EKS wiring details"). The contract is unchanged — tokens never live in git.
 
 ### Cross-references
 
 - Phase 7 D-14 leak defenses: `.gitignore` + `.gitleaks.toml` (the rule that fires)
 - Phase 8 CAP-02: capsule-proxy NodePort 30443 install
 - Phase 9 D-09-02: per-tenant `gitops-reconciler` SA + Tenant CR multi-owner array
-- [`docs/capsule-on-eks.md`](capsule-on-eks.md) §"Rough EKS install path": IRSA translation forward-pointer
+- [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Appendix: EKS wiring details": IRSA translation forward-pointer
 
 ## Capsule platform owner role
 
@@ -273,4 +273,4 @@ KUBECONFIG=/tmp/po.kubeconfig kubectl get tenants
 - **REQ:** RBAC-04 (platform-owner ceiling — no cluster-admin); RBAC-05 (Tenant CR CRUD); RBAC-06 (co-owner LIST/EXEC across tenant namespaces).
 - **Decisions:** D-13-06 (SA + dual-subject CRB), D-13-09 (script), D-13-10 (proxy routing).
 - **Forward-pointer:** Phase 14 `docs/poc-capsule-demo.md` runbook act 2 expands this into the full demo narrative (platform-owner kubeconfig + Tenant CR LIST + at least one Forbidden cluster-admin action — DEMO-06 ceiling). See Phase 14.
-- **EKS-translation:** in EKS, the Group `capsule-platform-owners` binds to an IRSA-backed IdP group identity — see [`docs/capsule-on-eks.md`](capsule-on-eks.md).
+- **EKS-translation:** in EKS, the Group `capsule-platform-owners` maps to an IdP group via the cluster's OIDC association — see [`docs/eks-platform-handoff.md`](eks-platform-handoff.md) §"Tier mapping".
