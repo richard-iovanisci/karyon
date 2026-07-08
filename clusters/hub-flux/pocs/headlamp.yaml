@@ -6,7 +6,10 @@
 # imperative karyon-oidc-ca ConfigMap exists (scripts/poc/keycloak/
 # setup-headlamp.sh; certs never in git) — same self-healing choreography as
 # the keycloak-db-secret. Liveness gate: tests/bats/keycloak-05-live-oidc.bats.
-# P18: full kubeConfig block; P27: explicit serviceAccountName.
+# Spoke-targeted: must carry the full spec.kubeConfig block (secret key
+# value.yaml) or Flux silently reconciles this into the hub while reporting
+# Ready; serviceAccountName must be explicit or the reconcile falls through to
+# the kubeConfig principal (cluster-admin).
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:

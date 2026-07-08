@@ -4,49 +4,37 @@
 # (applied imperatively by scripts/register-poc-cluster.sh; never committed because it
 # contains a bearer token).
 #
-# D-08-12 (gap-close 2026-04-29) — Phase 7 P40/P18 invariant lives HERE (spoke-targeted K),
-# not on capsule.yaml (hub-targeted K). The split-path pattern is the load-bearing structure
-# for the hub-only-Flux pattern (ADR-004): hub-flux holds Flux CRDs + helm-controller; CRs
-# that need to land on the spoke (Phase 9 Tenant CRs and beyond) route through this K via
-# kubeConfig impersonation, while CRs that need to land on hub (Phase 8 HR + OCIRepo) route
-# through capsule.yaml without kubeConfig.
+# Split-path invariant (2026-04-29): the full spec.kubeConfig block lives HERE
+# (spoke-targeted K), not on capsule.yaml (hub-targeted K). hub-flux holds the Flux
+# CRDs + helm-controller (docs/adr/0004-hub-only-flux-control-plane.md); CRs that
+# must land on the spoke (Tenant CRs and beyond) route through this K via kubeConfig
+# impersonation, while CRs that must land on hub (HelmRelease + OCIRepository) route
+# through capsule.yaml without kubeConfig. Omitting spec.kubeConfig on a
+# spoke-targeted K makes kustomize-controller fall back to its in-cluster SA and
+# silently reconcile into the HUB while reporting Ready — ALWAYS include the entire
+# block, with explicit `key: value.yaml` as belt-and-suspenders against future Flux
+# default-key changes.
 #
-# Phase 9 update (D-09-06): adds dependsOn:[{name: poc-capsule}] + spec.wait: true (TOP-LEVEL
-# per RESEARCH Gap 9 correction — wait: true is NOT a sub-field of dependsOn entries) +
-# spec.timeout: 10m. P32 — Tenant CRs (under pocs/capsule/spoke/tenants/) cannot apply until
-# operator HelmRelease has reconciled and CRDs are registered on spoke. The poc-capsule outer
-# K's reconcile drives the operator HR → CRD registration; wait: true blocks this K's apply
-# until poc-capsule reaches Ready=True.
+# dependsOn poc-capsule + wait: true (TOP-LEVEL field — wait is NOT a sub-field of
+# dependsOn entries) + timeout 10m: Tenant CRs (under pocs/capsule/spoke/tenants/)
+# cannot apply until the operator HelmRelease has reconciled and the Capsule CRDs
+# are registered on the spoke. poc-capsule's reconcile drives the operator HR →
+# CRD registration; wait: true blocks this K's apply until poc-capsule is
+# Ready=True.
 #
-# Phase 9 update (D-09-05) [SUPERSEDED 2026-05-06 by Plan 11-07 codex review §2 HIGH #2]:
-# Original comment (preserved for git-blame archeology): "Spoke-targeted K with kubeConfig
-# set is exempt from --default-service-account flag scope (RESEARCH §Gap 3), but explicit-
-# set is forward-compat for any future refactor that pushes this onto a non-cluster-admin
-# spoke kubeconfig."
+# serviceAccountName correction (2026-05-06): with spec.kubeConfig +
+# spec.serviceAccountName set, Flux's kustomize-controller IMPERSONATES the named
+# SA on the TARGET cluster (here: spoke-capsule). POC spokes ONLY have the
+# `flux-reconciler` SA + cluster-admin CRB (provisioned by
+# scripts/register-poc-cluster.sh and scripts/register-spokes-for-flux.sh; see the
+# analog clusters/hub-flux/spokes/spoke-apps.yaml which also uses flux-reconciler).
+# Any other name makes the impersonation invalid on the target cluster.
 #
-# Phase 11 correction (G-06 gap-close 2026-05-06; codex review §2 HIGH #2):
-# The original D-09-05 reasoning was wrong. With spec.kubeConfig + spec.serviceAccountName,
-# Flux's kustomize-controller IMPERSONATES the named SA on the TARGET cluster (here:
-# spoke-capsule). The original value was `kustomize-controller`, but POC spokes ONLY have
-# `flux-reconciler` SA + cluster-admin CRB (per scripts/register-poc-cluster.sh:50 and
-# scripts/register-spokes-for-flux.sh:33; see analog clusters/hub-flux/spokes/spoke-apps.yaml
-# line 29 which also uses flux-reconciler). The reason Phase 9 / 10 reconciles still
-# succeeded is unclear -- likely the kubeConfig bearer-token (flux-reconciler-token) carries
-# cluster-admin so Flux's controller-side fallback may have papered over the impersonation
-# failure, OR reconciles failed intermittently and were masked by Flux retries.
-# Either way, this is now corrected.
-#
-# Phase 11 correction (D-11-07 live repair):
-# poc-capsule-spoke now depends on poc-capsule-spoke-tenants as well. Tenant CRs
-# must be live before this K applies tenant home Namespaces labeled
-# capsule.clastix.io/tenant=<name>; Flux dry-runs a whole Kustomization batch
-# before applying, so same-batch ordering is insufficient.
-#
-# REQ-CAPCLU-02 (key: value.yaml explicit — v0.18 P18 inheritance: silent-misroute fault is
-#   `spec.kubeConfig` ENTIRELY ABSENT, which would make kustomize-controller fall back to its
-#   in-cluster SA and reconcile to HUB. ALWAYS include the entire spec.kubeConfig block on
-#   SPOKE-TARGETED Kustomizations; explicit `key: value.yaml` is belt-and-suspenders against
-#   future Flux default-key changes.)
+# dependsOn poc-capsule-spoke-tenants (live repair): Tenant CRs must be live before
+# this K applies tenant home Namespaces labeled capsule.clastix.io/tenant=<name>;
+# Flux dry-runs a whole Kustomization batch before applying, so same-batch ordering
+# is insufficient — Capsule's webhook rejects a labeled namespace whose Tenant CR
+# does not exist yet.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -58,10 +46,10 @@ spec:
   prune: true
   serviceAccountName: flux-reconciler
   dependsOn:
-    - name: poc-capsule-spoke-rbac   # G-06 gap-close (2026-05-06): inter-K ordering -- spoke rbac (NS + helm-controller SA) lands BEFORE any tenant or config CR (codex §2 MEDIUM #3 closure)
-    - name: poc-capsule   # D-09-06 — P32 dependsOn chain (no namespace needed; same flux-system ns)
-    - name: poc-capsule-spoke-tenants   # D-11-07: Tenant CRs must exist before labeled tenant Namespaces dry-run/apply
-  wait: true                # D-09-06 / RESEARCH Gap 9 — TOP-LEVEL spec.wait, NOT inside dependsOn entry
+    - name: poc-capsule-spoke-rbac   # spoke rbac (Namespace + helm-controller SA) must land BEFORE any tenant or config CR
+    - name: poc-capsule   # operator HR must be Ready so Capsule CRDs exist on spoke (no namespace needed; same flux-system ns)
+    - name: poc-capsule-spoke-tenants   # Tenant CRs must exist before labeled tenant Namespaces dry-run/apply
+  wait: true                # TOP-LEVEL spec.wait, NOT inside dependsOn entry
   timeout: 10m
   sourceRef:
     kind: GitRepository

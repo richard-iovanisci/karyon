@@ -1,21 +1,23 @@
 # pocs/capsule/proxy/helmrelease.yaml
 # capsule-proxy install — Flux v2 HelmRelease that helm-controller (on hub-flux) reconciles
-# onto k3d-spoke-capsule via spec.kubeConfig (ADR-004 hub-only Flux preserved).
+# onto k3d-spoke-capsule via spec.kubeConfig (hub-only Flux control plane preserved —
+# see docs/adr/0004-hub-only-flux-control-plane.md).
 #
 # Verified shapes (2026-04-29):
 #   - apiVersion helm.toolkit.fluxcd.io/v2: fluxcd.io/flux/components/helm/api/v2/
 #   - chart values key paths: helm show values oci://ghcr.io/projectcapsule/charts/capsule-proxy --version 0.12.0
 #
-# D-08-06 — spec.interval=5m matches outer poc-capsule Kustomization cadence
-# D-08-07 — spec.dependsOn blocks reconcile until operator HelmRelease Ready=True
-#   (Pitfall 9 / RESEARCH catch: NO `wait:` field — Flux v2 HelmRelease default behavior already
-#   blocks until dependency Ready=True; the field doesn't exist in helm.toolkit.fluxcd.io/v2.
-#   CONTEXT.md D-08-07 mention of wait:true is wrong; supersedes by RESEARCH §Pitfall 9.)
-# P18 / P40 — spec.kubeConfig.secretRef.{name,key} inheritance from clusters/hub-flux/pocs/capsule.yaml
-# CAP-02 — proxy HelmRelease Ready=True + NodePort 30443 reachable from WSL host
-#   (RESEARCH OQ-1 reframe: reachability = TLS handshake succeeds + HTTP code in [1-5][0-9][0-9],
-#   NOT literal /healthz returns 200 against chart defaults.)
-# P33 — options.additionalSANs (RESEARCH-verified key path; CONTEXT.md guess of tls.additionalSANs is wrong)
+# Key choices:
+#   - spec.interval=5m matches outer poc-capsule Kustomization cadence
+#   - spec.dependsOn blocks reconcile until operator HelmRelease Ready=True
+#     (NO `wait:` field — the field doesn't exist in helm.toolkit.fluxcd.io/v2;
+#     default behavior already blocks until dependency Ready=True)
+#   - spec.kubeConfig.secretRef.{name,key} matches the spoke-targeted outer
+#     Kustomizations (secret key value.yaml)
+#   - Reachability contract: NodePort 30443 reachable from the WSL host means
+#     TLS handshake succeeds + HTTP code in [1-5][0-9][0-9], NOT a literal
+#     /healthz 200 against chart defaults
+#   - TLS SANs use the options.additionalSANs key path (verified; NOT tls.additionalSANs)
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -26,21 +28,20 @@ spec:
   releaseName: capsule-proxy
   targetNamespace: capsule-system
   storageNamespace: capsule-system
-  # G-06 gap-close (2026-05-06): spec.serviceAccountName tells helm-controller
-  # which SA to impersonate ON the target cluster (spoke-capsule via spec.kubeConfig).
+  # spec.serviceAccountName (2026-05-06) tells helm-controller which SA to
+  # impersonate ON the target cluster (spoke-capsule via spec.kubeConfig).
   # Without this, helm-controller defaults to system:serviceaccount:capsule-system:default
   # which has zero RBAC; flux reconcile times out with `context deadline exceeded`.
-  # Per RESEARCH.md line 971 (Flux Service Account Impersonation oneuptime article).
   # The SA + cluster-admin CRB are provisioned on spoke by pocs/capsule/spoke/rbac/
   # which lands FIRST via clusters/hub-flux/pocs/capsule-spoke-rbac.yaml (a separate
   # top-level Flux Kustomization with NO dependsOn on poc-capsule, ensuring inter-K
-  # ordering -- see codex review §2 MEDIUM #3 closure).
+  # ordering).
   serviceAccountName: helm-controller
   install:
-    # D-11-07 live repair: capsule-system is bootstrapped by
-    # poc-capsule-spoke-rbac. Leaving Helm namespace creation enabled causes Helm
-    # to patch the existing namespace after Capsule's namespace webhook is active,
-    # which Capsule rejects for this non-tenant system namespace.
+    # capsule-system is bootstrapped by poc-capsule-spoke-rbac. Leaving Helm
+    # namespace creation enabled causes Helm to patch the existing namespace
+    # after Capsule's namespace webhook is active, which Capsule rejects for
+    # this non-tenant system namespace.
     createNamespace: false
     remediation:
       retries: 3
@@ -54,31 +55,31 @@ spec:
     secretRef:
       name: spoke-capsule-kubeconfig
       key: value.yaml
-  # D-08-07 — proxy waits for operator HelmRelease Ready=True before reconciling.
-  # Pitfall 9: dependsOn does NOT support a `wait: true` sub-field — Flux v2
-  # HelmRelease default behavior already blocks until dependency Ready=True.
+  # Proxy waits for operator HelmRelease Ready=True before reconciling.
+  # dependsOn does NOT support a `wait: true` sub-field — Flux v2 HelmRelease
+  # default behavior already blocks until dependency Ready=True.
   dependsOn:
     - name: capsule
       namespace: capsule-system
   values:
-    # CAP-02 — Service shape (NodePort 30443; Phase 7 D-10 published this on k3d serverlb)
+    # Service shape — NodePort 30443, published on the k3d serverlb so the WSL
+    # host can reach the proxy
     service:
       type: NodePort
       port: 9001
       portName: proxy
       nodePort: 30443
-    # P33 — TLS SAN injection. RESEARCH-verified key path: options.additionalSANs
-    # (NOT tls.additionalSANs as CONTEXT.md `<specifics>` guessed). Without 127.0.0.1
-    # + localhost SANs, curl -k from WSL host fails TLS handshake at the cert hostname-
-    # verification step (before HTTP request even starts).
-    # D-08-11 (gap-close 2026-04-29) — Cert source = chart's controller-less self-sign Job.
-    # The original D-08-04 / OQ-2 choice (`certManager.generateCertificates: true`) was
-    # verifier-falsified (08-VERIFICATION.md G-03 + 08-REVIEW.md BL-01): that path renders
-    # cert-manager.io `Issuer` + `Certificate` CRs which REQUIRE the cert-manager
-    # *controller* (not just CRDs) to reconcile into the `capsule-proxy` Secret. D-08-04
-    # installs the cert-manager.io CRDs as API surface only — no controller — so those
-    # CRs would sit indefinitely unreconciled and the proxy pod would never mount its
-    # TLS volume → CAP-02 cannot pass.
+    # TLS SAN injection. Verified key path: options.additionalSANs
+    # (NOT tls.additionalSANs). Without 127.0.0.1 + localhost SANs, curl -k from
+    # the WSL host fails the TLS handshake at the cert hostname-verification step
+    # (before the HTTP request even starts).
+    # Cert source (2026-04-29) = chart's controller-less self-sign Job.
+    # The original choice (`certManager.generateCertificates: true`) was falsified
+    # live: that path renders cert-manager.io `Issuer` + `Certificate` CRs which
+    # REQUIRE the cert-manager *controller* (not just CRDs) to reconcile into the
+    # `capsule-proxy` Secret. This cluster installs the cert-manager.io CRDs as
+    # API surface only — no controller — so those CRs would sit indefinitely
+    # unreconciled and the proxy pod would never mount its TLS volume.
     #
     # The fix: flip to `options.generateCertificates: true` + `certManager.generateCertificates: false`,
     # which renders the chart's `capsule-proxy-certgen` Job (uses kube-webhook-certgen image
@@ -87,24 +88,24 @@ spec:
     #     --set options.generateCertificates=true --set certManager.generateCertificates=false \
     #     | grep -E '^kind: ' | sort | uniq -c
     # Renders 2 Jobs (capsule-proxy-certgen + capsule-proxy-crds), 0 Issuer, 0 Certificate.
-    # D-08-04 stays unchanged for the operator HelmRelease (operator's tls.enableController
-    # is the operator chart's separate controller-less self-sign path).
+    # The operator HelmRelease is unaffected (the operator's tls.enableController
+    # is that chart's separate controller-less self-sign path).
     options:
       listeningPort: 9001
       enableSSL: true
-      generateCertificates: true   # D-08-11 — controller-less certgen Job; produces capsule-proxy Secret
+      generateCertificates: true   # controller-less certgen Job; produces capsule-proxy Secret
       capsuleConfigurationName: default
       additionalSANs:
         - 127.0.0.1
         - localhost
       authPreferredTypes: "BearerToken,TLSCertificate"
     certManager:
-      generateCertificates: false   # D-08-11 — do NOT render cert-manager.io Issuer/Certificate CRs
+      generateCertificates: false   # do NOT render cert-manager.io Issuer/Certificate CRs
     webhooks:
       enabled: false
     replicaCount: 1
-  # G-04 gap-close (2026-05-06): D-11-01 RBAC patch RELOCATED from
-  # clusters/hub-flux/pocs/capsule.yaml spec.patches (Pitfall 11-P1 fix).
+  # RBAC patch (2026-05-06), relocated here from clusters/hub-flux/pocs/capsule.yaml
+  # spec.patches — Kustomization patches only touch kustomize-build output, while
   # postRenderers applies Kustomize-style patches to helm-rendered chart output,
   # which is the correct mechanism for extending chart-rendered Role objects.
   # Extends Role capsule-proxy:capsule-proxy with secrets {get,create,update,patch}

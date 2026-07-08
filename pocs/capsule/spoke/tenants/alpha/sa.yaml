@@ -1,9 +1,9 @@
 # pocs/capsule/spoke/tenants/alpha/sa.yaml
-# TEN-01 — the per-tenant ServiceAccount registered as Tenant owner via the
+# The per-tenant ServiceAccount registered as Tenant owner via the
 # combined name format `system:serviceaccount:tenant-alpha:gitops-reconciler` in
-# tenant.yaml's spec.owners[].
+# tenant-crs/alpha.yaml's spec.owners[].
 #
-# D-09-02 — gitops-reconciler SA. Capsule's auto-injected RoleBindings on owners
+# gitops-reconciler SA. Capsule's auto-injected RoleBindings on owners
 # (default clusterRoles: [admin, capsule-namespace-deleter]) give this SA full
 # control inside any tenant-managed namespace; no additional RoleBinding needed.
 apiVersion: v1

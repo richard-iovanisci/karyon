@@ -1,5 +1,5 @@
 # pocs/headlamp/headlamp.yaml
-# Headlamp v0.43.0 — the tenant web UI (tenant-ui-oidc quick task, 2026-07-06).
+# Headlamp v0.43.0 — the tenant web UI (2026-07-06).
 # kubernetes-sigs project (CNCF); the OFFICIAL successor to kubernetes/dashboard
 # (archived 2026-01-21). Capsule documents this exact integration:
 # https://projectcapsule.dev/ecosystem/integrations/headlamp/

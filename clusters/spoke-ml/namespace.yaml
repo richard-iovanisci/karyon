@@ -1,5 +1,5 @@
 # clusters/spoke-ml/namespace.yaml
-# REQ-SPOKE-05 seed - distinct per spoke, falsifiable for the cross-cluster
+# Seed manifest - distinct per spoke, falsifiable for the cross-cluster
 # negative-proof (this Namespace exists ONLY on k3d-spoke-ml).
 apiVersion: v1
 kind: Namespace

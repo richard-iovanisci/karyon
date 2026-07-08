@@ -1,14 +1,14 @@
-# pocs/capsule/spoke/tenants/alpha/tenant.yaml
-# TEN-01 — Tenant CR alpha. Multi-owner (SA + User) per CONTEXT.md D-09-02.
-# - SA owner (system:serviceaccount:tenant-alpha:gitops-reconciler): drives Flux impersonation
-#   chain (TEN-04 P27 defense — every tenant inner K runs as the SA via Flux's
-#   spec.serviceAccountName impersonation on the target cluster).
-# - User owner (alpha): drives TEN-02 literal contract — `kubectl --as=alpha create namespace
+# pocs/capsule/spoke/tenant-crs/alpha.yaml
+# Tenant CR alpha. Multi-owner (SA + User).
+# - SA owner (system:serviceaccount:tenant-alpha:gitops-reconciler): drives the Flux
+#   impersonation chain — every tenant inner K runs as the SA via Flux's
+#   spec.serviceAccountName impersonation on the target cluster.
+# - User owner (alpha): `kubectl --as=alpha create namespace
 #   alpha-app1` works because the impersonated identity matches a Tenant owner.
 #
-# CRD schema verification (v0.12.4) — RESEARCH Gap 4 corrections to CONTEXT.md:
+# CRD schema verification (v0.12.4):
 #   - apiVersion: capsule.clastix.io/v1beta2 (storage version)
-#   - spec.forceTenantPrefix: TOP-LEVEL (NOT under namespaceOptions — RESEARCH §Gap 4 correction)
+#   - spec.forceTenantPrefix: TOP-LEVEL (NOT under namespaceOptions)
 #   - spec.owners[].kind: enum User|Group|ServiceAccount
 #   - spec.owners[].name: ServiceAccount uses system:serviceaccount:<ns>:<sa> combined format
 #   - spec.owners[].namespace: DOES NOT EXIST in v1beta2 schema
@@ -17,45 +17,45 @@ kind: Tenant
 metadata:
   name: alpha
 spec:
-  # D-11-07 live repair — false preserves the established tenant-alpha home
-  # namespace. With true, Capsule expects alpha-tenant-alpha and rejects the
-  # Phase 9 tenant-<name> namespace contract.
+  # false preserves the established tenant-alpha home namespace. With true,
+  # Capsule expects alpha-tenant-alpha and rejects the tenant-<name>
+  # namespace contract.
   forceTenantPrefix: false
-  # TEN-01 — multi-owner array
+  # Multi-owner array
   owners:
-    # Bootstrap Flux path (D-11-07): poc-capsule-spoke applies tenant-alpha
+    # Bootstrap Flux path: poc-capsule-spoke applies tenant-alpha
     # Namespace as flux-system/flux-reconciler. Capsule requires namespace
     # assignment to be performed by a Tenant owner, even when Kubernetes RBAC is
     # cluster-admin.
     - kind: ServiceAccount
       name: system:serviceaccount:flux-system:flux-reconciler
-    # Flux impersonation chain (TEN-04 P27 defense)
+    # Flux impersonation chain (tenant inner Ks impersonate this SA)
     - kind: ServiceAccount
       name: system:serviceaccount:tenant-alpha:gitops-reconciler
       # Default clusterRoles: [admin, capsule-namespace-deleter] auto-applied
-    # Human/CLI testing (TEN-02 `kubectl --as=alpha`)
+    # Human/CLI testing (`kubectl --as=alpha`)
     - kind: User
       name: alpha
-    # === NEW (Phase 13 D-13-05): Tier 3 human-exercised tenant owner ===
+    # === Tier 3 human-exercised tenant owner ===
     # Binds via Capsule auto-injected RoleBinding capsule-alpha-<index>-tenant-workload-editor.
-    # Pitfall 13-P8: clusterRoles MUST be non-empty (NEVER `clusterRoles: []` — that
+    # clusterRoles MUST be non-empty (NEVER `clusterRoles: []` — that
     # removes all bindings; OMIT field for Capsule default, OR list explicit roles).
     - kind: ServiceAccount
       name: system:serviceaccount:tenant-alpha:human-tenant-owner
       clusterRoles:
         - tenant-workload-editor
-    # === NEW (Phase 13 D-13-07): Tier 2 platform-owner co-ownership ===
+    # === Tier 2 platform-owner co-ownership ===
     # Group impersonation path (kubectl --as=... --as-group=capsule-platform-owners)
     # AND SA-token kubeconfig path (issue-platform-owner-kubeconfig.sh). Both use
     # Capsule's default clusterRoles: [admin, capsule-namespace-deleter] —
-    # broader-than-tenant-workload-editor / narrower-than-cluster-admin = Tier 2.
+    # broader than tenant-workload-editor / narrower than cluster-admin = Tier 2.
     # capsule-proxy LIST filter matches on owner-set membership.
-    # Pitfall 13-P8: OMIT clusterRoles field for Capsule defaults (NEVER `[]`).
+    # OMIT the clusterRoles field for Capsule defaults (NEVER `[]`).
     - kind: Group
       name: capsule-platform-owners
     - kind: ServiceAccount
       name: system:serviceaccount:capsule-system:platform-owner
-    # 2026-07-06 (tenant-ui-oidc quick task): OIDC dev group as Tier-3 owner.
+    # 2026-07-06: OIDC dev group as Tier-3 owner.
     # Keycloak realm karyon group `tenant-alpha-devs` (flat name; the client
     # groups mapper emits bare names — full.path OFF) exact-matches this
     # entry once the apiserver resolves OIDC tokens. Same Tier-3 ceiling as
@@ -66,17 +66,17 @@ spec:
       name: tenant-alpha-devs
       clusterRoles:
         - tenant-workload-editor
-  # TEN-03 — ResourceQuota auto-materialization shape
+  # ResourceQuota auto-materialization shape
   # Capsule reconciles these into ResourceQuota objects in tenant namespaces
-  # named capsule-<tenant>-<index>. Phase 9 verifies SHAPE only; enforcement
-  # semantics (N6 quota violation) deferred to Phase 11.
+  # named capsule-<tenant>-<index>. Static checks verify SHAPE only; enforcement
+  # semantics are exercised by the live quota-violation bats.
   resourceQuotas:
     items:
       - hard:
           cpu: "4"
           memory: 8Gi
           pods: "20"
-  # TEN-03 — LimitRange auto-materialization shape
+  # LimitRange auto-materialization shape
   limitRanges:
     items:
       - limits:
@@ -87,24 +87,23 @@ spec:
             defaultRequest:
               cpu: 50m
               memory: 64Mi
-  # N6 fixture (Phase 11 -- VAL-01 N6 quota falsifier; Claude's Discretion per CONTEXT.md):
-  # tenant-alpha (home) + alpha-app1 (Phase 9 TEN-02) = 2; bats N6 creates alpha-app2 (3rd, OK)
-  # then alpha-app3 (4th, REJECTED with Capsule webhook quota error per Pitfall 11-P3 permissive grep).
-  # Schema: NamespaceOptions struct: Quota *int32 (kubebuilder:Minimum=1) -- verified RESEARCH.md.
+  # Namespace-quota fixture for the negative-RBAC suite:
+  # tenant-alpha (home) + alpha-app1 = 2; the bats creates alpha-app2 (3rd, OK)
+  # then alpha-app3 (4th, REJECTED with a Capsule webhook quota error).
+  # Schema: NamespaceOptions struct: Quota *int32 (kubebuilder:Minimum=1).
   namespaceOptions:
     quota: 3
-  # N7 fixture (Phase 11 -- VAL-01 N7 registry-violation falsifier; Claude's Discretion per CONTEXT.md):
-  # bats N7 runs `kubectl run x --image=docker.io/library/nginx -n alpha-app1` and asserts
-  # webhook rejects with registry-violation error (only registry.example.io is allowed).
-  # Schema: AllowedListSpec struct: { allowed: []string, allowedRegex: string } -- verified RESEARCH.md.
+  # Registry-allowlist fixture for the negative-RBAC suite: the bats asserts the
+  # webhook rejects images from a registry outside this allowlist.
+  # Schema: AllowedListSpec struct: { allowed: []string, allowedRegex: string }.
   # NOTE: ContainerRegistries field is marked deprecated in v0.12.4 (use Enforcement.Registries)
   # but the deprecated form still works for POC purposes.
   containerRegistries:
     allowed:
       - registry.example.io
-      # NEW (Phase 13 Pitfall 13-P1): required for FQCI nginx Pod propagation
-      # by GTR (Phase 9 N7 negative-RBAC fixture continues to assert rejection
+      # Required for FQCI nginx Pod propagation by the GlobalTenantResource
+      # (the negative-RBAC registry fixture continues to assert rejection
       # of an arbitrary other registry — additive).
       - docker.io
   # No additionalRoleBindings, storageClasses, ingressClasses, nodeSelector, networkPolicies --
-  # Capsule defaults to allow-all (per CONTEXT.md Claude's Discretion).
+  # Capsule defaults to allow-all.

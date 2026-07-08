@@ -4,26 +4,23 @@
 # hub-flux where helm-controller can pick them up; each HR's own spec.kubeConfig
 # redirects helm-install actions to spoke-capsule (standard Flux remote-cluster pattern).
 #
-# D-08-12 (gap-close 2026-04-29) — Architectural seam fix Option B (split paths). The prior
-# version of this file carried `spec.kubeConfig.secretRef: spoke-capsule-kubeconfig` (Phase 7
-# P40/P18 invariant), which redirected kustomize-controller's apply to spoke. But spoke-capsule
-# has zero Flux CRDs (ADR-004), so the HelmRelease + OCIRepository CRs would fail to apply with
-# `no matches for kind "HelmRelease" in version "helm.toolkit.fluxcd.io/v2"`. Verified by
-# server-side dry-run: kubectl --context=k3d-spoke-capsule apply --dry-run=server -f
-# pocs/capsule/operator/helmrelease.yaml. Option B (split paths) preserves P40/P18 for
-# spoke-targeted Kustomizations (see capsule-spoke.yaml below), drops it here for hub targets.
-#
-# Phase 7 invariant evolution (D-08-12): "Spoke-targeted Kustomizations MUST include the
-# entire spec.kubeConfig block (P40/P18 silent-misroute defense). Hub-targeted Kustomizations
-# MUST NOT include spec.kubeConfig (otherwise CRs land on the wrong cluster). The split-path
-# pattern is the load-bearing structure; absence of kubeConfig on a spoke-targeted K is the
-# silent-misroute fault, not absence of kubeConfig per se."
-# D-09-05a (Phase 9 lockdown escape hatch) — `--default-service-account=default` flag on
-# kustomize-controller (D-09-05) makes any Kustomization CR without spec.serviceAccountName
-# reconcile as no-permission `default` SA. poc-capsule is hub-targeted (no spec.kubeConfig
-# per D-08-12), so the flag applies to it. Setting spec.serviceAccountName: kustomize-controller
-# explicitly uses the hub bootstrap SA (cluster-admin via flux-system ClusterRoleBinding).
-# Without this, Phase 9 lockdown immediately bricks poc-capsule reconcile.
+# Split-path invariant (2026-04-29):
+# - Spoke-targeted Kustomizations MUST carry the full spec.kubeConfig block
+#   (secret key value.yaml). Without it, kustomize-controller falls back to its
+#   in-cluster SA and silently reconciles the path into the HUB while reporting
+#   Ready — the silent-misroute fault.
+# - Hub-targeted Kustomizations MUST NOT carry spec.kubeConfig: spoke-capsule has
+#   zero Flux CRDs (hub-only Flux control plane — see
+#   docs/adr/0004-hub-only-flux-control-plane.md), so redirecting this apply to
+#   the spoke fails with `no matches for kind "HelmRelease" in version
+#   "helm.toolkit.fluxcd.io/v2"` (verified by server-side dry-run against
+#   pocs/capsule/operator/helmrelease.yaml).
+# - serviceAccountName MUST be explicit: the hub lockdown flag
+#   --default-service-account=default makes any Kustomization CR without
+#   spec.serviceAccountName reconcile as the no-permission `default` SA.
+#   poc-capsule is hub-targeted, so it uses `kustomize-controller` — the hub
+#   bootstrap SA (cluster-admin via the flux-system ClusterRoleBinding). Without
+#   this the reconcile bricks immediately.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -37,8 +34,8 @@ spec:
     kind: GitRepository
     name: flux-system
   serviceAccountName: kustomize-controller
-  # G-04 gap-close (2026-05-06): D-11-01 PostBuild RBAC patch RELOCATED to
-  # pocs/capsule/proxy/helmrelease.yaml spec.postRenderers (Pitfall 11-P1 fix).
-  # Kustomization spec.patches only modify kustomize-build output (raw YAML in path);
-  # the Role is rendered by helm-controller from the Helm chart. postRenderers is the
-  # correct Flux mechanism for patching helm-rendered chart output.
+  # Note (2026-05-06): the PostBuild RBAC patch for the chart-rendered proxy Role
+  # lives in pocs/capsule/proxy/helmrelease.yaml spec.postRenderers, NOT here.
+  # Kustomization spec.patches only modify kustomize-build output (raw YAML in
+  # path); the Role is rendered by helm-controller from the Helm chart, so
+  # postRenderers is the correct Flux mechanism for patching chart output.

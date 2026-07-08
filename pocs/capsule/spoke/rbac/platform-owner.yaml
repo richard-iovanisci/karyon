@@ -79,10 +79,10 @@ subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
     name: capsule-platform-owners
-  # === NEW (Phase 13 D-13-06): TokenRequest-backed SA kubeconfig path ===
+  # === TokenRequest-backed SA kubeconfig path ===
   # Bound to the same ClusterRole — both identity paths share the same RBAC ceiling.
   # capsule-proxy LIST filter recognizes this SA as a tenant owner via the
-  # spec.owners[] entries on alpha + bravo Tenant CRs (D-13-07).
+  # spec.owners[] entries on alpha + bravo Tenant CRs.
   - kind: ServiceAccount
     name: platform-owner
     namespace: capsule-system

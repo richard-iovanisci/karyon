@@ -2,7 +2,7 @@
 # Keycloak instance CR, reconciled by the vendored operator (26.6.4).
 #
 # Posture (documented in docs/poc-keycloak.md + docs/tenant-access.md):
-# - OIDC WIRED (2026-07-06, tenant-ui-oidc quick task): TLS via the imperative
+# - OIDC WIRED (2026-07-06): TLS via the imperative
 #   keycloak-tls Secret (scripts/poc/keycloak/create-tls.sh — certs never in
 #   git) and the issuer pinned to https://localhost:31443. That URL was
 #   LIVE-VERIFIED as the only https origin valid from all vantage points:

@@ -3,7 +3,7 @@
 # can apply HelmRelease + OCIRepository CRs (which declare metadata.namespace:
 # capsule-system) without "namespaces capsule-system not found" errors.
 #
-# G-04 gap-close (2026-05-06) -- The HelmRelease install.createNamespace: true
+# Note (2026-05-06) -- The HelmRelease install.createNamespace: true
 # creates capsule-system on the TARGET cluster (spoke-capsule via spec.kubeConfig),
 # NOT on the SOURCE cluster (hub-flux where kustomize-controller applies the CR).
 # This Namespace resource ensures capsule-system exists on hub before the CRs land.

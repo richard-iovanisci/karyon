@@ -1,26 +1,23 @@
 # pocs/capsule/spoke/kustomization.yaml
-# Phase 8 D-08-12 (gap-close 2026-04-29) — Pitfall-7 placeholder (resources: []) so the
-# spoke-targeted outer Flux Kustomization (clusters/hub-flux/pocs/capsule-spoke.yaml,
-# spec.path: ./pocs/capsule/spoke) reconciled successfully against an empty resource list.
+# Spoke-side aggregator: parent capsule-spoke.yaml's spec.kubeConfig
+# (spoke-capsule-kubeconfig) + spec.path: ./pocs/capsule/spoke routes these
+# resources to spoke-capsule via kustomize-controller's cross-cluster reconcile
+# (split-path invariant — see clusters/hub-flux/pocs/capsule.yaml).
 #
-# Phase 9 update (D-09-01): rewrites resources from [] to [config/, tenants/]. The placeholder
-# is now obsolete. Spoke-targeted: parent capsule-spoke.yaml's spec.kubeConfig:
-# spoke-capsule-kubeconfig + spec.path: ./pocs/capsule/spoke routes these resources to
-# spoke-capsule via kustomize-controller's cross-cluster reconcile (D-08-12 split-path invariant).
-#
-# Phase 11 update (G-06 gap-close 2026-05-06; codex review §2 HIGH #1 + MEDIUM #3):
-# rbac/ subdir added FIRST so the capsule-system Namespace + helm-controller
-# ServiceAccount + cluster-admin ClusterRoleBinding land on spoke-capsule before
-# any home namespace or HR install attempt within THIS K's apply.
+# rbac/ is listed FIRST (2026-05-06) so the capsule-system Namespace +
+# helm-controller ServiceAccount + cluster-admin ClusterRoleBinding land on
+# spoke-capsule before any home namespace or HR install attempt within THIS K's
+# apply.
 #
 # Defense-in-depth note: the same rbac/ subdir is ALSO referenced by a separate
 # top-level Flux Kustomization (clusters/hub-flux/pocs/capsule-spoke-rbac.yaml)
 # which has NO dependsOn on poc-capsule, ensuring inter-K ordering as well. The
 # in-K ordering here is belt-and-suspenders.
 #
-# D-11-07 live repair: Tenant CRs moved to pocs/capsule/spoke/tenant-crs/ and
-# land through the separate poc-capsule-spoke-tenants Flux Kustomization before
-# this K applies labeled tenant home Namespaces.
+# Tenant CRs live in pocs/capsule/spoke/tenant-crs/ and land through the
+# separate poc-capsule-spoke-tenants Flux Kustomization before this K applies
+# labeled tenant home Namespaces (Capsule's webhook rejects a tenant-labeled
+# namespace whose Tenant CR does not exist yet).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 sortOptions:
@@ -29,8 +26,9 @@ resources:
   - rbac/
   - config/
   - tenants/
-  # NEW (Phase 13 D-13-13): GTR + Deployment + Service propagation (shape amended
-  # from bare Pod by ADR-008 addendum 2026-07-06 — immutable Pod specs put the
-  # controller in a permanent resync error loop). Lands LAST so
-  # Tenant.Status.Namespaces is non-empty when controller first reconciles.
+  # GlobalTenantResource + Deployment + Service propagation (shape amended from a
+  # bare Pod on 2026-07-06 — immutable Pod specs put the controller in a permanent
+  # resync error loop; see docs/adr/0008-capsule-multi-tenancy-graduation.md).
+  # Lands LAST (FIFO order is load-bearing) so Tenant.Status.Namespaces is
+  # non-empty when the controller first reconciles.
   - global-resources/

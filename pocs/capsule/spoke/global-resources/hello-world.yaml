@@ -1,41 +1,43 @@
 # pocs/capsule/spoke/global-resources/hello-world.yaml
 # GlobalTenantResource that auto-propagates a hello-world Deployment + Service
-# into every tenant namespace (Phase 13 — SEED-01/02/03; shape amended 2026-07-06).
+# into every tenant namespace (shape amended 2026-07-06).
 #
-# REQ: SEED-01 (propagation to all tenant namespaces), SEED-02 (<=60s for fresh
-#      tenant), SEED-03 (single workload + Service ONLY — no extra CM)
-# Decision: D-13-11 (match-all tenantSelector), D-13-13 (file layout under
-#           pocs/capsule/spoke/global-resources/)
-# AMENDED (ADR-008 addendum 2026-07-06, supersedes D-13-12 "Pod + Service"):
-#   the original bare-Pod rawItem put capsule-controller-manager into a PERMANENT
-#   error loop — every resync re-sends the sparse Pod spec as an UPDATE, which the
-#   apiserver rejects ("pod updates may not change fields other than image...")
-#   because live Pods carry server-populated immutable fields (nodeName, projected
-#   SA token volume, ...). GlobalTenantResource has NO update-skip option
-#   (spec = tenantSelector/resyncPeriod/pruningOnDelete/resources only), so the
-#   seeded workload MUST have a mutable spec: a 1-replica Deployment. The D-13-13
-#   OQ-3 "Deployment churn" concern was weighed against a controller stuck in
-#   exponential backoff (masking real GTR failures) — the loop loses.
-#   NEVER seed bare Pods (or Jobs — also immutable) via GTR rawItems.
-# Threat: T-13-06 (workload propagation outside intended tenants) — mitigated by
-#         explicit match-all selector (canonical k8s pattern per A1); proxy LIST
-#         scopes visibility; bats seed-02-live verifies exactly 4 namespaces
+# Contract: propagation to all tenant namespaces, <=60s for a fresh tenant,
+# single workload + Service ONLY (no extra ConfigMap).
 #
-# CRITICAL Pitfall 13-P1: image MUST be FQCI (docker.io/library/nginx:alpine).
-# Capsule's containerRegistries enforcement webhook rejects non-FQCI images
-# even when `docker.io` is in `containerRegistries.allowed`. Plan 13-01 added
-# `docker.io` to alpha + bravo `containerRegistries.allowed` (additive, does
-# not regress Phase 9 N7 fixture which tests a DIFFERENT arbitrary registry).
+# AMENDED 2026-07-06 (was "Pod + Service" — see
+# docs/adr/0008-capsule-multi-tenancy-graduation.md): the original bare-Pod
+# rawItem put capsule-controller-manager into a PERMANENT error loop — every
+# resync re-sends the sparse Pod spec as an UPDATE, which the apiserver rejects
+# ("pod updates may not change fields other than image...") because live Pods
+# carry server-populated immutable fields (nodeName, projected SA token volume,
+# ...). GlobalTenantResource has NO update-skip option (spec =
+# tenantSelector/resyncPeriod/pruningOnDelete/resources only), so the seeded
+# workload MUST have a mutable spec: a 1-replica Deployment. Deployment churn
+# was weighed against a controller stuck in exponential backoff (masking real
+# GTR failures) — the loop loses.
+# NEVER seed bare Pods (or Jobs — also immutable) via GTR rawItems.
 #
-# Pitfall 13-P2: Apply ordering — pocs/capsule/spoke/kustomization.yaml has
-# FIFO sortOptions + global-resources/ AFTER tenants/, so alpha + bravo home
-# namespaces exist when controller first reconciles. For new tenants created
-# via new-tenant.sh, the GTR controller watches Tenant resources and enqueues
-# a reconcile when Tenant.Status.Namespaces becomes non-empty (A5).
+# Propagation outside intended tenants is mitigated by the explicit match-all
+# selector (canonical k8s pattern); proxy LIST scopes visibility; bats
+# seed-02-live verifies the exact namespace set.
 #
-# Pitfall 13-P6: pruningOnDelete: true (default) means tenant deletion
-# unmaterializes propagated copies — RBAC-05 cleanup race is mitigated in
-# SEED-03 bats teardown via `kubectl wait --for=delete --timeout=30s`.
+# CRITICAL: image MUST be FQCI (docker.io/library/nginx:alpine).
+# Capsule's containerRegistries enforcement webhook matches on the registry
+# prefix and rejects non-FQCI images even when `docker.io` is in
+# `containerRegistries.allowed`. `docker.io` was added to alpha + bravo
+# `containerRegistries.allowed` (additive — the negative-RBAC registry fixture
+# tests a DIFFERENT arbitrary registry and still asserts rejection).
+#
+# Apply ordering — pocs/capsule/spoke/kustomization.yaml has FIFO sortOptions +
+# global-resources/ AFTER tenants/, so alpha + bravo home namespaces exist when
+# the controller first reconciles. For new tenants created via new-tenant.sh,
+# the GTR controller watches Tenant resources and enqueues a reconcile when
+# Tenant.Status.Namespaces becomes non-empty.
+#
+# pruningOnDelete: true (default) means tenant deletion unmaterializes
+# propagated copies — the cleanup race is mitigated in the seed bats teardown
+# via `kubectl wait --for=delete --timeout=30s`.
 #
 # CRD schema verified against:
 #   https://raw.githubusercontent.com/projectcapsule/capsule/v0.12.4/
@@ -49,9 +51,9 @@ metadata:
     karyon.io/poc: capsule
 spec:
   tenantSelector:
-    matchLabels: {}                 # match-all (A1: canonical k8s pattern)
-  resyncPeriod: 60s                 # default; explicit for SEED-02 SLO clarity
-  pruningOnDelete: true             # default; explicit per D-13-11 + Pitfall 13-P6
+    matchLabels: {}                 # match-all (canonical k8s pattern)
+  resyncPeriod: 60s                 # default; explicit for the 60s propagation SLO
+  pruningOnDelete: true             # default; explicit — tenant deletion prunes propagated copies
   resources:
     - additionalMetadata:
         labels:

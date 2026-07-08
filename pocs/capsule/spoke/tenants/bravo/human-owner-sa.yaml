@@ -3,9 +3,9 @@
 # format `system:serviceaccount:tenant-bravo:human-tenant-owner` in
 # tenant-crs/bravo.yaml spec.owners[].
 #
-# REQ: RBAC-01 / RBAC-02 (human-exercised tenant-owner identity)
-# Decision: D-13-05 (binds to tenant-workload-editor via explicit clusterRoles in owner entry)
-# Threat: T-13-04 mitigation (narrower than edit; bound via Capsule auto-injection)
+# Human-exercised tenant-owner identity — binds to tenant-workload-editor via
+# an explicit clusterRoles entry in the owner list (narrower than upstream
+# `edit`; bound via Capsule auto-injection).
 #
 # Distinct from sibling `sa.yaml` (gitops-reconciler — Flux automation owner with
 # implicit-default clusterRoles: [admin, capsule-namespace-deleter]). human-tenant-owner

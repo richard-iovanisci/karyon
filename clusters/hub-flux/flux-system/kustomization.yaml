@@ -20,11 +20,13 @@ resources:
   - ../spokes
   # KARYON POC MOUNT
   - ../pocs
-# KARYON FLUX LOCKDOWN PATCHES (D-09-05 / TEN-05)
-# Multi-tenancy hardening: kustomize-controller refuses cross-namespace refs,
-# remote bases, and reconciles as `default` SA when spec.serviceAccountName is unset
-# (the bypass-trap closing P27). flux-system Kustomization sets serviceAccountName
-# explicitly (escape hatch — without it the lockdown self-blocks Flux's own bootstrap reconcile).
+# KARYON FLUX LOCKDOWN PATCHES
+# Multi-tenancy hardening: kustomize-controller refuses cross-namespace refs and
+# remote bases, and reconciles as the no-permission `default` SA when
+# spec.serviceAccountName is unset — closing the fall-through to the controller's
+# cluster-admin identity. The flux-system Kustomization sets serviceAccountName
+# explicitly (escape hatch — without it the lockdown self-blocks Flux's own
+# bootstrap reconcile).
 patches:
   - target:
       kind: Deployment

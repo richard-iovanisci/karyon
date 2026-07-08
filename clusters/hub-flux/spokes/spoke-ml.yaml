@@ -4,12 +4,11 @@
 # (applied imperatively by scripts/register-spokes-for-flux.sh; never committed
 # because it contains a bearer token).
 #
-# REQ-SPOKE-05 (this file's existence + secretRef shape).
-# REQ-SPOKE-04 (key: value.yaml explicit - RESEARCH.md Pitfall 2 reframe:
-#   the silent-misroute fault is `spec.kubeConfig` ENTIRELY ABSENT, which would
-#   make the controller fall back to its in-cluster SA and reconcile to HUB.
-#   ALWAYS include the entire spec.kubeConfig block; explicit `key: value.yaml`
-#   is belt-and-suspenders against future Flux default-key behavior changes.)
+# Spoke-targeted: ALWAYS include the entire spec.kubeConfig block. The
+# silent-misroute fault is `spec.kubeConfig` ENTIRELY ABSENT — the controller
+# then falls back to its in-cluster SA and reconciles this path into the HUB
+# while reporting Ready. Explicit `key: value.yaml` is belt-and-suspenders
+# against future Flux default-key behavior changes.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:

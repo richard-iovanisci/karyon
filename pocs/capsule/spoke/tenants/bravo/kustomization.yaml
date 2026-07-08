@@ -1,11 +1,9 @@
 # pocs/capsule/spoke/tenants/bravo/kustomization.yaml
 # Local Kustomize aggregator for tenant bravo's spoke-side resources.
+# Mirror exists at pocs/capsule/spoke/tenants/alpha/.
 #
-# D-09-01 — bravo subdir under pocs/capsule/spoke/tenants/. Mirror exists at
-# pocs/capsule/spoke/tenants/alpha/.
-#
-# D-11-07 live repair — Tenant/bravo moved to pocs/capsule/spoke/tenant-crs/.
-# This K applies only the labeled home namespace and its owner SA after the
+# Tenant/bravo itself lives in pocs/capsule/spoke/tenant-crs/.
+# This K applies only the labeled home namespace and its owner SAs after the
 # separate poc-capsule-spoke-tenants K has made Tenant/bravo live.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -14,5 +12,5 @@ sortOptions:
 resources:
   - namespace.yaml
   - sa.yaml
-  # NEW (Phase 13 D-13-05): human-tenant-owner SA for RBAC-01 binding target
+  # human-tenant-owner SA — binding target for tenant-workload-editor
   - human-owner-sa.yaml

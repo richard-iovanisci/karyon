@@ -1,14 +1,14 @@
 # pocs/capsule/tenants/alpha.yaml
-# TEN-04 — hub-targeted: per-tenant Namespace (tenant-alpha on hub) +
+# Hub-targeted: per-tenant Namespace (tenant-alpha on hub) +
 # per-tenant GitRepository + per-tenant inner Kustomization.
 #
-# D-09-02 — hub-side tenant ns mirrors spoke-side name (required so the
+# The hub-side tenant ns mirrors the spoke-side name (required so the
 # Kustomization CR has a home AND so Flux's same-namespace impersonation
 # rule resolves: SA gitops-reconciler in tenant-alpha on TARGET cluster).
 #
-# CRITICAL — RESEARCH §Gap 1: spec.kubeConfig.secretRef.name "spoke-capsule-kubeconfig"
-# MUST exist in tenant-alpha namespace on hub (NOT just flux-system). Plan 09-02 extends
-# scripts/register-poc-cluster.sh to imperatively mirror the Secret. Without the mirror,
+# CRITICAL: spec.kubeConfig.secretRef.name "spoke-capsule-kubeconfig"
+# MUST exist in tenant-alpha namespace on hub (NOT just flux-system).
+# scripts/register-poc-cluster.sh imperatively mirrors the Secret. Without the mirror,
 # the Kustomization reaches Ready=False with `secret "spoke-capsule-kubeconfig" not found`.
 # Verifier tests/bats/tenants-09-live-inner-k-ready.bats catches this.
 apiVersion: v1
@@ -16,21 +16,20 @@ kind: Namespace
 metadata:
   name: tenant-alpha
 ---
-# TEN-04 — per-tenant GitRepository. Lives in tenant-alpha namespace so the
+# Per-tenant GitRepository. Lives in tenant-alpha namespace so the
 # Kustomization's sourceRef survives --no-cross-namespace-refs lockdown.
 #
-# 2026-07-06 — secretRef added: the original Phase 9 design assumed anonymous
-# HTTPS clone ("karyon repo is public per Phase 6 REPO-01..04"), but the repo
-# went private between Phase 9 authoring and Plan 11-07, which left this source
-# Ready=False ("authentication required") and starved tenant-alpha-app for ~40
-# days (deferred in 11-07-SUMMARY Residual Work, then dropped from the parking
-# lot). scripts/register-poc-cluster.sh now mirrors the bootstrap git credential
+# 2026-07-06 — secretRef added: the original design assumed anonymous
+# HTTPS clone while the repo was public, but the repo later went private,
+# which left this source Ready=False ("authentication required") and starved
+# tenant-alpha-app for ~40 days before anyone noticed.
+# scripts/register-poc-cluster.sh now mirrors the bootstrap git credential
 # into this namespace as `karyon-git-auth` (same pattern as the
 # spoke-capsule-kubeconfig mirror — Flux secretRef is same-namespace-only).
 # The secretRef also works if the repo is later flipped back to public.
 #
-# RESEARCH §Gap 10 — owner is hard-coded (Option A) per plan-time recommendation;
-# postBuild substituteFrom would require a cross-namespace ConfigMap mirror.
+# The repo URL/owner is hard-coded; postBuild substituteFrom would require a
+# cross-namespace ConfigMap mirror.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
@@ -44,11 +43,11 @@ spec:
   ref:
     branch: main
 ---
-# TEN-04 — per-tenant inner Kustomization. CARRIES THE LOAD-BEARING P27 DEFENSE.
-#
-# P27 LOAD-BEARING DEFENSE — every tenant Flux Kustomization MUST set
-# spec.serviceAccountName explicitly so cross-cluster reconciles impersonate the
-# tenant owner SA instead of falling through to the kubeConfig principal.
+# Per-tenant inner Kustomization. CARRIES A LOAD-BEARING DEFENSE:
+# every tenant Flux Kustomization MUST set spec.serviceAccountName explicitly so
+# cross-cluster reconciles impersonate the tenant owner SA instead of falling
+# through to the kubeConfig principal (cluster-admin), which would bypass
+# Capsule's tenant boundary entirely.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -67,10 +66,10 @@ spec:
   kubeConfig:
     secretRef:
       name: spoke-capsule-kubeconfig
-      # Same namespace (tenant-alpha) — required by Flux v2.8 contract
-      # (RESEARCH §Gap 1). scripts/register-poc-cluster.sh extension mirrors Secret imperatively.
+      # Same namespace (tenant-alpha) — Flux secretRef is same-namespace-only;
+      # scripts/register-poc-cluster.sh mirrors the Secret imperatively.
       key: value.yaml
-  serviceAccountName: gitops-reconciler  # P27 LOAD-BEARING DEFENSE
+  serviceAccountName: gitops-reconciler  # LOAD-BEARING: impersonate the tenant SA, never the kubeConfig principal
   dependsOn:
     - name: poc-capsule
       namespace: flux-system

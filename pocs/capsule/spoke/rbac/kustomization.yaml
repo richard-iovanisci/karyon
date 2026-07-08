@@ -1,24 +1,22 @@
 # pocs/capsule/spoke/rbac/kustomization.yaml
-# Local Kustomize aggregator for the spoke-side rbac subdir. Resolved by parent
-# pocs/capsule/spoke/kustomization.yaml (Plan 11-07 G-06 fix adds rbac/ FIRST in
-# the resources list as defense in depth) AND by the new top-level Flux Kustomization
-# clusters/hub-flux/pocs/capsule-spoke-rbac.yaml which targets just this rbac/ subdir
-# with NO dependsOn on poc-capsule (codex §2 MEDIUM #3 fix -- deterministic ordering
-# at the Flux K layer, not just inside one K's apply).
+# Local Kustomize aggregator for the spoke-side rbac subdir (2026-05-06).
+# Resolved by parent pocs/capsule/spoke/kustomization.yaml (which lists rbac/
+# FIRST as defense in depth) AND by the top-level Flux Kustomization
+# clusters/hub-flux/pocs/capsule-spoke-rbac.yaml which targets just this rbac/
+# subdir with NO dependsOn on poc-capsule (deterministic ordering at the Flux K
+# layer, not just inside one K's apply).
 #
 # Ordering within this file: namespace.yaml MUST be first so the capsule-system Namespace
-# lands BEFORE the ServiceAccount that targets it (codex §2 HIGH #1 fix; without this,
-# a clean-spoke first-reconcile hits "namespace not found" before the SA can be created).
-#
-# G-06 gap-close (2026-05-06)
+# lands BEFORE the ServiceAccount that targets it (without this, a clean-spoke
+# first-reconcile hits "namespace not found" before the SA can be created).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - namespace.yaml
   - helm-controller-sa.yaml
-  # NEW (Phase 13 D-13-06): platform-owner SA BEFORE platform-owner.yaml so the SA
-  # referenced in the dual-subject ClusterRoleBinding lands first on clean reconcile.
+  # platform-owner SA BEFORE platform-owner.yaml so the SA referenced in the
+  # dual-subject ClusterRoleBinding lands first on clean reconcile.
   - platform-owner-sa.yaml
   - platform-owner.yaml
-  # NEW (Phase 13 D-13-04): Tier 3 RBAC narrowing — narrower than upstream k8s edit
+  # Tier 3 RBAC narrowing — narrower than upstream k8s edit
   - tenant-workload-editor.yaml

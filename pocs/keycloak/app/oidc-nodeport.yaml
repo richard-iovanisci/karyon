@@ -1,6 +1,6 @@
 # pocs/keycloak/app/oidc-nodeport.yaml
 # NodePort exposing Keycloak's TLS listener for the pinned OIDC issuer
-# https://localhost:31443 (tenant-ui-oidc quick task, 2026-07-06).
+# https://localhost:31443 (2026-07-06).
 #
 # Reachability (live-verified): the spoke-capsule k3d serverlb publishes NO
 # free host ports (recreate needed), so host reachability comes from the

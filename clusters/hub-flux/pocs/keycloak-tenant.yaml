@@ -7,10 +7,11 @@
 # this Tenant applies. Keycloak depends on capsule; NEVER the reverse (the
 # capsule DAG's dependsOn chain is pinned by tenants-04 bats).
 #
-# P18/P40: full spec.kubeConfig block ALWAYS present on spoke-targeted Ks —
-# omitting it silently reconciles into the HUB while reporting Ready=True.
-# P27: explicit serviceAccountName (the --default-service-account lockdown DOES
-# apply to kubeConfig Kustomizations; empty SA falls through to `default`).
+# Spoke-targeted: the full spec.kubeConfig block is ALWAYS present (secret key
+# value.yaml) — omitting it silently reconciles into the HUB while reporting
+# Ready=True. serviceAccountName is explicit (the --default-service-account
+# lockdown DOES apply to kubeConfig Kustomizations; an empty SA falls through
+# to `default`).
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:

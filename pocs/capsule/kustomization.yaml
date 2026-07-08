@@ -1,24 +1,20 @@
 # pocs/capsule/kustomization.yaml
-# Phase 7 placeholder so the outer Flux Kustomization
-# (clusters/hub-flux/pocs/capsule.yaml, spec.path: ./pocs/capsule) reconciles
-# successfully against an empty resource list. Phase 8 will replace `resources: []`
-# with `[operator, proxy, config]` once the HelmReleases land.
+# Aggregator for the capsule POC tree, reconciled by the outer Flux Kustomization
+# (clusters/hub-flux/pocs/capsule.yaml, spec.path: ./pocs/capsule). This file must
+# exist even with an empty resource list — without it the outer Kustomization
+# reports Ready=False (path not found).
 #
-# REQ-CAPCLU-02 (Pitfall 7 — without this file the outer Kustomization reports
-# Ready=False; path not found).
+# operator/ and proxy/ are SEPARATE charts: capsule-proxy installs from its own
+# per-chart OCIRepository + HelmRelease, NOT via the capsule umbrella chart's
+# proxy.enabled flag (the umbrella pins an older capsule-proxy).
 #
-# Phase 8 update (D-08-05): operator/ and proxy/ subdir refs added — the outer
-# poc-capsule Flux Kustomization now reconciles operator HelmRelease + proxy
-# HelmRelease + their per-chart OCIRepositories under capsule-system on
-# spoke-capsule via spoke-capsule-kubeconfig.
+# tenants/ holds the hub-targeted per-tenant inner Flux Kustomization CRs +
+# per-tenant Namespaces + per-tenant GitRepositories. CapsuleConfiguration +
+# Tenant CRs land via the spoke-targeted poc-capsule-spoke outer K
+# (path ./pocs/capsule/spoke).
 #
-# Phase 9 update (D-09-01): tenants/ subdir added — hub-targeted per-tenant
-# inner Flux Kustomization CRs + per-tenant Namespaces + per-tenant GitRepositories.
-# CapsuleConfiguration + Tenant CRs land via the spoke-targeted poc-capsule-spoke
-# outer K (path ./pocs/capsule/spoke).
-#
-# G-04 gap-close (2026-05-06): namespace.yaml added first so capsule-system
-# Namespace exists on hub before HelmRelease/OCIRepository CRs are applied.
+# namespace.yaml is listed first (2026-05-06) so the capsule-system Namespace
+# exists on hub before HelmRelease/OCIRepository CRs are applied.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

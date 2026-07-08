@@ -1,20 +1,17 @@
 # pocs/capsule/spoke/rbac/tenant-workload-editor.yaml
-# Capsule tenant-workload-editor ClusterRole (Phase 13 — Tier 3 RBAC narrowing).
-#
-# REQ: RBAC-01 (v0.20 — narrower than upstream k8s `edit`)
-# Decision: D-13-04 (positive grants + 4 explicit denials)
-# Threat: T-13-04 (Elevation of Privilege via overbroad tenant role)
+# Capsule tenant-workload-editor ClusterRole (Tier 3 RBAC narrowing —
+# positive grants + 4 explicit denials).
 #
 # Intent: replace upstream k8s `admin` / `edit` for human-exercised tenant
-# owners. Narrower than `edit` by removing Secret CUD (read-only per D-13-01)
+# owners. Narrower than `edit` by removing Secret CUD (secrets are read-only)
 # + RoleBindings + ResourceQuotas + LimitRanges.
 #
-# The Flux SA owner pattern (RBAC-03) is preserved on alpha + bravo with
+# The Flux SA owner pattern is preserved on alpha + bravo with
 # implicit-default `clusterRoles: [admin, capsule-namespace-deleter]`; only
-# the new `human-tenant-owner` SA per tenant binds to THIS ClusterRole via
+# the `human-tenant-owner` SA per tenant binds to THIS ClusterRole via
 # Capsule's auto-injected RoleBinding `capsule-<tenant>-<index>-tenant-workload-editor`.
 #
-# Anti-pattern (Pitfall 13-P3): DO NOT add any rbac.authorization.k8s.io/
+# Anti-pattern: DO NOT add any rbac.authorization.k8s.io/
 # aggregate-to-* label — would silently inherit upstream `edit` Secret CUD.
 #
 # Local POC usage:
@@ -72,13 +69,13 @@ rules:
   - apiGroups: ["events.k8s.io"]
     resources: ["events"]
     verbs: ["get", "list", "watch"]
-  # Secrets — D-13-01 read-only ONLY (NO create/update/patch/delete)
+  # Secrets — read-only ONLY (NO create/update/patch/delete)
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]
 # Implicit denials (not in rules[]):
-#   - rolebindings, roles (rbac.authorization.k8s.io)  -- RBAC-01 explicit denial #2
-#   - resourcequotas (""), limitranges ("")            -- RBAC-01 explicit denials #3 and #4
+#   - rolebindings, roles (rbac.authorization.k8s.io)  -- explicit denial
+#   - resourcequotas (""), limitranges ("")            -- explicit denials
 #   - nodes, csr, clusterrolebinding, clusterrole      -- Tier-1/Tier-2 surface
 #   - tenants.capsule.clastix.io, customresourcedefinitions  -- Tier-2 surface
 #   - networkpolicies.networking.k8s.io                -- defense in depth

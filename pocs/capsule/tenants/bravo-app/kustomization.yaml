@@ -1,10 +1,9 @@
 # pocs/capsule/tenants/bravo-app/kustomization.yaml
-# D-09-01 / Pitfall-7 placeholder — empty resource list so the inner Flux
-# Kustomization (tenant-bravo-app, defined in pocs/capsule/tenants/bravo.yaml)
-# reconciles successfully against an empty resource set.
-#
-# Mirrors Phase 7 D-06 / Phase 8 D-08-12 spoke/ placeholder pattern.
-# Phase 11 (workload demonstration) may populate.
+# Placeholder — empty resource list so the inner Flux Kustomization
+# (tenant-bravo-app, defined in pocs/capsule/tenants/bravo.yaml)
+# reconciles successfully against an empty resource set (a missing path would
+# leave it Ready=False, path not found). May be populated with tenant
+# workloads later.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources: []

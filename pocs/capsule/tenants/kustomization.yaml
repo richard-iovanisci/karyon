@@ -1,9 +1,9 @@
 # pocs/capsule/tenants/kustomization.yaml
 # Aggregator for hub-targeted tenant resources.
 #
-# D-09-01 — tenants subdir under pocs/capsule/. Hub-targeted: parent
-# pocs/capsule/kustomization.yaml resolves [operator/, proxy/, tenants/] under the
-# poc-capsule outer K (NO kubeConfig per D-08-12 split-path; CRs land on hub apiserver).
+# Hub-targeted: parent pocs/capsule/kustomization.yaml resolves this under the
+# poc-capsule outer K (NO kubeConfig — split-path pattern; CRs land on the hub
+# apiserver).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

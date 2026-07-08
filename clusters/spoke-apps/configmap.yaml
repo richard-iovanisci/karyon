@@ -1,7 +1,7 @@
 # clusters/spoke-apps/configmap.yaml
-# REQ-SPOKE-05 seed - ConfigMap NAME is karyon-spoke-id (same on both spokes;
-# the namespace and data.spoke value differ - that is the cross-cluster
-# falsifier per ROADMAP success #5 / Phase 4 D-03 / RESEARCH.md Pitfall 2).
+# ConfigMap NAME is karyon-spoke-id (same on both spokes; the namespace and
+# data.spoke value differ - reading this value from each cluster proves which
+# spoke a reconcile actually landed on, guarding against silent hub misroutes).
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -1,20 +1,18 @@
 # pocs/capsule/spoke/config/capsuleconfig.yaml
-# TEN-01 — CapsuleConfiguration "default" singleton (cluster-scoped policy CR
+# CapsuleConfiguration "default" singleton (cluster-scoped policy CR
 # Capsule webhooks consult on every tenant op).
 #
 # CRD schema verification (v0.12.4):
 #   - apiVersion: capsule.clastix.io/v1beta2
-#   - REQUIRED field: spec.enableTLSReconciler (boolean) — RESEARCH §Gap 5 correction;
-#     CONTEXT.md D-09-04 omitted this. Set false because operator chart's
-#     tls.enableController: true (Phase 8 D-08-04) handles cert reconciliation
-#     via the operator chart's controller-less self-sign Job, not via this flag.
+#   - REQUIRED field: spec.enableTLSReconciler (boolean). Set false because the
+#     operator chart's tls.enableController: true handles cert reconciliation
+#     via the chart's controller-less self-sign Job, not via this flag.
 #   - spec.forceTenantPrefix: top-level (line 80 of CRD)
 #   - spec.allowServiceAccountPromotion: top-level (line 67)
 #   - spec.userGroups: DEPRECATED in v1beta2 but kept for chart-default compatibility
 #
-# TEN-01 — forceTenantPrefix: true is REQUIRED for namespace prefix enforcement
-# (Tenant CR's spec.forceTenantPrefix overrides this, but since both are true,
-# behavior is consistent).
+# forceTenantPrefix: true is REQUIRED for namespace prefix enforcement
+# (Tenant CR's spec.forceTenantPrefix overrides this per tenant).
 apiVersion: capsule.clastix.io/v1beta2
 kind: CapsuleConfiguration
 metadata:
@@ -22,23 +20,24 @@ metadata:
 spec:
   # REQUIRED by CRD schema
   enableTLSReconciler: false
-  # TEN-01 — global namespace prefix enforcement
+  # Global namespace prefix enforcement
   forceTenantPrefix: true
   # Canonical clastix default; allows SA → owner promotion via labels
   # (allows gitops-reconciler SA to escalate identity inside its own tenant)
   allowServiceAccountPromotion: true
-  # Owner-group filter (chart default + Phase 11 D-11-02 extension to recognize
-  # SA-token-authenticated identities as Capsule-owned for proxy LIST behavior).
-  # Phase 10 Plan 10-02 patched the live CapsuleConfiguration with these 3 groups; this
-  # repo edit makes the GitOps source canonical (single source of truth -- reads exactly
-  # like the live cluster state). NOTE: userGroups is DEPRECATED in v1beta2 (replaced
-  # by spec.users), but the capsule chart still uses this for default group-based owner
-  # detection. Keeping for compatibility; planner may switch to spec.users post-graduation.
+  # Owner-group filter (chart default, extended so SA-token-authenticated
+  # identities are recognized as Capsule-owned for proxy LIST behavior).
+  # The first 3 groups were originally patched onto the live CapsuleConfiguration;
+  # this repo edit makes the GitOps source canonical (single source of truth --
+  # reads exactly like the live cluster state). NOTE: userGroups is DEPRECATED in
+  # v1beta2 (replaced by spec.users), but the capsule chart still uses this for
+  # default group-based owner detection. Keeping for compatibility; may switch to
+  # spec.users later.
   userGroups:
     - capsule.clastix.io
     - system:serviceaccounts
     - system:authenticated
-    # 2026-07-06 (keycloak-idp-poc quick task): OIDC group scope, appended so
+    # 2026-07-06: OIDC group scope, appended so
     # the Keycloak `karyon` realm groups work as Capsule identities the moment
     # apiserver OIDC wiring lands (a Group promoted to Tenant owner MUST also
     # be in this scope — projectcapsule.dev/docs/tenants/permissions).
@@ -52,7 +51,7 @@ spec:
   # Defense-in-depth: tenant cannot register kube-* namespace as a tenant ns.
   # (Capsule's own webhooks already block this; explicit makes intent clear.)
   protectedNamespaceRegex: ^kube-.*$
-  # POC keeps these empty — Phase 11 N7 negative-RBAC may exercise.
+  # POC keeps these empty — the negative-RBAC suite may exercise them.
   nodeMetadata:
     forbiddenAnnotations: {}
     forbiddenLabels: {}

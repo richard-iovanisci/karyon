@@ -2,10 +2,10 @@
 # Outer Flux Kustomization: Keycloak infrastructure on spoke-capsule —
 # tenant-claimed namespace, vendored operator (CRDs + Deployment), Postgres.
 #
-# dependsOn poc-keycloak-tenant (D-11-07 lesson: the tenant-labeled namespace
-# must apply AFTER its Tenant CR is live, in a separate outer K, because
-# kustomize-controller dry-runs whole batches and Capsule's webhook rejects a
-# labeled namespace whose Tenant does not exist yet).
+# dependsOn poc-keycloak-tenant: the tenant-labeled namespace must apply AFTER
+# its Tenant CR is live, in a separate outer K, because kustomize-controller
+# dry-runs whole batches and Capsule's webhook rejects a labeled namespace
+# whose Tenant does not exist yet.
 #
 # wait: true — Ready only when the operator Deployment and Postgres are up.
 # EXPECTED to sit not-ready after first apply until the imperative Secret

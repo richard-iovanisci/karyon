@@ -1,6 +1,6 @@
 # clusters/hub-flux/pocs/capsule-spoke-rbac.yaml
-# Phase 11 Plan 07 G-06 gap-close (2026-05-06; codex review §2 MEDIUM #3) -- separate
-# spoke-targeted Flux Kustomization for the spoke-side rbac/ subdir bootstrap.
+# Separate spoke-targeted Flux Kustomization for the spoke-side rbac/ subdir
+# bootstrap (2026-05-06).
 #
 # Why a separate K (not just rbac/ inside pocs/capsule/spoke/kustomization.yaml):
 # That intra-K ordering only governs apply order INSIDE poc-capsule-spoke. The
@@ -18,16 +18,17 @@
 #   4. poc-capsule-spoke (tenant CRs + config) dependsOn poc-capsule-spoke-rbac AND poc-capsule;
 #      both must be Ready=True before tenant CRs land.
 #
-# spec.serviceAccountName: flux-reconciler -- corrects codex §2 HIGH #2: POC spokes only
-# have flux-reconciler SA (per scripts/register-poc-cluster.sh:50). Using that name makes
-# Flux's kustomize-controller impersonation valid on the target cluster.
+# spec.serviceAccountName: flux-reconciler -- POC spokes only have the
+# flux-reconciler SA (provisioned by scripts/register-poc-cluster.sh). Using that
+# name makes Flux's kustomize-controller impersonation valid on the target cluster.
 #
 # spec.path: ./pocs/capsule/spoke/rbac -- narrowly scopes this K to the rbac/ subdir only;
-# pocs/capsule/spoke/kustomization.yaml's broader [rbac/, config/, tenants/] still applies
-# to poc-capsule-spoke (which dependsOn this rbac K) but is itself a defense-in-depth pass.
+# pocs/capsule/spoke/kustomization.yaml's broader resource list still applies to
+# poc-capsule-spoke (which dependsOn this rbac K) but is itself a defense-in-depth pass.
 #
-# REQ-CAPCLU-02 (key: value.yaml explicit -- v0.18 P18 inheritance per Phase 7 P18 silent-
-# misroute defense; same shape as capsule-spoke.yaml).
+# Spoke-targeted: ALWAYS include the entire spec.kubeConfig block with explicit
+# key: value.yaml (same shape as capsule-spoke.yaml) — omitting it silently
+# reconciles into the hub while reporting Ready.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -37,7 +38,7 @@ spec:
   interval: 5m
   path: ./pocs/capsule/spoke/rbac
   prune: true
-  serviceAccountName: flux-reconciler   # codex §2 HIGH #2: matches register-poc-cluster.sh:50
+  serviceAccountName: flux-reconciler   # the SA provisioned on spoke by register-poc-cluster.sh
   wait: true
   timeout: 5m
   sourceRef:

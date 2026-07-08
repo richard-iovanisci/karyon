@@ -1,37 +1,35 @@
 # pocs/capsule/spoke/rbac/helm-controller-sa.yaml
-# G-06 gap-close (2026-05-06): helm-controller impersonation target on spoke-capsule.
+# helm-controller impersonation target on spoke-capsule (2026-05-06).
 #
-# Root cause (G-06): When a HelmRelease in capsule-system has `spec.kubeConfig`
+# Root cause: When a HelmRelease in capsule-system has `spec.kubeConfig`
 # (cross-cluster) but NO `spec.serviceAccountName`, Flux's helm-controller defaults
 # to impersonating `system:serviceaccount:capsule-system:default` on the TARGET
 # cluster (spoke-capsule). The `default` SA in capsule-system has zero RBAC, so
 # helm install/upgrade requests fail with `context deadline exceeded`.
 #
-# Fix mechanism (per RESEARCH.md line 971 -- oneuptime "Flux Service Account
-# Impersonation" article verified): `spec.kubeConfig` + `spec.serviceAccountName`
-# causes helm-controller to impersonate the named SA ON THE TARGET cluster.
+# Fix mechanism: `spec.kubeConfig` + `spec.serviceAccountName` causes
+# helm-controller to impersonate the named SA ON THE TARGET cluster.
 # This file provisions the SA + cluster-admin ClusterRoleBinding so the impersonation
 # has permission to install/upgrade helm releases AND apply chart-rendered resources
-# (capsule-proxy:capsule-proxy Role + secrets postRenderers patch from Plan 11-06).
+# (the capsule-proxy:capsule-proxy Role + its secrets postRenderers patch).
 #
-# Threat model -- codex §2 MEDIUM "cluster-admin rationale overstates containment":
-# This binding plainly grants cluster-admin on spoke-capsule to any caller that can
-# impersonate this SA. A compromised Capsule chart (or a future HelmRelease added by
-# mistake using `spec.serviceAccountName: helm-controller`) gets cluster-admin on the
-# entire spoke-capsule cluster -- there is NO per-namespace scoping or per-resource
-# restriction enforced by Kubernetes itself. We accept this risk because:
-#   (a) spoke-capsule is a POC isolation cluster (P31 invariant: NOT in `task rebuild`)
-#   (b) ADR-008 ships v0.19 in DEFER posture; Phase 12 (capsule-addon-fluxcd) may
-#       narrow this if adopted in v0.20+
+# Threat model: this binding plainly grants cluster-admin on spoke-capsule to any
+# caller that can impersonate this SA. A compromised Capsule chart (or a future
+# HelmRelease added by mistake using `spec.serviceAccountName: helm-controller`)
+# gets cluster-admin on the entire spoke-capsule cluster -- there is NO
+# per-namespace scoping or per-resource restriction enforced by Kubernetes itself.
+# We accept this risk because:
+#   (a) spoke-capsule is a POC isolation cluster (deliberately NOT part of `task rebuild`)
+#   (b) narrowing this grant (e.g. via Capsule's addon-fluxcd) was evaluated and
+#       not adopted -- see docs/backlog.md decision log
 #   (c) The alternative -- enumerating per-resource Roles for every chart install/upgrade
 #       step -- breaks on the next chart minor version bump and adds maintenance burden
 #   (d) Capsule's webhook does NOT block cluster-admin operations on capsule-system
 #       resources (capsule-system itself is not a tenant namespace)
-# Documented + accepted per ASVS L1 risk acceptance in <threat_model> T-11-07-01.
 #
-# Lands via the NEW separate spoke-targeted poc-capsule-spoke-rbac outer Kustomization
+# Lands via the separate spoke-targeted poc-capsule-spoke-rbac outer Kustomization
 # (clusters/hub-flux/pocs/capsule-spoke-rbac.yaml, spec.kubeConfig: spoke-capsule-kubeconfig,
-# spec.serviceAccountName: flux-reconciler -- matches register-poc-cluster.sh:50). NO
+# spec.serviceAccountName: flux-reconciler -- the SA register-poc-cluster.sh provisions). NO
 # dependsOn on poc-capsule, ensuring it lands BEFORE HRs are picked up by helm-controller.
 apiVersion: v1
 kind: ServiceAccount
