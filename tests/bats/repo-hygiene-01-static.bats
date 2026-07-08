@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # tests/bats/repo-hygiene-01-static.bats
-# Phase 6 Wave 0 static contract for REPO-02 (.gitignore D-16 expansion),
-# REPO-03 (.env.example contract), REPO-04 (hooks/pre-commit + .gitleaks.toml).
+# Repo hygiene contracts: .gitignore secret-material globs, the .env.example
+# template shape, and the gitleaks pre-commit hook.
 
 load 'test_helper'
 
@@ -12,7 +12,7 @@ setup() {
   GITLEAKS_TOML="${REPO_ROOT}/.gitleaks.toml"
 }
 
-@test "REPO-02 (D-16): .gitignore retains existing entries and adds Phase 6 expansions" {
+@test ".gitignore carries the secret-material and IDE-noise globs" {
   [ -f "$GITIGNORE" ]
   for literal in \
     '.env' \
@@ -30,12 +30,9 @@ setup() {
     run grep -F -- "$literal" "$GITIGNORE"
     [ "$status" -eq 0 ]
   done
-  # .planning/ is intentionally tracked (D-15) — must NOT be in .gitignore
-  run grep -E '^\.planning/' "$GITIGNORE"
-  [ "$status" -ne 0 ]
 }
 
-@test "REPO-03: .env.example documents all three required keys with placeholder values" {
+@test ".env.example documents all three required keys with placeholder values" {
   [ -f "$ENVEXAMPLE" ]
   for literal in \
     'GITHUB_OWNER=' \
@@ -48,7 +45,7 @@ setup() {
   done
 }
 
-@test "REPO-04 (D-06): hooks/pre-commit exists and is executable bash with strict mode + preflight-lib sourcing" {
+@test "hooks/pre-commit exists and is executable bash with strict mode + preflight-lib sourcing" {
   [ -f "$HOOK" ]
   [ -x "$HOOK" ]
   run grep -E '^#!/usr/bin/env bash' "$HOOK"
@@ -59,7 +56,7 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "REPO-04 (D-06): hooks/pre-commit invokes the canonical gitleaks subcommand" {
+@test "hooks/pre-commit invokes the canonical gitleaks subcommand" {
   [ -f "$HOOK" ]
   run grep -F -- 'gitleaks git --pre-commit' "$HOOK"
   [ "$status" -eq 0 ]
@@ -71,7 +68,7 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "REPO-04: hooks/pre-commit gates on gitleaks presence with remediation message" {
+@test "hooks/pre-commit gates on gitleaks presence with remediation message" {
   [ -f "$HOOK" ]
   run grep -F -- 'have gitleaks' "$HOOK"
   [ "$status" -eq 0 ]
@@ -79,7 +76,7 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "REPO-04 (D-08): .gitleaks.toml exists with allow-rules for placeholders" {
+@test ".gitleaks.toml exists with allow-rules for placeholders" {
   [ -f "$GITLEAKS_TOML" ]
   run grep -F -- '[allowlist]' "$GITLEAKS_TOML"
   [ "$status" -eq 0 ]

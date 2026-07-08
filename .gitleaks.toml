@@ -1,78 +1,62 @@
 # .gitleaks.toml
-# Allow-rules for gitleaks pre-commit hook (REPO-04) and CI gitleaks-scan job
-# (REPO-07, see Plan 07). Reviewed during the one-shot historical scan in this
-# plan; expand only when a NEW false-positive is observed AND the value is
-# verified to be a placeholder (not a real secret rotated).
+# Allow-rules for the gitleaks pre-commit hook (hooks/pre-commit) and the CI
+# gitleaks-scan job. Expand only when a NEW false positive is observed AND the
+# flagged value is verified to be a placeholder, never a rotated real secret.
 
 [allowlist]
-description = "False positives: placeholder tokens and CONTEXT.md SHAs"
+description = "False positives: placeholder tokens and synthetic fixtures"
 regexes = [
-  '''ghp_REPLACE_WITH_PAT_WITH_repo_SCOPE''',  # .env.example placeholder (D-09 Phase 1)
+  '''ghp_REPLACE_WITH_PAT_WITH_repo_SCOPE''',  # .env.example placeholder
 ]
 paths = [
-  '''^\.env\.example$''',                                                                                        # whole-file allow (Phase 1 D-11 contract)
-  # D-11-04-revised (Phase 11; reviewer HIGH #3) -- file-specific allowlist for the verified
-  # Phase 7 + Phase 10 fixture-bearing markdown files. The original broad whole-tree
-  # planning-markdown regex was rejected by reviewer because it would hide the exact
-  # accidental-leak class VAL-05 is meant to catch. Each entry below corresponds to a
-  # markdown file that PROVABLY quotes the synthetic-kubeconfig fixture content (verified
-  # 2026-05-05 via `grep -l 'kind: Config' .planning/phases/{07,10}-*/*.md`). NEW phases
-  # that quote fixtures MUST add a new path entry (intentional friction; prevents
-  # broad-allowlist class of leak).
-  # G-06 (Plan 11-07; 2026-05-06; codex review §2 MEDIUM #8) -- tests/bats/proxy-06-
-  # live-fixture.bats added below as a 9th entry; the file's @test 3 deliberately uses
-  # a kubeconfig-shaped heredoc IN BATS_TEST_TMPDIR (never written in-repo) to verify
-  # gitleaks fires on the unallowlisted shape. The fixture file ITSELF (its source code)
-  # carries the heredoc literal, which gitleaks --no-git --source detects when scanning
-  # the bats source directly. Path-specific allow keeps the leak-defense @test 3 GREEN
-  # while letting the fixture source live in the repo. Codex review §2 MEDIUM #8 also
-  # required that we re-run `bats tests/bats/proxy-06-live-fixture.bats` AFTER the
-  # allowlist change to prove the temp fixture still triggers gitleaks; the verify block
-  # of this task does that.
-  # Anti-regression sentinel (push-gate-05 @test 2): the broad regex literal must NOT
-  # appear anywhere in this file -- the bats check uses `grep -F` which would match
-  # the literal in a comment as much as in a paths entry.
-  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-00-PLAN\.md$''',         # D-11-04-revised
-  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-RESEARCH\.md$''',        # D-11-04-revised
-  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-REVIEW\.md$''',          # D-11-04-revised
-  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-PATTERNS\.md$''',        # D-11-04-revised
-  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',                 # D-11-04-revised
-  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',                  # D-11-04-revised
-  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',                # D-11-04-revised
-  # 2026-07-06: the v0.19 milestone archive (git mv .planning/phases/ ->
-  # .planning/milestones/v0.19-phases/) relocated the seven D-11-04-revised
-  # fixture-bearing files, silently un-allowlisting them (push-gate-05 @test 3
-  # went RED unnoticed). The seven entries below are the SAME files at their
-  # archived location — still file-specific per reviewer HIGH #3; the original
-  # entries above stay so `gitleaks git --log-opts=--all` history scans remain
-  # clean for pre-archive commits.
-  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-00-PLAN\.md$''',   # D-11-04-revised (archived)
-  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-RESEARCH\.md$''',  # D-11-04-revised (archived)
-  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-REVIEW\.md$''',    # D-11-04-revised (archived)
-  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-PATTERNS\.md$''',  # D-11-04-revised (archived)
-  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',           # D-11-04-revised (archived)
-  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',            # D-11-04-revised (archived)
-  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',          # D-11-04-revised (archived)
-  '''^tests/bats/proxy-06-live-fixture\.bats$''',                                                                # G-06 (Plan 11-07): synthetic kubeconfig fixture (Phase 10 PROXY-03 falsifier; commit d9734486 inheritance)
+  '''^\.env\.example$''',                                                                                        # whole-file allow: placeholder-only template
+  # HISTORY-ONLY ENTRIES. The fourteen .planning/... paths below point at
+  # retired planning documents that quoted the synthetic kubeconfig fixture.
+  # The .planning/ directory was deleted from the working tree in July 2026,
+  # but CI scans the FULL git history (`gitleaks git --log-opts=--all` with
+  # fetch-depth 0), and the files remain in historical commits at both their
+  # original (phases/) and archived (milestones/) locations. Removing any
+  # entry re-flags those historical blobs and fails CI. Keep all fourteen
+  # unless git history is ever rewritten.
+  # The entries are deliberately file-specific: one broad pattern covering
+  # every planning markdown file would have hidden exactly the
+  # accidental-leak class this config exists to catch. push-gate-05 bats
+  # enforces both properties (entries present; no broad pattern anywhere in
+  # this file, comments included).
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-00-PLAN\.md$''',         # history-only
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-RESEARCH\.md$''',        # history-only
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-REVIEW\.md$''',          # history-only
+  '''^\.planning/phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-PATTERNS\.md$''',        # history-only
+  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',                 # history-only
+  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',                  # history-only
+  '''^\.planning/phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',                # history-only
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-00-PLAN\.md$''',   # history-only (archived location)
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-RESEARCH\.md$''',  # history-only (archived location)
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-REVIEW\.md$''',    # history-only (archived location)
+  '''^\.planning/milestones/v0\.19-phases/07-foundation-poc-seam-spoke-capsule-cluster-eks-capsule-doc/07-PATTERNS\.md$''',  # history-only (archived location)
+  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-00-PLAN\.md$''',           # history-only (archived location)
+  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-REVIEW\.md$''',            # history-only (archived location)
+  '''^\.planning/milestones/v0\.19-phases/10-tenant-owner-kubeconfigs-capsule-proxy-round-trip/10-PATTERNS\.md$''',          # history-only (archived location)
+  # proxy-06-live-fixture.bats deliberately embeds a kubeconfig-shaped heredoc
+  # (written only to BATS_TEST_TMPDIR, never in-repo) to prove gitleaks fires
+  # on the unallowlisted shape. The heredoc literal lives in the suite's
+  # source, so the suite file itself needs a path allow.
+  '''^tests/bats/proxy-06-live-fixture\.bats$''',
 ]
-# Add per-finding entries during the one-shot scan if needed.
-# Format: regexes = [ '''<exact-literal>''' ]
-# Format: paths   = [ '''<file-path-regex>''' ]
 
-# Phase 7 v0.19 POC-03: kubeconfig-shaped artifact + bearer token regex.
-# gitleaks 8.30.1 supports multi-line regex via (?ms) and [\r\n] character classes.
-# minVersion = "v8.25.0" satisfied by the project's pinned 8.30.1.
-# Ref: .planning/research/PITFALLS.md §P29; tests/fixtures/gitleaks/synthetic-kubeconfig.yaml
-# is the bats positive fixture (path-allowlisted below so it can live in the repo).
+# Custom rule: kubeconfig-shaped artifact with an embedded bearer token.
+# The multi-line regex needs gitleaks >= 8.25 for (?ms); the repo pins 8.30.1
+# in .tool-versions. tests/fixtures/gitleaks/synthetic-kubeconfig.yaml is the
+# positive-test fixture (allowlisted below so it can live in the repo).
 
 [[rules]]
 id = "kubeconfig-bearer-token"
 description = "Kubernetes kubeconfig with embedded bearer token (kind: Config + users.token)"
 regex = '''(?ms)^kind:\s*Config[\s\S]*?users:[\s\S]*?token:\s*[A-Za-z0-9._-]{32,}'''
-tags = ["kubernetes", "kubeconfig", "bearer-token", "v0.19"]
+tags = ["kubernetes", "kubeconfig", "bearer-token"]
 
 [rules.allowlist]
-description = "Phase 7 synthetic fixtures (verified inert; positive-test only)"
+description = "Synthetic fixture (verified inert; positive-test only)"
 paths = [
   '''^tests/fixtures/gitleaks/synthetic-kubeconfig\.yaml$''',
 ]
