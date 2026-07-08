@@ -8,7 +8,7 @@
 #
 # D-08-02 — per-chart OCIRepository (NOT shared with capsule-proxy; capsule-proxy has its own at pocs/capsule/proxy/ocirepository.yaml)
 # D-08-06 — interval 24h is sufficient for digest-pinned chart sources (no semver poll churn)
-# CAP-01 — digest-pinned (see .planning/debug/capsule-tenant-ns-claim.md):
+# CAP-01 — digest-pinned (see docs/rca/capsule-namespace-webhook-deadlock.md):
 #   tag "0.12.4" alone is MUTABLE — upstream registry could repackage the artifact silently.
 #   Pinning by digest makes Flux reconcile reproducible across cold rebuilds.
 #   Tag kept alongside digest for human readability; digest is authoritative per OCI spec.

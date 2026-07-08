@@ -43,6 +43,17 @@ The demo proves the whole tenant lifecycle (**create → seed → use → delete
   - `capsule-proxy` (separate chart, NOT the operator's bundled `proxy.enabled`). POC pinned `0.12.0`.
 - `kubectl` with `auth whoami` support, `jq`.
 
+Pick the chart pins to match the cluster's Kubernetes version:
+
+| Kubernetes | Capsule operator | capsule-proxy | Verify with |
+|---|---|---|---|
+| 1.34+ | `0.12.4` | `0.12.0` | `helm show chart oci://ghcr.io/projectcapsule/charts/capsule --version 0.12.4` |
+| 1.33 | latest `0.11.x` | latest `0.11.x` | same `helm show chart` against the 0.11 pin |
+| ≤ 1.32 | not supported by current Capsule | — | use Capsule 0.10.x (community-best-effort only) |
+
+The chart's `kubeVersion` field is the source of truth — pin to whatever satisfies it for your cluster's
+exact patch version (and then pin by digest — see §5 #2).
+
 ---
 
 ## 3. Build it, component by component
@@ -174,6 +185,14 @@ subjects:
 ```
 
 (Plus the `platform-owner` ServiceAccount itself in `capsule-system`.)
+
+> **Why a narrow ClusterRole rather than just making the platform group an owner of every Tenant:**
+> tenant ownership grants workload-admin powers *inside* tenant namespaces, so using it as the platform
+> team's baseline access would blur platform administration with tenant workload administration. The
+> narrow ClusterRole keeps the day-to-day Tier-2 surface at "manage Tenant CRs + read Capsule state,"
+> and the per-tenant co-ownership in §3f stays a deliberate break-glass add-on rather than the default
+> path. (Reusing `cluster-admin` was rejected outright — it defeats the isolation goal and hides the
+> real permission set you'd need to reproduce elsewhere.)
 
 ### 3e. Tier-3 ClusterRole (the tenant workload-editor)
 
@@ -467,6 +486,15 @@ otherwise), or kubeconfigs fail TLS verification. See the cert + cert-Secret-RBA
 The operator (CRDs + webhooks + controller) must be healthy **before** Tenant CRs and tenant namespaces
 are applied. With GitOps, express this as a dependency (the tenant layer depends on the operator layer).
 Combined with #1, this is what makes cold bootstrap reliable.
+
+**7. Owners create namespaces with `kubectl create namespace`, not declarative `kubectl apply`.**
+`kubectl apply` of a Namespace manifest preflights a cluster-scoped `get` on `namespaces` before it
+sends anything — apply needs the live object to compute its merge patch. Capsule's owner model grants
+namespace *creation* through admission, not cluster-scoped namespace reads, so for a tenant or platform
+owner the preflight fails `Forbidden` and the CREATE is never submitted. The imperative
+`kubectl create namespace <name>` issues a bare CREATE, which goes straight through Capsule's admission
+webhook and gets assigned to the caller's Tenant. Same manifest content, different request pattern,
+opposite outcomes — script provisioning paths with `create`, not `apply`, for namespaces.
 
 ---
 

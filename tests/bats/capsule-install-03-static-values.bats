@@ -39,7 +39,7 @@ setup() {
 # Ready skips the ownerReference mutation, then the companion validating webhook
 # deadlocks all UPDATE/DELETE on the labeled-but-unowned namespace (unrecoverable
 # without scaling the controller to 0). Root cause + fix: commit c89f1b2 +
-# .planning/debug/capsule-tenant-ns-claim.md + docs/adr/0008 addendum (2026-05-27).
+# docs/rca/capsule-namespace-webhook-deadlock.md + docs/adr/0008 addendum (2026-05-27).
 @test "CAP-01 / c89f1b2 regression guard: operator values.webhooks.hooks.namespaces.failurePolicy=Fail (chart default; NEVER revert to Ignore)" {
   [ -f "$OPERATOR_HR" ]
   run yq eval '.spec.values.webhooks.hooks.namespaces.failurePolicy == "Fail"' "$OPERATOR_HR"

@@ -63,7 +63,7 @@ spec:
     # Verified by `helm show values oci://ghcr.io/projectcapsule/charts/capsule --version 0.12.4` (2026-04-29).
     #
     # D-debug-2026-05-27 — SURGICAL OVERRIDE for `namespaces` to Fail.
-    # See .planning/debug/capsule-tenant-ns-claim.md for full root cause.
+    # See docs/rca/capsule-namespace-webhook-deadlock.md for full root cause.
     # The `namespaces` mutation hook is the path that ADDS ownerReferences during namespace CREATE,
     # claiming the namespace for its labeled Tenant. With `failurePolicy: Ignore`, a brief
     # webhook-unreachable window at cold-bootstrap (capsule-webhook-service Endpoint not yet Ready)
