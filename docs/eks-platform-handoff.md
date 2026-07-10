@@ -5,7 +5,9 @@ audience: an agent (or engineer) building a multi-tenant EKS platform —
 Capsule + capsule-proxy + Keycloak + Headlamp — using this repo as the
 reference implementation. This repo is public; every manifest, script, and
 bats contract referenced below is readable.
-companion: `architecture-flux-capsule-keycloak.md` (the pattern),
+companion: `eks-identity-adoption-brief.md` (the trust-model narrative +
+step-by-step adoption sequence for the Keycloak → Capsule → apiserver
+identity chain), `architecture-flux-capsule-keycloak.md` (the pattern),
 `tenant-access.md` (user-facing runbook to adapt),
 `diagrams/eks-platform-sketch.drawio` (customer-facing diagram of the
 target). AWS-specific wiring (IRSA, NLB/ALB exposure, the Capsule CRD

@@ -228,6 +228,7 @@ OIDC-wired Headlamp UI:
 + Keycloak install + design rationale: [`docs/poc-keycloak.md`](docs/poc-keycloak.md)
 + User + admin access runbook (Headlamp, kubelogin, kcadm): [`docs/tenant-access.md`](docs/tenant-access.md)
 + EKS translation guide for the pattern: [`docs/eks-platform-handoff.md`](docs/eks-platform-handoff.md)
++ Identity-chain trust model + EKS adoption sequence: [`docs/eks-identity-adoption-brief.md`](docs/eks-identity-adoption-brief.md)
 
 ***
 
