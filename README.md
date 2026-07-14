@@ -229,6 +229,7 @@ OIDC-wired Headlamp UI:
 + User + admin access runbook (Headlamp, kubelogin, kcadm): [`docs/tenant-access.md`](docs/tenant-access.md)
 + EKS translation guide for the pattern: [`docs/eks-platform-handoff.md`](docs/eks-platform-handoff.md)
 + Identity-chain trust model + EKS adoption sequence: [`docs/eks-identity-adoption-brief.md`](docs/eks-identity-adoption-brief.md)
++ Runtime identity flow + certificate trust/issuer requirements: [`docs/eks-oidc-tenancy-flow.md`](docs/eks-oidc-tenancy-flow.md)
 + Verbatim handoff prompt for the agent doing the EKS build-out: [`docs/eks-work-agent-prompt.md`](docs/eks-work-agent-prompt.md)
 
 ***
