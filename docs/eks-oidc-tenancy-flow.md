@@ -20,6 +20,10 @@ boundary.
 
 ## Runtime identity and authorization flow
 
+Confluence-ready export:
+[`diagrams/eks-oidc-runtime-flow.png`](diagrams/eks-oidc-runtime-flow.png)
+(5430 x 2433). The Mermaid block remains the editable source of truth.
+
 ```mermaid
 sequenceDiagram
   actor User
@@ -56,6 +60,10 @@ permissions, Tenant owner groups, selectors, and filter logic are part of the
 authorization boundary.
 
 ## Certificate and trust flow
+
+Confluence-ready export:
+[`diagrams/eks-certificate-trust-flow.png`](diagrams/eks-certificate-trust-flow.png)
+(7152 x 2235). The Mermaid block remains the editable source of truth.
 
 ```mermaid
 flowchart TB
@@ -216,6 +224,26 @@ production issuer for service leaf certificates.
 | CA bundle delivery | Versioned ConfigMap/Secret, optionally reconciled by trust-manager | Namespace scope, update permissions, application reload behavior, and rollover procedure |
 | Proxy certificate reload | Hot reload if verified; otherwise controlled rollout on Secret renewal | Behavior of the exact pinned capsule-proxy version |
 | Certificate request policy | Restricted RBAC plus an explicit approver policy | Permitted issuers, namespaces, SAN patterns, durations, usages, and key algorithms |
+
+## Mirroring into Confluence
+
+1. Pull the repository and open this page in GitHub's rendered view or a local
+   Markdown preview.
+2. Create a Confluence page named **EKS OIDC tenancy and certificate flow**.
+3. Copy the rendered prose and tables section by section; do not paste the raw
+   Mermaid fences into a standard Confluence editor.
+4. Upload `diagrams/eks-oidc-runtime-flow.png` under **Runtime identity and
+   authorization flow** and `diagrams/eks-certificate-trust-flow.png` under
+   **Certificate and trust flow**.
+5. Display both images at full page width and add concise captions. The source
+   PNGs retain enough resolution for Confluence's full-screen preview.
+6. Add the source repository commit to the page and optionally attach this
+   Markdown file so the editable Mermaid remains discoverable.
+7. Make environment-specific substitutions only in the internal Confluence
+   copy. Do not sync internal hostnames, CA names, or repository details back
+   into this public repository.
+8. For later diagram revisions, upload the replacement PNG with the same file
+   name so Confluence records a new attachment version.
 
 ## References
 
