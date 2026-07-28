@@ -1,13 +1,15 @@
 # Handoff: replicating the karyon pattern on a single-cluster EKS platform
 
-status: Active (2026-07-07)
+status: Active (2026-07-28)
 audience: an agent (or engineer) building a multi-tenant EKS platform —
 Capsule + capsule-proxy + Keycloak + Headlamp — using this repo as the
 reference implementation. This repo is public; every manifest, script, and
 bats contract referenced below is readable.
 companion: `eks-identity-adoption-brief.md` (the trust-model narrative +
 step-by-step adoption sequence for the Keycloak → Capsule → apiserver
-identity chain), `architecture-flux-capsule-keycloak.md` (the pattern),
+identity chain), `eks-private-keycloak-oidc-strategy.md` (the AWS feature
+and private-issuer decision guide),
+`architecture-flux-capsule-keycloak.md` (the pattern),
 `tenant-access.md` (user-facing runbook to adapt),
 `diagrams/eks-platform-sketch.drawio` (customer-facing diagram of the
 target). AWS-specific wiring (IRSA, NLB/ALB exposure, the Capsule CRD
@@ -91,15 +93,19 @@ layer of karyon's complexity — do not carry it over:
 
 ### Keycloak (identity)
 
-- The realm design transfers **verbatim** and is the highest-value artifact:
-  `pocs/keycloak/app/realm-karyon.yaml`. Invariants that make it glue-free:
+- The realm's token contract transfers and is the highest-value artifact;
+  use `pocs/keycloak/app/realm-karyon.yaml` as a version-aware reference
+  rather than importing environment-specific values verbatim. Invariants
+  that make it glue-free:
   - Groups are FLAT; the client's Group Membership mapper has **Full group
     path OFF** (default ON emits `/group` and silently breaks Capsule's
     exact-string owner match). #1 silent breaker.
   - Every Group promoted to a Tenant owner must also be in
     `CapsuleConfiguration.spec.userGroups`.
-  - Public PKCE client for kubectl/Headlamp (kubelogin redirects
-    `http://localhost:8000` + `:18000`; Headlamp `<url>/oidc-callback`).
+  - Public PKCE client or clients selected by the private-OIDC strategy:
+    kubelogin redirects are `http://localhost:8000` + `:18000`, Headlamp
+    uses `<url>/oidc-callback`, and every resulting ID token carries the
+    common EKS audience.
   - Keycloak 26 default user profile: users need **lastName + emailVerified**
     or logins fail with "Account is not fully set up".
 - Realm import is **import-once** — day-2 users/groups/clients go through the
@@ -144,8 +150,9 @@ layer of karyon's complexity — do not carry it over:
     false` + projected token volume), endpoint override
     `KUBERNETES_SERVICE_HOST=capsule-proxy.capsule-system.svc` /
     `KUBERNETES_SERVICE_PORT=9001`, proxy CA projected as the pod's
-    `ca.crt`, `-oidc-use-pkce=true` with the shared public client (token
-    `aud` stays the one the apiserver trusts — no audience gymnastics).
+    `ca.crt`, `-oidc-use-pkce=true` with the selected public client (token
+    `aud` stays the one the apiserver trusts, whether the clients are shared
+    or separated as described in the private-OIDC strategy).
   - **Drop**: `hostNetwork` + `ClusterFirstWithHostNet` + `SSL_CERT_FILE`
     CA ConfigMap — those existed ONLY because the lab issuer lived on node
     loopback. With a real https issuer, a plain pod works. `strategy:
@@ -153,7 +160,7 @@ layer of karyon's complexity — do not carry it over:
   - Serve behind ingress; register `https://headlamp.<domain>/oidc-callback`
     on the client; forward `X-Forwarded-Proto` or the callback scheme breaks.
 
-## EKS OIDC — the one genuinely different piece
+## EKS OIDC — the genuinely different piece
 
 karyon set six `kube-apiserver` flags via a k3s config retrofit. **EKS has no
 apiserver flags.** The equivalent is the EKS *OIDC identity provider
@@ -163,19 +170,25 @@ association* (one per cluster, coexists with IAM auth):
 aws eks associate-identity-provider-config --cluster-name <cluster> \
   --oidc identityProviderConfigName=keycloak,\
 issuerUrl=https://sso.<domain>/realms/<realm>,clientId=kubectl,\
-usernameClaim=preferred_username,groupsClaim=groups
+usernameClaim=preferred_username,usernamePrefix=-,groupsClaim=groups
 ```
 
 Hard requirements to design for NOW:
 
-1. **Issuer must be public-CA https and reachable by the EKS control plane**
+1. **Issuer must be public-CA HTTPS and reachable by the EKS control plane**
    — a real certificate (ACM/Let's Encrypt) on the Keycloak ingress; no
-   self-signed/custom CA. This is the work-side twin of karyon's
-   "issuer must be one byte-stable URL" lesson.
-2. **Prefixes**: leave `usernamePrefix`/`groupsPrefix` EMPTY to preserve the
-   byte-for-byte group ↔ Tenant-owner match. If org policy mandates prefixes
-   (common to avoid IAM collisions), mirror the prefix in every Tenant owner
-   name and in `userGroups` — pick once, it's painful to change.
+   self-signed/custom CA (AWS Private CA is also rejected). This is the
+   work-side twin of karyon's "issuer must be one byte-stable URL" lesson.
+   Since June 2026, "reachable" no longer means internet-facing:
+   customer-routed control plane egress
+   (`controlPlaneEgressMode=CUSTOMER_ROUTED`) routes the control plane's
+   OIDC fetches through your VPC, so a private internal issuer works — see
+   [`eks-private-keycloak-oidc-strategy.md`](eks-private-keycloak-oidc-strategy.md).
+2. **Prefixes**: set `usernamePrefix=-` when using
+   `usernameClaim=preferred_username`; leaving it empty makes EKS default to
+   the issuer URL. Leave `groupsPrefix` unset to preserve the byte-for-byte
+   group ↔ Tenant-owner match. If policy mandates a group prefix, mirror it
+   in every Tenant owner name and recognized-user-group entry.
 3. Association takes tens of minutes to apply and cannot be edited in place
    (disassociate → re-associate). Get claims right the first time; test with
    `kubectl --token=<jwt> auth whoami` against the apiserver before wiring
@@ -204,18 +217,29 @@ the credential path and makes the proxy reconcile-load-bearing.
 
 ## Suggested build order (maps to the in-flight work)
 
-1. RDS MySQL + Keycloak operator + `Keycloak` CR + realm import
-   (groups/client/mappers from `realm-karyon.yaml`, org-adjusted).
-2. Keycloak ingress with real TLS → freeze the issuer URL.
-3. EKS OIDC association (claims contract above) → verify with a raw JWT.
-4. capsule-proxy ingress + tenant kubeconfig (kubelogin) → verify scoped
+1. Pin the Capsule version and namespace posture. If `forceTenantPrefix` is
+   enabled, establish the Keycloak platform Tenant before its namespace.
+2. Reconcile the Keycloak namespace, RDS MySQL, database secret, and
+   version-pinned operator; wait for their readiness gates.
+3. Reconcile the `Keycloak` CR and realm content
+   (groups/client/mappers from `realm-karyon.yaml`, org-adjusted) only after
+   the operator and database prerequisites are ready.
+4. Establish Keycloak private ingress with public-CA TLS and freeze the
+   issuer URL.
+5. Provision and exercise IAM emergency access, establish or verify
+   `CUSTOMER_ROUTED`, wait for EKS to return `ACTIVE`, and revalidate Capsule
+   namespace and pod admission/mutations.
+6. Create the EKS OIDC association (claims contract above) and verify with
+   an ID token. The referenced lab proof currently extracts `access_token`;
+   adapt the EKS proof to extract `id_token`.
+7. capsule-proxy ingress + tenant kubeconfig (kubelogin) → verify scoped
    LIST per group. karyon's headless proof pattern is reusable:
    `scripts/poc/keycloak/e2e-oidc-test.sh` (password-grant test client with
    an `aud` mapper — never enable direct grants on the production client).
-5. Headlamp (EKS shape above) → the customer-visible win.
-6. Tenant onboarding automation: Tenant CR + Keycloak group + `userGroups`
+8. Headlamp (EKS shape above) → the customer-visible win.
+9. Tenant onboarding automation: Tenant CR + Keycloak group + `userGroups`
    in one pipeline (karyon's `new-tenant.sh` + identity triple as the spec).
-7. Decide the addon question once 1–5 are stable.
+10. Decide the addon question once the core identity path is stable.
 
 ## Executable contracts worth porting
 
@@ -297,11 +321,29 @@ metadata:
 
 ### capsule-proxy exposure: NLB Service or ALB Ingress
 
-Two working shapes for putting capsule-proxy behind a real endpoint (see
-§capsule-proxy above for the certificate caveats — clients pin the CA the
-proxy serves).
+Two shapes for putting capsule-proxy behind a real endpoint are shown below.
+They use an internal scheme as the private-platform baseline. Public
+exposure should be an explicit security decision, not an inherited example
+default.
 
-Option A — NLB-fronted Service:
+The NLB option is TCP passthrough. The capsule-proxy serving certificate
+must cover both the external private hostname and the in-cluster Service
+name used by Headlamp; add the external name as a SAN on the serving
+certificate (the cert-manager `Certificate`'s `dnsNames` per the cert-source
+finding below, or `options.additionalSANs` only if keeping the chart's
+self-signed generation). Both clients trust the proxy CA.
+
+The ALB option terminates client TLS and uses HTTPS to the TLS-only proxy on
+port 9001. External clients trust the ALB's approved ACM certificate;
+in-cluster Headlamp still connects directly to the Service and trusts the
+capsule-proxy serving CA. Supply or discover the ALB certificate for the
+Ingress hostname and define a health check that the deployed proxy serves.
+Note the ALB does not validate the proxy's serving certificate (self-signed
+or expired target certificates are accepted); trust on the ALB→proxy hop
+rests on in-VPC packet-level authentication and target-group registration,
+not on the proxy CA.
+
+Option A — NLB-fronted Service (requires the AWS Load Balancer Controller):
 
 ```yaml
 apiVersion: v1
@@ -312,7 +354,7 @@ metadata:
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: external
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
-    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internal
 spec:
   type: LoadBalancer
   ports:
@@ -335,9 +377,10 @@ metadata:
   namespace: capsule-system
   annotations:
     kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
     alb.ingress.kubernetes.io/ssl-redirect: '443'
 spec:
   rules:
@@ -404,10 +447,14 @@ each one changes an EKS design decision.
 > not by the proxy — a ClusterRoleBinding escalation attempt is denied at
 > apiserver auth before the proxy is ever relevant.
 >
-> **Argo CD translation (2026-05).** If the target runs Argo CD instead of
-> Flux: Flux post-build patching maps to Argo CD post-render kustomize
-> patches; a repo-side `CapsuleConfiguration` update is portable as-is
-> (single declarative source of truth); tenant home-namespace labels need
-> Argo CD's `ServerSideApply` sync option because cluster-admin
-> (`system:masters`) bypasses Capsule's webhooks identically across
-> distros (verified in the lab).
+> **Argo CD translation (2026-05, revised 2026-07 — the original lab claim
+> that cluster-admin bypasses Capsule webhooks was wrong).** If the target
+> runs Argo CD instead of Flux: Flux post-build patching maps to Argo CD
+> post-render kustomize patches, and a repo-side `CapsuleConfiguration`
+> update is portable as-is (single declarative source of truth).
+> `ServerSideApply` remains the 2026-05 empirical finding for reconciling
+> Capsule-managed labels on an existing tenant home namespace where field
+> ownership requires it. Separately, namespace CREATE remains subject to
+> Capsule admission: with `forceTenantPrefix`, even cluster-admin cannot
+> create a namespace outside a tenant (dry-run verified 2026-07-06), so the
+> Argo CD identity must satisfy the chosen Tenant-owner contract.

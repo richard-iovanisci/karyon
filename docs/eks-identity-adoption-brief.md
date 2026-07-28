@@ -1,5 +1,7 @@
 # Agent brief: adopting the Keycloak → Capsule → apiserver identity chain on EKS
 
+status: Active (2026-07-28)
+
 Audience: an agent (or engineer) with access to the target EKS cluster, its
 AWS/EKS configuration, and this repository. This brief explains how the
 identity chain works in the karyon lab, exactly what changes on EKS, and the
@@ -64,66 +66,91 @@ The #1 silent breaker is Keycloak's Group Membership mapper defaulting
 the lab pins `full.path: "false"` in the realm import
 ([`pocs/keycloak/app/realm-karyon.yaml`](../pocs/keycloak/app/realm-karyon.yaml)).
 
-Client-side, everything shares one **public PKCE client** (`kubectl`):
+In the lab, client-side access shares one **public PKCE client** (`kubectl`):
 kubectl via the kubelogin exec plugin
 ([`scripts/poc/keycloak/setup-oidc-kubectl.sh`](../scripts/poc/keycloak/setup-oidc-kubectl.sh))
 and Headlamp (`-oidc-use-pkce=true`, endpoint overridden to capsule-proxy —
 [`pocs/headlamp/headlamp.yaml`](../pocs/headlamp/headlamp.yaml)). Public +
-PKCE means no client secret to manage anywhere.
+PKCE means no client secret to manage anywhere. The work platform may
+instead separate the kubelogin and Headlamp clients while preserving a
+common EKS audience; that decision belongs to the private-OIDC strategy.
 
 ## 2. What is different on EKS
 
-You cannot set apiserver flags on EKS. The **only** genuinely different
-piece is how the six values reach the apiserver — everything else in §1
-transfers verbatim:
+You cannot set apiserver flags on EKS. The identity contract in §1
+transfers, while EKS changes how those values reach the apiserver and how a
+private issuer is reached. The cross-cutting network strategy is covered in
+[`eks-private-keycloak-oidc-strategy.md`](eks-private-keycloak-oidc-strategy.md):
 
 | Concern | karyon lab | EKS |
 |---|---|---|
 | Apiserver OIDC config | k3s `config.yaml` + container restart | one-shot `aws eks associate-identity-provider-config` (see [`eks-platform-handoff.md`](eks-platform-handoff.md) §"EKS OIDC") |
-| Issuer URL | `https://localhost:31443/realms/karyon` (loopback trick) | one canonical public HTTPS URL, e.g. `https://sso.<domain>/realms/<realm>` — used identically by the association, kubelogin, Headlamp, and Keycloak's `hostname` |
+| Issuer URL | `https://localhost:31443/realms/karyon` (loopback trick) | one canonical HTTPS URL with public-CA trust, e.g. `https://sso.<domain>/realms/<realm>` — it may resolve only on private networks when EKS uses customer-routed control plane egress |
 | Issuer TLS | private CA + `oidc-ca-file` | **public CA required** (ACM/Let's Encrypt at the Keycloak ingress); there is no custom-CA option on the association |
 | Change management | rerun the script | association is **slow (tens of minutes) and immutable** — disassociate + re-associate to change anything; one OIDC association per cluster |
-| Username/groups prefixes | disabled (`oidc-username-prefix=-`) | leave `usernamePrefix`/`groupsPrefix` **empty** to preserve the byte-match, or mirror the prefix into every Tenant owner + `userGroups` entry — decide once |
+| Username/groups prefixes | disabled (`oidc-username-prefix=-`) | set `usernamePrefix=-` and leave `groupsPrefix` unset to preserve the lab identity strings; if policy requires prefixes, mirror them into every affected downstream subject |
 | Admin/break-glass access | k3d admin kubeconfig | IAM authenticator / access entries coexist untouched — Tier 1 (cloud ops) stays on IAM; OIDC is for humans in Tiers 2–3 |
 | Keycloak persistence | in-cluster Postgres (lab stand-in) | **RDS MySQL** via the operator's `db` settings (gotchas in the handoff §Keycloak operator) |
-| capsule-proxy exposure | NodePort 30443 | NLB Service or ALB Ingress (YAML in the handoff appendix) |
+| capsule-proxy exposure | NodePort 30443 | internal NLB Service or ALB Ingress for a private platform (YAML in the handoff appendix) |
 | Headlamp shape | hostNetwork + Recreate (loopback-issuer hacks) | plain Deployment + ingress; keep the two transferable ideas — endpoint override to capsule-proxy and the projected proxy-CA volume |
 
 ## 3. Adoption sequence
 
 Each step names its lab reference — read it before implementing.
 
-1. **Keycloak reachable at its permanent public issuer URL** (operator +
-   RDS MySQL + ACM-certified ingress). The issuer URL in the token `iss` is
-   byte-compared by the apiserver: get the hostname settled **before** the
-   association. Lab realm content to replicate:
+1. **Establish the Capsule namespace gate**: pin the target Capsule version
+   and decide the `forceTenantPrefix` posture. If enabled, preserve the
+   readiness chain `Capsule → Keycloak platform Tenant → Keycloak namespace,
+   operator, and database → Keycloak CR and realm`; cluster-admin RBAC does
+   not substitute for Tenant ownership at namespace admission (this binds
+   every identity on karyon because `userGroups` includes
+   `system:authenticated` and `system:serviceaccounts` — Capsule ignores
+   identities outside its configured user scope, so preserve equivalent scope
+   if the platform wants the same gate).
+2. **Make Keycloak reachable at its permanent HTTPS issuer URL** (operator +
+   RDS MySQL + public-CA certificate on a private endpoint). The issuer URL
+   in the token `iss` is byte-compared by the apiserver: get the hostname
+   settled **before** the association. The private-network strategy and
+   AWS prerequisites are in
+   [`eks-private-keycloak-oidc-strategy.md`](eks-private-keycloak-oidc-strategy.md).
+   Lab realm content to replicate:
    [`pocs/keycloak/app/realm-karyon.yaml`](../pocs/keycloak/app/realm-karyon.yaml)
-   — flat groups, `groups` mapper with `full.path: "false"`, audience mapper
-   `aud=kubectl`, public PKCE client with kubelogin redirect URIs
-   (`http://localhost:8000`, `:18000`) plus Headlamp's callback.
+   — flat groups, `groups` mapper with `full.path: "false"`, and public PKCE
+   client or clients selected by the strategy. kubelogin uses redirect URIs
+   `http://localhost:8000` and `:18000`, Headlamp uses its callback, and
+   every resulting ID token carries the common `aud=kubectl` audience.
    Keycloak 26 requires users to have `lastName` + `emailVerified: true` or
    logins fail with "Account is not fully set up".
-2. **Associate the identity provider** (command + hard requirements:
+3. **Establish the private control-plane path**: provision and exercise IAM
+   emergency access; inventory Capsule and other admission webhooks; enable
+   or confirm `CUSTOMER_ROUTED`; wait for the EKS update and cluster to be
+   `ACTIVE`; then trigger namespace and pod admission and verify their
+   expected Capsule mutations. This is the one-way readiness gate described
+   in the private-OIDC strategy.
+4. **Associate the identity provider** (command + hard requirements:
    handoff §"EKS OIDC"). Verify with a raw token before touching anything
    else: get an ID token via a password grant against a test client (lab
    pattern: [`scripts/poc/keycloak/e2e-oidc-test.sh`](../scripts/poc/keycloak/e2e-oidc-test.sh)),
-   then `kubectl --token=<jwt> auth whoami` — expect your
+   adapting it to extract `id_token` rather than the lab script's current
+   `access_token`, then `kubectl --token=<jwt> auth whoami` — expect your
    `preferred_username` and the `groups` list back.
-3. **Wire the group seam**: add the OIDC groups to
-   `CapsuleConfiguration.spec.userGroups` and as `kind: Group` owners on the
-   Tenant CRs. Never set `clusterRoles: []` on an owner — omit the field for
-   Capsule defaults, or set an explicit narrow role (the lab's
-   `tenant-workload-editor`:
+5. **Wire the group seam**: add the OIDC groups to
+   `CapsuleConfiguration.spec.userGroups` (deprecated in current Capsule in
+   favor of `spec.users` `kind: Group` entries — use whichever field the
+   pinned version recommends) and as `kind: Group` owners on the Tenant CRs.
+   Never set `clusterRoles: []` on an owner — omit the field for Capsule
+   defaults, or set an explicit narrow role (the lab's `tenant-workload-editor`:
    [`pocs/capsule/spoke/rbac/tenant-workload-editor.yaml`](../pocs/capsule/spoke/rbac/tenant-workload-editor.yaml)).
-4. **Expose capsule-proxy** behind NLB/ALB and point tenant kubeconfigs at
+6. **Expose capsule-proxy** behind NLB/ALB and point tenant kubeconfigs at
    it (server = proxy URL, user = kubelogin exec plugin). The proxy needs
    zero OIDC-specific configuration — TokenReview does the work.
-5. **Headlamp**: deploy with `KUBERNETES_SERVICE_HOST/PORT` overridden to
+7. **Headlamp**: deploy with `KUBERNETES_SERVICE_HOST/PORT` overridden to
    the capsule-proxy Service, the proxy's serving CA projected over the
-   pod's `ca.crt`, and the shared PKCE client. Lab manifest:
+   pod's `ca.crt`, and the selected PKCE client with the common EKS audience.
+   Lab manifest:
    [`pocs/headlamp/headlamp.yaml`](../pocs/headlamp/headlamp.yaml) — drop
    the hostNetwork/Recreate parts (loopback-issuer workarounds only).
-6. **Prove the chain headlessly** before inviting users: port
+8. **Prove the chain headlessly** before inviting users: port
    [`scripts/poc/keycloak/e2e-oidc-test.sh`](../scripts/poc/keycloak/e2e-oidc-test.sh)
    — token → proxy LIST → assert the platform-owner sees all tenants and a
    tenant dev sees only their own.
@@ -147,6 +174,10 @@ Each step names its lab reference — read it before implementing.
 
 ## 5. Related reading in this repo
 
+- [`eks-private-keycloak-oidc-strategy.md`](eks-private-keycloak-oidc-strategy.md)
+  — the AWS feature and strategy guide for keeping Keycloak private while
+  satisfying EKS OIDC discovery, TLS, DNS, client-access, and future Entra
+  requirements.
 - [`eks-platform-handoff.md`](eks-platform-handoff.md) — the full work-environment
   translation (tier mapping, per-component keep-lists, RDS MySQL, build order,
   EKS wiring appendix).
