@@ -28,9 +28,10 @@ text { font-family: Helvetica, Arial, sans-serif; }
 <line x1="130" y1="98" x2="212" y2="150" stroke="#888780" stroke-width="1.5" marker-end="url(#aG)"/>
 <text x="46" y="130" class="lbl">private DNS</text>
 <line x1="340" y1="98" x2="340" y2="150" stroke="#D85A30" stroke-width="1.5" marker-end="url(#aC)"/>
-<text x="352" y="130" class="lbl">discovery + JWKS via VPC ENIs</text>
+<text x="328" y="124" class="lbl" text-anchor="end">discovery + JWKS</text>
+<text x="328" y="140" class="lbl" text-anchor="end">via VPC ENIs</text>
 <line x1="550" y1="98" x2="472" y2="150" stroke="#888780" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#aG)"/>
-<text x="536" y="130" class="lbl" text-anchor="end">cert validation only</text>
+<text x="640" y="140" class="lbl" text-anchor="end">cert validation only</text>
 <rect x="150" y="150" width="380" height="48" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
 <text x="340" y="170" text-anchor="middle" class="th" fill="#3C3489">Internal ALB</text>
 <text x="340" y="188" text-anchor="middle" class="ts" fill="#534AB7">ACM public cert, DNS-validated · no public address</text>
