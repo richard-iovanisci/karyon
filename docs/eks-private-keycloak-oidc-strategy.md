@@ -62,6 +62,10 @@ the supported private-provider path.
 
 ## Reference architecture
 
+A step-numbered runtime sequence of the same flow lives in
+[`diagrams/eks-oidc-runtime-flow.md`](diagrams/eks-oidc-runtime-flow.md)
+(with an embeddable SVG export alongside).
+
 ```mermaid
 flowchart LR
     User["Browser or kubelogin workstation"]
