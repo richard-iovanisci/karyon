@@ -1,0 +1,75 @@
+<svg width="680" height="600" viewBox="0 0 680 600" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>EKS certificate and trust flow (private issuer)</title>
+<desc>Two trust bands. Top: corporate browsers and the EKS control plane reach an internal ALB carrying a DNS-validated ACM public certificate with no public address; the public DNS zone holds validation records only; the ALB fronts Keycloak and Headlamp on private DNS names. Bottom: cert-manager issues and renews the capsule-proxy serving certificate from an enterprise or private CA, mounts it as a secret, and distributes a CA trust bundle to Headlamp which verifies TLS to the proxy.</desc>
+<defs>
+<marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#888780"/></marker>
+<marker id="aC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#D85A30"/></marker>
+<marker id="aP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7F77DD"/></marker>
+<marker id="aT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1D9E75"/></marker>
+<style>
+text { font-family: Helvetica, Arial, sans-serif; }
+.th { font-size: 14px; font-weight: 500; }
+.ts { font-size: 12px; font-weight: 400; }
+.lbl { font-size: 12px; font-weight: 400; fill: #5F5E5A; }
+.band { font-size: 14px; font-weight: 500; fill: #444441; }
+</style>
+</defs>
+<rect x="0" y="0" width="680" height="600" fill="#ffffff"/>
+<text x="40" y="34" class="band">Private endpoint · publicly trusted certificate</text>
+<rect x="40" y="50" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="130" y="70" text-anchor="middle" class="th" fill="#444441">Corporate browsers</text>
+<text x="130" y="88" text-anchor="middle" class="ts" fill="#5F5E5A">VPN · private network</text>
+<rect x="250" y="50" width="180" height="48" rx="4" fill="#FAECE7" stroke="#993C1D"/>
+<text x="340" y="70" text-anchor="middle" class="th" fill="#712B13">EKS control plane</text>
+<text x="340" y="88" text-anchor="middle" class="ts" fill="#993C1D">customer-routed egress</text>
+<rect x="460" y="50" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="550" y="70" text-anchor="middle" class="th" fill="#444441">Public DNS zone</text>
+<text x="550" y="88" text-anchor="middle" class="ts" fill="#5F5E5A">validation records only</text>
+<line x1="130" y1="98" x2="212" y2="150" stroke="#888780" stroke-width="1.5" marker-end="url(#aG)"/>
+<text x="46" y="130" class="lbl">private DNS</text>
+<line x1="340" y1="98" x2="340" y2="150" stroke="#D85A30" stroke-width="1.5" marker-end="url(#aC)"/>
+<text x="328" y="124" class="lbl" text-anchor="end">discovery + JWKS</text>
+<text x="328" y="140" class="lbl" text-anchor="end">via VPC ENIs</text>
+<line x1="550" y1="98" x2="472" y2="150" stroke="#888780" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#aG)"/>
+<text x="640" y="140" class="lbl" text-anchor="end">cert validation only</text>
+<rect x="150" y="150" width="380" height="48" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="340" y="170" text-anchor="middle" class="th" fill="#3C3489">Internal ALB</text>
+<text x="340" y="188" text-anchor="middle" class="ts" fill="#534AB7">ACM public cert, DNS-validated · no public address</text>
+<line x1="240" y1="198" x2="240" y2="250" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#aP)"/>
+<line x1="440" y1="198" x2="440" y2="250" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#aP)"/>
+<rect x="150" y="250" width="180" height="48" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="240" y="270" text-anchor="middle" class="th" fill="#3C3489">Keycloak</text>
+<text x="240" y="288" text-anchor="middle" class="ts" fill="#534AB7">sso.&lt;domain&gt; · private DNS</text>
+<rect x="350" y="250" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="440" y="270" text-anchor="middle" class="th" fill="#444441">Headlamp</text>
+<text x="440" y="288" text-anchor="middle" class="ts" fill="#5F5E5A">headlamp.&lt;domain&gt;</text>
+<line x1="40" y1="330" x2="640" y2="330" stroke="#D3D1C7" stroke-width="1"/>
+<text x="40" y="362" class="band">In-cluster certificate lifecycle (cert-manager)</text>
+<rect x="40" y="380" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="130" y="400" text-anchor="middle" class="th" fill="#444441">Enterprise PKI</text>
+<text x="130" y="418" text-anchor="middle" class="ts" fill="#5F5E5A">or AWS Private CA</text>
+<rect x="250" y="380" width="180" height="48" rx="4" fill="#E1F5EE" stroke="#0F6E56"/>
+<text x="340" y="400" text-anchor="middle" class="th" fill="#085041">cert-manager</text>
+<text x="340" y="418" text-anchor="middle" class="ts" fill="#0F6E56">issuer integration</text>
+<rect x="460" y="380" width="180" height="48" rx="4" fill="#E1F5EE" stroke="#0F6E56"/>
+<text x="550" y="400" text-anchor="middle" class="th" fill="#085041">Serving secret</text>
+<text x="550" y="418" text-anchor="middle" class="ts" fill="#0F6E56">tls.crt + tls.key, renewed</text>
+<line x1="220" y1="404" x2="245" y2="404" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#aT)"/>
+<line x1="430" y1="404" x2="455" y2="404" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#aT)"/>
+<line x1="130" y1="428" x2="130" y2="480" stroke="#888780" stroke-width="1.5" marker-end="url(#aG)"/>
+<text x="140" y="458" class="lbl">CA certs only</text>
+<line x1="550" y1="428" x2="550" y2="480" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#aT)"/>
+<text x="560" y="458" class="lbl">mounted</text>
+<rect x="40" y="480" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="130" y="500" text-anchor="middle" class="th" fill="#444441">CA trust bundle</text>
+<text x="130" y="518" text-anchor="middle" class="ts" fill="#5F5E5A">old + new during rollover</text>
+<rect x="250" y="480" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="340" y="500" text-anchor="middle" class="th" fill="#444441">Headlamp pod</text>
+<text x="340" y="518" text-anchor="middle" class="ts" fill="#5F5E5A">trusts the CA only</text>
+<rect x="460" y="480" width="180" height="48" rx="4" fill="#E1F5EE" stroke="#0F6E56"/>
+<text x="550" y="500" text-anchor="middle" class="th" fill="#085041">capsule-proxy</text>
+<text x="550" y="518" text-anchor="middle" class="ts" fill="#0F6E56">serves the leaf cert</text>
+<line x1="220" y1="504" x2="245" y2="504" stroke="#888780" stroke-width="1.5" marker-end="url(#aG)"/>
+<line x1="430" y1="504" x2="455" y2="504" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#aT)"/>
+<text x="340" y="556" text-anchor="middle" class="lbl">Headlamp verifies the proxy's TLS with the distributed CA bundle — never holds the private key</text>
+</svg>
