@@ -1,10 +1,14 @@
 # EKS OIDC tenancy and certificate flow
 
-status: Draft (2026-07-14)
+status: Draft (2026-07-14; certificate/trust flow revised 2026-07-29 for the
+private-issuer posture — the original assumed a publicly reachable issuer)
 scope: Public-safe reference for the Keycloak -> Headlamp -> capsule-proxy ->
 EKS identity path and its certificate trust boundaries.
 companion: `eks-work-agent-prompt.md`, `eks-identity-adoption-brief.md`,
-`eks-platform-handoff.md`.
+`eks-platform-handoff.md`,
+[`eks-private-keycloak-oidc-strategy.md`](eks-private-keycloak-oidc-strategy.md)
+(canonical owner of the private-issuer networking/TLS decisions this page's
+certificate flow now reflects).
 
 This design has two independent kinds of trust:
 
@@ -61,23 +65,28 @@ authorization boundary.
 
 ## Certificate and trust flow
 
-Confluence-ready export:
-[`diagrams/eks-certificate-trust-flow.png`](diagrams/eks-certificate-trust-flow.png)
-(7152 x 2235). The Mermaid block remains the editable source of truth.
+Embeddable export:
+[`diagrams/eks-certificate-trust-flow.svg`](diagrams/eks-certificate-trust-flow.svg)
+(self-contained vector). The Mermaid block remains the editable source of
+truth. The former PNG export showed the pre-2026-07-29 public-endpoint
+posture and was removed; if Confluence needs a raster attachment, re-export
+this Mermaid block (for example via mermaid.live) under the same file name.
 
 ```mermaid
 flowchart TB
-  subgraph PublicEdge ["Public endpoint trust"]
+  subgraph PrivateEdge ["Private endpoint, publicly trusted certificate"]
     direction LR
-    Browser["Browsers"]
-    ControlPlane["EKS control plane"]
-    ACM["ACM RequestCertificate<br/>AWS-managed public certificate"]
-    ALB["ALB HTTPS listener(s)"]
-    Keycloak["Keycloak<br/>sso.&lt;public-domain&gt;"]
-    HeadlampEdge["Headlamp<br/>headlamp.&lt;public-domain&gt;"]
+    Browser["Corporate browsers<br/>VPN / private network"]
+    ControlPlane["EKS control plane<br/>customer-routed egress"]
+    PublicDNS["Public DNS zone<br/>ACM validation records only"]
+    ACM["ACM RequestCertificate<br/>public certificate, DNS-validated"]
+    ALB["Internal ALB HTTPS listener(s)<br/>no public address"]
+    Keycloak["Keycloak<br/>sso.&lt;domain&gt; (private DNS view)"]
+    HeadlampEdge["Headlamp<br/>headlamp.&lt;domain&gt; (private DNS view)"]
+    PublicDNS -. "DNS validation only<br/>no A/AAAA records" .-> ACM
     ACM -->|"certificate attachment"| ALB
-    Browser -->|"public CA trust"| ALB
-    ControlPlane -->|"OIDC discovery + JWKS<br/>publicly reachable HTTPS"| ALB
+    Browser -->|"private DNS + public CA trust"| ALB
+    ControlPlane -->|"OIDC discovery + JWKS via<br/>cross-account ENIs in the VPC"| ALB
     ALB --> Keycloak
     ALB --> HeadlampEdge
   end
@@ -105,13 +114,15 @@ flowchart TB
     EnterpriseCA -->|"CA certificates only"| TrustBundle
   end
 
-  PublicEdge ~~~ WorkloadTrust
+  PrivateEdge ~~~ WorkloadTrust
 ```
 
 The recommended default is deliberately split:
 
-- Use an ACM `RequestCertificate` public certificate on the ALB serving the
-  Keycloak issuer and Headlamp public endpoint.
+- Use an ACM `RequestCertificate` public certificate on the **internal** ALB
+  serving the Keycloak issuer and Headlamp. DNS validation means the
+  endpoints never need public reachability — only the validation CNAMEs live
+  in public DNS; the hostnames resolve solely in the private DNS view.
 - Use cert-manager with a private issuer for the internal capsule-proxy
   Service certificate.
 - Give Headlamp only the proxy CA bundle. Never mount the proxy private-key
@@ -127,8 +138,8 @@ the normal ACM `RequestCertificate` path for an ALB listener.
 
 | Hop | Certificate or trust source | cert-manager role | Requirement |
 |---|---|---|---|
-| Browser and EKS control plane -> Keycloak external hostname | Recommended: ACM public certificate on ALB | None on the ALB frontend | The realm issuer must be publicly reachable over HTTPS. Do not depend on an enterprise-only or self-signed trust chain for the standard EKS OIDC association. |
-| Browser -> Headlamp external hostname | Recommended: ACM public certificate on ALB | None on the ALB frontend | Certificate SAN must match the public Headlamp hostname. |
+| Browser and EKS control plane -> Keycloak issuer hostname (private) | Recommended: ACM public certificate on the internal ALB | None on the ALB frontend | The issuer certificate must chain to a public CA — no enterprise-only, self-signed, or AWS Private CA chains for the EKS OIDC association. Reachability stays private: the control plane reaches the issuer through customer-routed egress, browsers through the corporate network. |
+| Browser -> Headlamp hostname (private) | Recommended: ACM public certificate on the internal ALB | None on the ALB frontend | Certificate SAN must match the Headlamp hostname in the private DNS view. |
 | Headlamp pod -> capsule-proxy Service | Enterprise/private PKI or AWS Private CA | Issue and renew the proxy leaf; publish trust separately | Leaf SAN must include the exact value used by `KUBERNETES_SERVICE_HOST`, for example `capsule-proxy.capsule-system.svc`. |
 | External kubectl -> capsule-proxy, if exposed | ACM public certificate at the load balancer, or a public/enterprise certificate at the proxy when TLS passes through | Only when the Kubernetes workload terminates TLS | Decide the public hostname, TLS termination point, client trust population, and whether external proxy access is required. |
 | kube-apiserver -> Capsule admission webhooks | Separate private webhook CA and serving certificate | May issue the leaf and inject the webhook `caBundle` | Do not reuse or conflate Capsule webhook TLS with capsule-proxy TLS. |
@@ -168,7 +179,8 @@ production issuer for service leaf certificates.
 
 ### Identity contract
 
-- Freeze `keycloakBaseUrl=https://sso.<public-domain>` and derive
+- Freeze `keycloakBaseUrl=https://sso.<domain>` (a registrable domain; the
+  hostname may resolve only in the private DNS view) and derive
   `issuerUrl=${keycloakBaseUrl}/realms/<realm>` before creating the EKS
   association.
 - The token `iss`, EKS `issuerUrl`, Headlamp issuer, and kubelogin issuer must
@@ -233,8 +245,9 @@ production issuer for service leaf certificates.
 3. Copy the rendered prose and tables section by section; do not paste the raw
    Mermaid fences into a standard Confluence editor.
 4. Upload `diagrams/eks-oidc-runtime-flow.png` under **Runtime identity and
-   authorization flow** and `diagrams/eks-certificate-trust-flow.png` under
-   **Certificate and trust flow**.
+   authorization flow**, and under **Certificate and trust flow** attach
+   `diagrams/eks-certificate-trust-flow.svg` (or a PNG re-exported from this
+   page's Mermaid block under the original file name).
 5. Display both images at full page width and add concise captions. The source
    PNGs retain enough resolution for Confluence's full-screen preview.
 6. Add the source repository commit to the page and optionally attach this
@@ -248,6 +261,7 @@ production issuer for service leaf certificates.
 ## References
 
 - [Amazon EKS external OIDC requirements](https://docs.aws.amazon.com/eks/latest/userguide/authenticate-oidc-identity-provider.html)
+- [Amazon EKS control plane egress routing (customer-routed)](https://docs.aws.amazon.com/eks/latest/userguide/control-plane-egress.html)
 - [ACM certificates for ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/https-listener-certificates.html)
 - [ACM ACME automation](https://docs.aws.amazon.com/acm/latest/userguide/acm-acme.html)
 - [ACM integrated-service restrictions](https://docs.aws.amazon.com/acm/latest/userguide/acm-services.html)
