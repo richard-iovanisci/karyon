@@ -3,9 +3,12 @@
 Step-numbered sequence of the runtime identity chain described in
 [`../eks-private-keycloak-oidc-strategy.md`](../eks-private-keycloak-oidc-strategy.md)
 and [`../eks-identity-adoption-brief.md`](../eks-identity-adoption-brief.md).
-A rendered export for embedding lives alongside:
+Rendered exports for embedding live alongside:
 [`eks-oidc-runtime-flow.svg`](eks-oidc-runtime-flow.svg) (compact vector of
-this file's sequence). The high-resolution
+this file's sequence) and
+[`eks-oidc-runtime-flow-sequence.png`](eks-oidc-runtime-flow-sequence.png)
+(5440-px raster of that SVG, for tools that will not display SVG inline).
+The separately named high-resolution
 [`eks-oidc-runtime-flow.png`](eks-oidc-runtime-flow.png) is rendered from
 the Headlamp-centric mermaid in
 [`../eks-oidc-tenancy-flow.md`](../eks-oidc-tenancy-flow.md) — same identity

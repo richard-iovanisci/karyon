@@ -65,12 +65,14 @@ authorization boundary.
 
 ## Certificate and trust flow
 
-Embeddable export:
+Embeddable exports:
 [`diagrams/eks-certificate-trust-flow.svg`](diagrams/eks-certificate-trust-flow.svg)
-(self-contained vector). The Mermaid block remains the editable source of
-truth. The former PNG export showed the pre-2026-07-29 public-endpoint
-posture and was removed; if Confluence needs a raster attachment, re-export
-this Mermaid block (for example via mermaid.live) under the same file name.
+(self-contained vector) and
+[`diagrams/eks-certificate-trust-flow.png`](diagrams/eks-certificate-trust-flow.png)
+(5440-px raster of that SVG — replaces the pre-2026-07-29 public-posture
+PNG under the same attachment name). The Mermaid block remains the editable
+source of truth for content; regenerate the SVG and PNG together when it
+changes.
 
 ```mermaid
 flowchart TB
@@ -245,9 +247,9 @@ production issuer for service leaf certificates.
 3. Copy the rendered prose and tables section by section; do not paste the raw
    Mermaid fences into a standard Confluence editor.
 4. Upload `diagrams/eks-oidc-runtime-flow.png` under **Runtime identity and
-   authorization flow**, and under **Certificate and trust flow** attach
-   `diagrams/eks-certificate-trust-flow.svg` (or a PNG re-exported from this
-   page's Mermaid block under the original file name).
+   authorization flow** and `diagrams/eks-certificate-trust-flow.png` under
+   **Certificate and trust flow** (same attachment names as before, so
+   Confluence versions them in place).
 5. Display both images at full page width and add concise captions. The source
    PNGs retain enough resolution for Confluence's full-screen preview.
 6. Add the source repository commit to the page and optionally attach this
